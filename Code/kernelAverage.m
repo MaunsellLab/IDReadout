@@ -1,15 +1,26 @@
-function kernelAverage()
+function kernelAverage(dataFolder)
 
-  % fileNames = {"IDRTest00", "IDRTest01", "IDRTest02", "IDRTest03"};
-  fileNames = {"IDRTest04", "IDRTest05"};
-  rootPath = "/Users/maunsell/Desktop/IDR/Data/Kernels/";
- 
+  % excludedFiles = {};
+
+  if nargin < 1 || isempty(dataFolder)
+    dataFolder = dataFolderPath();
+  end
+  dataFolder = dataFolder + "/Kernels/";
+  matFiles = dir(fullfile(dataFolder, '*.mat'));
   [firstPreStepMS] = integralWindowMS();
-  for f = 1:length(fileNames)
-    fprintf("\nProcessing %s (%d of %d)\n", fileNames{f}, f, length(fileNames));
-    load(rootPath + fileNames{f}, "header", "kernels", "kVars", "trialOutcomes");
+  initialized = false;
 
-    if f == 1
+  for f = 1:length(matFiles)
+    fileName = matFiles(f).name;
+    [~, baseName, ~] = fileparts(fileName);  % ignore path, take name
+    if exist('excludedFiles', 'var') && ~isempty(excludedFiles) ...
+            && ismember(baseName, excludedFiles)
+        continue;
+    end
+    fprintf("\nProcessing %s (%d of %d)\n", fileName, f, length(fileName));
+    load(dataFolder + fileName, "header", "kernels", "kVars", "trialOutcomes");
+
+    if ~initialized
       firstStepMS = header.stepMS.data(1);
       firstVFrames = size(kernels, 3);
       avgKernels = zeros(2, 2, firstVFrames);
@@ -20,6 +31,7 @@ function kernelAverage()
       sumRWeights = zeros(1, 2);            % we weight R by its inverse variance
       sumWeightedR = zeros(1, 2);                         
       nSessions = 0;
+      initialized = true;
     end
     frameRateHz = header.frameRateHz.data(1);
     preStepMS = header.preStepMS.data(1);       % sometimes header values are replicated vectors
