@@ -17,7 +17,7 @@ function kernelAverage(dataFolder)
             && ismember(baseName, excludedFiles)
         continue;
     end
-    fprintf("\nProcessing %s (%d of %d)\n", fileName, f, length(fileName));
+    fprintf("\nProcessing %s (%d of %d)\n", fileName, f, length(matFiles));
     load(dataFolder + fileName, "header", "kernels", "kVars", "trialOutcomes");
 
     if ~initialized
