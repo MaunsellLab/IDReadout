@@ -31,6 +31,8 @@ if nTrials == 0
 end
 
   % ----- Find valid trials (trialEnd == 0 or 1, correct or wrong, for selected types) -----
+  % Check that noise was delivered on each trial before flagging it as
+  % valid
   validIdx = [];
   trialOutcomes = [];  % storage for 0/1 correct/wrong trialEnd values
   for k = 1:nTrials
@@ -42,7 +44,8 @@ end
     tEnd = tr.trialEnd.data;            % end of trial code
     tSide = sideType == 0 || sideType == tr.trial.data.changeSide + 1;  % change index
     tStep = tr.trial.data.changeIndex + 1; % index for inc or dec step
-    if tCert == 0 && ismember(tEnd, [0 1]) && tSide && ismember(tStep, stepTypes)
+    hasNoise = ~(isNoNoise(tr.changePrefCohsPC.data(:)) && isNoNoise(tr.changeProbeCohsPC.data(:)));
+    if tCert == 0 && ismember(tEnd, [0 1]) && tSide && ismember(tStep, stepTypes) && hasNoise;
         validIdx(end + 1) = k;          %#ok<AGROW>
         trialOutcomes(end + 1) = tEnd;  %#ok<AGROW>
     end
@@ -64,7 +67,7 @@ end
     % Take the noise from the change side if we're doing change side, or if
     % we're doing RF side and the change is there, or if we're doing the
     % opposite side and the change is there.
-    if sideType == 0 || sideType == tr.trial.changeSide + 1   % process the side that changed
+    if sideType == 0 || sideType == tr.trial.data.changeSide + 1   % process the side that changed
       prefCohsPC = tr.changePrefCohsPC.data(:);
       probeCohsPC = tr.changeProbeCohsPC.data(:);
       cohTimesMS = tr.changeTimesMS.data(:);
@@ -92,3 +95,8 @@ end
       end
     end
   end
+end
+
+function tf = isNoNoise(x)
+    tf = isscalar(x) && isequal(x, 0);
+end

@@ -82,8 +82,10 @@ function makeKernels(replace, path)
 
     % Number of video frames up to (preStep + step)
     m = round((preStepMS + stepMS) / msPerVFrame);
-    prefCohNoisePC  = trials{1}.trial.data.prefCohNoisePC;
-    probeCohNoisePC = trials{1}.trial.data.probeCohNoisePC;
+    prefVals  = cellfun(@(t) t.trial.data.prefCohNoisePC,  trials);
+    probeVals = cellfun(@(t) t.trial.data.probeCohNoisePC, trials);  
+    prefCohNoisePC  = max(prefVals(prefVals  > 0));
+    probeCohNoisePC = max(probeVals(probeVals > 0));
 
     % 2 x 2 x m kernel vectors (inc/dec, pref/probe, vFrame)
     kernels = nan(2, 2, m);
