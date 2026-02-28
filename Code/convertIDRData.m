@@ -29,7 +29,7 @@ function convertIDRData(dataFolder)
     datName = datFileList(fi).name;
     [~, baseName] = fileparts(datName);
     infoFileName = sprintf('%s_fileInfo.mat', baseName);             % Expected .mat headerfile name for this .dat file
-    outFileName = sprintf('%s.mat', baseName);                        % Expected .mat data file name for this .dat file
+    outFileName = sprintf('%s.mat', baseName);                       % Expected .mat data file name for this .dat file
     if isfile(infoFileName) && isfile(outFileName)                   % Skip if *_fileInfo.mat already exists
       fprintf('Skipping %s (found %s and %s)\n', datName, infoFileName, outFileName);
       continue;

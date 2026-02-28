@@ -1,6 +1,8 @@
 function kernelAverage(dataFolder)
 
-  excludedFiles = {'IDReadout_Meetz_20260114', 'IDReadout_Meetz_20260114_2', 'IDReadout_Meetz_20260114_3'};
+  excludedFiles = {'IDReadout_Meetz_20260113', 'IDReadout_Meetz_20260114', 'IDReadout_Meetz_20260114_2', ...
+    'IDReadout_Meetz_20260114_3', 'IDReadout_Meetz_20260114_4', 'IDReadout_Meetz_20260115', ...
+    'IDReadout_Meetz_20260116', 'IDReadout_Meetz_20260209', 'IDReadout_Meetz_20260210'};
 
   if nargin < 1 || isempty(dataFolder)
     dataFolder = dataFolderPath();

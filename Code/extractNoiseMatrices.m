@@ -15,7 +15,7 @@ function [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trial
 %     header : cell array of header info from an IDKReadout data file
 %     trials : cell array of trial info extracted from anIDKReadout data file
 %     stepTypes : vector of valid stepTypes: coh decrement 1, increment 2 
-%     sideType : side with step 0, RF step 1, or non-RF step 2
+%     sideType : 0, either side steps; 1, RF steps; 2, non-RF steps
 %
 %   OUTPUT:
 %     prefMat         : m x nTrials matrix for preferred noise

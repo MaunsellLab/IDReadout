@@ -20,7 +20,6 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
 %     kernelSE : m x 1 standard error of the kernel at each time bin (based on known distribution variance)
 %
   frameRateHz = header.frameRateHz.data;
-  % preStepMS = header.preStepMS.data(1);       % sometimes header values are replicated vectors
   stepMS = header.stepMS.data(1);
   probeDirDeg = header.probeDirDeg.data(1);
   msPerVFrame = 1000.0 / frameRateHz;
@@ -77,7 +76,7 @@ function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)
   yLower = y - sem;
   xPatch = [x(:)', fliplr(x(:)')];
   yPatch = [yUpper(:)', fliplr(yLower(:)')];
-  faceAlpha = 0.15;
+  faceAlpha = 0.35;
   hPatch = patch(xPatch, yPatch, [0.7 0.7 0.7], 'faceColor', faceColor, 'FaceAlpha', faceAlpha, ...
     'EdgeColor', 'none');
   hLine = plot(x, y, '-' , 'color', faceColor, 'lineWidth', 1.5);

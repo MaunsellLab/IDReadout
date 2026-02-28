@@ -72,7 +72,7 @@ function makeKernels(replace, path)
     header = S.header;
     trials = S.trials;
 
-    % ---- Extract values we want ----
+    % ---- Extract values ----
     frameRateHz = header.frameRateHz.data(1);
     msPerVFrame = 1000.0 / frameRateHz;
 
