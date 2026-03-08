@@ -4,7 +4,9 @@
 
 ## IDReadout specific
 
-/Data/Lablib/
+Data/
+*.dat
+*.mat
 
 ## User settings
 xcuserdata/

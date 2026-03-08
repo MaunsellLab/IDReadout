@@ -10,7 +10,7 @@ function convertIDRData(dataFolder)
   if nargin < 1 || isempty(dataFolder)
     dataFolder = folderPath();
   end
-  dataFolder = dataFolder + "/Data/Lablib";
+  dataFolder = dataFolder + "/Data";
   
   % Remember original folder and restore it on exit
   originalFolder = pwd;

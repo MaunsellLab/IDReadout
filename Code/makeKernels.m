@@ -12,7 +12,7 @@ function makeKernels(replace, path)
 %       If replace is false (default), only computes missing kernels/plots.
 %
 %   Directory conventions:
-%       Data .mat files:      path/Data/Lablib/*.mat   (excluding *_fileInfo.mat)
+%       Data .mat files:      path/Data/*.mat   (excluding *_fileInfo.mat)
 %       Kernel .mat files:    path/Kernels/<baseName>.mat
 %       Kernel plot PDFs:     path/Plots/Kernels/<baseName>.pdf
 
@@ -28,7 +28,7 @@ function makeKernels(replace, path)
   end
 
   % ---- Define directories and create as needed ----
-  dataFolder   = fullfile(path, 'Data',  'Lablib');
+  dataFolder   = fullfile(path, 'Data');
   kernelFolder = fullfile(path, 'Kernels');
   plotFolder   = fullfile(path, 'Plots', 'Kernels');
   if ~exist(kernelFolder, 'dir')
@@ -91,18 +91,29 @@ function makeKernels(replace, path)
     kernels = nan(2, 2, m);
     % 2 x 2 kernel variance scalar (inc/dec, pref/probe)
     kVars = nan(2, 2);
+    % 2 x 2 struct of sufficient statistics (inc/dec, pref/probe)
+    kStats = repmat(struct('nCorrect',0,'nWrong',0,'sumCorrect',[],'sumWrong',[],'sigma2',nan), 2, 2);    
     % 1 x 2 cell of trial outcome vectors (inc/dec); pref & probe always same
     trialOutcomes = cell(1, 2);
     nHits   = nan(1, 2);
     nTrials = nan(1, 2);
 
     % ---- Compute kernels ----
-    for s = 1:2   % coherence step direction (inc/dec)
-      [prefMat, probeMat, trialOutcomes{s}] = extractNoiseMatrices(header, trials, s, 0);
+    % sideType == 0 means difference evidence (change - noChange)
+    sideType = 0;
+    if sideType == 0
+      ampScale = sqrt(2);
+    else
+      ampScale = 1;
+    end
+    for s = 1:2
+      [prefMat, probeMat, trialOutcomes{s}] = extractNoiseMatrices(header, trials, s, sideType);
+    
       nTrials(s) = numel(trialOutcomes{s});
-      nHits(s)   = nTrials(s) - sum(trialOutcomes{s});   % misses are 1, hits are 0
-      [kernels(s, 1, :), kVars(s, 1)] = meanPsychKernel(prefMat,  trialOutcomes{s}, prefCohNoisePC);
-      [kernels(s, 2, :), kVars(s, 2)] = meanPsychKernel(probeMat, trialOutcomes{s}, probeCohNoisePC);
+      nHits(s)   = nTrials(s) - sum(trialOutcomes{s});
+    
+      [kernels(s,1,:), kVars(s,1), kStats(s,1)] = meanPsychKernel(prefMat,  trialOutcomes{s}, ampScale*prefCohNoisePC);
+      [kernels(s,2,:), kVars(s,2), kStats(s,2)] = meanPsychKernel(probeMat, trialOutcomes{s}, ampScale*probeCohNoisePC);
     end
     [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
 
@@ -118,7 +129,7 @@ function makeKernels(replace, path)
     if ~exist(kernelFolder, 'dir')
       mkdir(kernelFolder);
     end
-    save(kernelFilePath, 'header', 'kernels', 'kVars', 'trialOutcomes', ...
+    save(kernelFilePath, 'header', 'kernels', 'kVars', 'kStats', 'trialOutcomes', ...
                          'kIntegrals', 'R', 'RVar', 'nHits', 'nTrials', '-v7.3');
     fprintf('  Saved kernels: %s\n', kernelFilePath);
     fprintf('  Saved plot:    %s\n', plotFilePath);

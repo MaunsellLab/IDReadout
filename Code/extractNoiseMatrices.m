@@ -1,100 +1,172 @@
 function [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trials, stepTypes, sideType)
-% extractNoiseMatrices  Compile selected coherence noise into a 2 x m x n matrix.
+% extractNoiseMatrices  Compile coherence-noise evidence into matrices for kernel estimation.
 %
-% We do partial bundling because the data are a bit complex.  The
-% pref/probe trials for a given step direction (inc/dec) are always
-% balanced because they come from the exact same trials.  But inc and dec
-% trials might differ in number, so their matrices will have different
-% sizes. Also, we might want to do analyses in the future that construct
-% kernel based on left/right or other factors. So we've left this matrix
-% formation fairly open, except for pairing the pref/prob matrices.
-%
-%   [prefMat, probMat] = extractNoiseMatrices(header, trials, changeType, incType)
+%   [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trials, stepTypes, sideType)
 %
 %   INPUT:
-%     header : cell array of header info from an IDKReadout data file
-%     trials : cell array of trial info extracted from anIDKReadout data file
-%     stepTypes : vector of valid stepTypes: coh decrement 1, increment 2 
-%     sideType : 0, either side steps; 1, RF steps; 2, non-RF steps
+%     header    : header struct from an IDKReadout data file
+%     trials    : cell array of trial structs from an IDKReadout data file
+%     stepTypes : vector of valid step types (1 = decrement, 2 = increment)
+%     sideType  : which evidence stream to return
+%                0 = DIFFERENCE evidence  (change - noChange)   [recommended for behavior]
+%                1 = RF patch only
+%                2 = opposite patch only
+%                3 = change patch only     (legacy behavior)
+%                4 = noChange patch only
 %
 %   OUTPUT:
-%     prefMat         : m x nTrials matrix for preferred noise
-%     probeMat        : m x nTrials matrix for probe noise
+%     prefMat       : m x nTrials matrix for preferred-direction noise evidence
+%     probeMat      : m x nTrials matrix for probe-direction noise evidence
+%     trialOutcomes : 1 x nTrials vector of trialEnd values (0=correct, 1=wrong)
 %
-%   Pref and probe noise are presented on the same trials, so their
-%   matrices are always matched.  Inc/Dec or Change/NoChange might not be
-%   matched
-    
+%   Notes:
+%   - This function aligns evidence by the per-trial timestamp vectors (e.g., changeTimesMS,
+%     noChangeTimesMS). It does NOT assume synchronous noise frames across patches or streams.
+%   - For sideType==0, the returned matrices are difference evidence:
+%         dm_pref(t)  = pref_change(t)  - pref_noChange(t)
+%         dm_probe(t) = probe_change(t) - probe_noChange(t)
+
 nTrials  = numel(trials);
 if nTrials == 0
     error('extractNoiseMatrices:EmptyInput', 'Input "trials" is empty.');
 end
 
-  % ----- Find valid trials (trialEnd == 0 or 1, correct or wrong, for selected types) -----
-  % Check that noise was delivered on each trial before flagging it as
-  % valid
-  validIdx = [];
-  trialOutcomes = [];  % storage for 0/1 correct/wrong trialEnd values
-  for k = 1:nTrials
+% ---- Frame/grid parameters ----
+msPerVFrame = 1000.0 / header.frameRateHz.data(1);
+m = round((header.preStepMS.data(1) + header.stepMS.data(1)) / msPerVFrame);
+
+% ---- Find valid trials (certified, correct/wrong, requested step type, has noise) ----
+validIdx = [];
+trialOutcomes = [];
+for k = 1:nTrials
     tr = trials{k};
-    if ~isfield(tr, 'trialEnd')
-        continue;                       % skip if missing outcome
+    if ~isfield(tr, 'trialEnd') || ~isfield(tr, 'trialCertify') || ~isfield(tr, 'trial')
+        continue;
     end
-    tCert = tr.trialCertify.data;       % trial certify (dropped frame monitor)
-    tEnd = tr.trialEnd.data;            % end of trial code
-    tSide = sideType == 0 || sideType == tr.trial.data.changeSide + 1;  % change index
-    tStep = tr.trial.data.changeIndex + 1; % index for inc or dec step
-    hasNoise = ~(isNoNoise(tr.changePrefCohsPC.data(:)) && isNoNoise(tr.changeProbeCohsPC.data(:)));
-    if tCert == 0 && ismember(tEnd, [0 1]) && tSide && ismember(tStep, stepTypes) && hasNoise;
-        validIdx(end + 1) = k;          %#ok<AGROW>
-        trialOutcomes(end + 1) = tEnd;  %#ok<AGROW>
-    end
-  end
-  nValid = numel(validIdx);
-  if nValid == 0
-      error('extractCohNoiseMatrices:NoValidTrials', 'No valid matching trials were found.');
-  end
+    tCert = tr.trialCertify.data;
+    tEnd  = tr.trialEnd.data;
+    tStep = tr.trial.data.changeIndex + 1; % 1=dec, 2=inc
 
-  % Preallocate output matrices
-  msPerVFrame = 1000.0 / header.frameRateHz.data;
-  m = round((header.preStepMS.data(1) + header.stepMS.data(1)) / msPerVFrame);  
-  prefMat = nan(m, nValid);
-  probeMat = nan(m, nValid);
-
-  % ----- Process valid trials to extract coherence noise -----
-  for k = 1:nValid
-    tr = trials{validIdx(k)};
-    % Take the noise from the change side if we're doing change side, or if
-    % we're doing RF side and the change is there, or if we're doing the
-    % opposite side and the change is there.
-    if sideType == 0 || sideType == tr.trial.data.changeSide + 1   % process the side that changed
-      prefCohsPC = tr.changePrefCohsPC.data(:);
-      probeCohsPC = tr.changeProbeCohsPC.data(:);
-      cohTimesMS = tr.changeTimesMS.data(:);
-    else                                                      % process the other side
-      prefCohsPC = tr.noChangePrefCohsPC.data(:);
-      probeCohsPC = tr.noChangeProbeCohsPC.data(:);
-      cohTimesMS = tr.noChangeTimesMS.data(:);
+    if ~(tCert == 0 && ismember(tEnd, [0 1]) && ismember(tStep, stepTypes))
+        continue;
     end
-  
-    nTimes = length(cohTimesMS);
+
+    % Require at least one non-zero noise sample on the streams we need.
+    hasChangeNoise   = ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)));
+    hasNoChangeNoise = ~(isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
+
+    switch sideType
+        case 0  % difference needs both
+            hasNoise = hasChangeNoise || hasNoChangeNoise;
+        case {1,2,3} % these rely on change patch if it is the selected patch on this trial, else noChange patch
+            hasNoise = hasChangeNoise || hasNoChangeNoise;
+        case 4
+            hasNoise = hasNoChangeNoise;
+        otherwise
+            error('extractNoiseMatrices:BadSideType', 'Unknown sideType=%d.', sideType);
+    end
+
+    if ~hasNoise
+        continue;
+    end
+
+    validIdx(end+1) = k;          %#ok<AGROW>
+    trialOutcomes(end+1) = tEnd;  %#ok<AGROW>
+end
+
+nValid = numel(validIdx);
+if nValid == 0
+    error('extractNoiseMatrices:NoValidTrials', 'No valid matching trials were found.');
+end
+
+% ---- Preallocate output ----
+prefMat  = nan(m, nValid);
+probeMat = nan(m, nValid);
+
+% ---- Extract evidence ----
+for kk = 1:nValid
+    tr = trials{validIdx(kk)};
+
+    % Build matrices for each patch, aligned by that patch's own timestamps.
+    prefChange    = fillFromTimes(tr.changePrefCohsPC.data(:),    tr.changeTimesMS.data(:),    m, msPerVFrame);
+    probeChange   = fillFromTimes(tr.changeProbeCohsPC.data(:),   tr.changeTimesMS.data(:),    m, msPerVFrame);
+    prefNoChange  = fillFromTimes(tr.noChangePrefCohsPC.data(:),  tr.noChangeTimesMS.data(:),  m, msPerVFrame);
+    probeNoChange = fillFromTimes(tr.noChangeProbeCohsPC.data(:), tr.noChangeTimesMS.data(:),  m, msPerVFrame);
+
+    switch sideType
+        case 0  % difference evidence
+            prefMat(:, kk)  = prefChange    - prefNoChange;
+            probeMat(:, kk) = probeChange   - probeNoChange;
+
+        case 3  % change patch only (legacy behavior)
+            prefMat(:, kk)  = prefChange;
+            probeMat(:, kk) = probeChange;
+
+        case 4  % noChange patch only
+            prefMat(:, kk)  = prefNoChange;
+            probeMat(:, kk) = probeNoChange;
+
+        case 1  % RF patch only
+            if tr.trial.data.changeSide == 0
+                % RF is the change patch on this trial
+                prefMat(:, kk)  = prefChange;
+                probeMat(:, kk) = probeChange;
+            else
+                % RF is the noChange patch on this trial
+                prefMat(:, kk)  = prefNoChange;
+                probeMat(:, kk) = probeNoChange;
+            end
+
+        case 2  % opposite patch only
+            if tr.trial.data.changeSide == 1
+                % opposite patch is the change patch on this trial
+                prefMat(:, kk)  = prefChange;
+                probeMat(:, kk) = probeChange;
+            else
+                % opposite patch is the noChange patch on this trial
+                prefMat(:, kk)  = prefNoChange;
+                probeMat(:, kk) = probeNoChange;
+            end
+    end
+end
+end
+
+% ===== Helper: reconstruct sample-and-hold time series on the video-frame grid =====
+function v = fillFromTimes(cohsPC, timesMS, m, msPerVFrame)
+    v = nan(m,1);
+    if isempty(timesMS) || isempty(cohsPC)
+        return;
+    end
+    nTimes = min(numel(timesMS), numel(cohsPC));
+    timesMS = timesMS(1:nTimes);
+    cohsPC  = cohsPC(1:nTimes);
+
     for tIndex = 1:nTimes
-      if tIndex == 1
-        theVFrame = 1;
-      else
-        theVFrame = max(1, round(cohTimesMS(tIndex) / msPerVFrame));
-      end
-      if tIndex < nTimes
-        nextVFrame = round(cohTimesMS(tIndex + 1) / msPerVFrame);
-      else
-        nextVFrame = m + 1;
-      end
-      for vFrame = theVFrame:nextVFrame - 1
-          prefMat(vFrame, k) = prefCohsPC(tIndex);
-          probeMat(vFrame, k) = probeCohsPC(tIndex);
-      end
+        % Map timestamp to 1-indexed video-frame bins (sample-and-hold).
+        % Use floor(+1) rather than round to avoid occasional overlaps/skips.
+        t0 = timesMS(tIndex);
+        theVFrame = floor(t0 / msPerVFrame) + 1;
+        if theVFrame < 1
+            theVFrame = 1;
+        elseif theVFrame > m
+            continue;
+        end
+
+        if tIndex < nTimes
+            t1 = timesMS(tIndex + 1);
+            nextVFrame = floor(t1 / msPerVFrame) + 1;
+        else
+            nextVFrame = m + 1;
+        end
+
+        if nextVFrame <= theVFrame
+            continue;
+        end
+        if nextVFrame > m + 1
+            nextVFrame = m + 1;
+        end
+        v(theVFrame:nextVFrame-1) = cohsPC(tIndex);
     end
-  end
 end
 
 function tf = isNoNoise(x)
