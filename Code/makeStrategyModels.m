@@ -67,7 +67,7 @@ function makeStrategyModels(replace, path)
     modelExists = isfile(modelFilePath);
 
     if ~replace && modelExists
-      fprintf('Skipping %s (model already exists)\n', dataFileName);
+      fprintf('Skipping %s (model exists)\n', dataFileName);
       nSkip = nSkip + 1;
       continue;
     end

@@ -5,6 +5,7 @@
 ## IDReadout specific
 
 Data/
+Kernels/
 *.dat
 *.mat
 

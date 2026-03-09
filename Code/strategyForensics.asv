@@ -152,7 +152,6 @@ proj = 2 * opts.cosProbe; % coupled probes at ±45°
 validIdx = [];
 EOT      = [];    % 0 correct, 1 wrong
 stepType = [];    % 1 dec, 2 inc
-
 baseCoh  = [];    % per-trial base coherence (PC)
 stepCoh  = [];    % per-trial step coherence (PC)
 RT       = [];
@@ -164,11 +163,9 @@ for k = 1:numel(trials)
     tStep = tr.trial.data.changeIndex + 1; % 1 dec, 2 inc
 
     hasNoise = ~(isNoNoise(tr.changePrefCohsPC.data(:)) && isNoNoise(tr.changeProbeCohsPC.data(:)));
-
     if ~(tCert == 0 && ismember(tEnd,[0 1]) && ismember(tStep, stepTypes) && hasNoise)
         continue;
     end
-
     b = getScalarField(tr.trial.data, 'baseCohPC');
     s = getScalarField(tr.trial.data, 'stepCohPC');
     if isnan(b) || isnan(s)
@@ -234,7 +231,7 @@ dn  = nCh - nNc;
 
 isRFChange = (chgSide(:) == 0);     % RF contains the change patch on these trials
 isDec = typeStep(:) == 1;
-isInc = ~isDec;
+% isInc = ~isDec;
 nRF  = nan(nStepVFrames, nValid);
 nOpp = nan(nStepVFrames, nValid);
 
@@ -245,7 +242,6 @@ nRF(:, ~isRFChange)  = nNc(:, ~isRFChange);
 nOpp(:, ~isRFChange) = nCh(:, ~isRFChange);
 
 % Per-trial window averages (in % coherence units)
-
 % +1 INC, -1 DEC
 stepSign = ones(nValid,1);
 stepSign(isDec) = -1;
@@ -528,13 +524,18 @@ prefVals  = cellfun(@(t) t.trial.data.prefCohNoisePC,  trials);
 probeVals = cellfun(@(t) t.trial.data.probeCohNoisePC, trials);  
 prefCohNoisePC  = max(prefVals(prefVals  > 0));
 probeCohNoisePC = max(probeVals(probeVals > 0));
+
 trialForecast = struct();
 if isfield(models,'pooled') && isfield(models.pooled,'m1')
     m1 = models.pooled.m1;
     beta1 = coefPvOnly(m1, 'sumDM');
+
     trialForecast = predictKernelTrials(beta1, mean(tbl.isCorrect), ...
-        prefCohNoisePC, probeCohNoisePC, msPerVFrame, ...
-        'windowMS', [50 125 250], 'zTarget', 2);
+        std(tbl.sumDM, 0, 'omitnan'), ...
+        prefCohNoisePC, probeCohNoisePC, proj, msPerVFrame, ...
+        'refWindowMS', numel(postFrames) * msPerVFrame, ...
+        'windowMS', [50 125 250], ...
+        'zTarget', 2);
 end
 
 summaryRow = makeSummaryRow(sessionFile, tbl, models, opts, trialForecast);
@@ -700,37 +701,71 @@ if isfield(models,'pooled') && isfield(models.pooled,'m0')
     end
 
     % ---------------- trial-count forecasts ----------------
-if isstruct(trialForecast) && isfield(trialForecast, 'windowMS')
-    w = trialForecast.windowMS;
+% ---------------- trial-count forecasts ----------------
+if isstruct(trialForecast) && ~isempty(trialForecast)
 
-    % preferred
-    if isfield(trialForecast, 'prefN')
-        for i = 1:numel(w)
-            switch w(i)
-                case 50
-                    row.Npred_pref_50 = trialForecast.prefN(i);
-                case 125
-                    row.Npred_pref_125 = trialForecast.prefN(i);
-                case 250
-                    row.Npred_pref_250 = trialForecast.prefN(i);
+    % main forecast values
+    if isfield(trialForecast, 'windowMS')
+        w = trialForecast.windowMS;
+
+        if isfield(trialForecast, 'prefN')
+            for i = 1:numel(w)
+                switch w(i)
+                    case 50
+                        row.Npred_pref_50 = trialForecast.prefN(i);
+                    case 125
+                        row.Npred_pref_125 = trialForecast.prefN(i);
+                    case 250
+                        row.Npred_pref_250 = trialForecast.prefN(i);
+                end
+            end
+        end
+
+        if isfield(trialForecast, 'probeN')
+            for i = 1:numel(w)
+                switch w(i)
+                    case 50
+                        row.Npred_probe_50 = trialForecast.probeN(i);
+                    case 125
+                        row.Npred_probe_125 = trialForecast.probeN(i);
+                    case 250
+                        row.Npred_probe_250 = trialForecast.probeN(i);
+                end
             end
         end
     end
 
-    % probe
-    if isfield(trialForecast, 'probeN')
-        for i = 1:numel(w)
-            switch w(i)
-                case 50
-                    row.Npred_probe_50 = trialForecast.probeN(i);
-                case 125
-                    row.Npred_probe_125 = trialForecast.probeN(i);
-                case 250
-                    row.Npred_probe_250 = trialForecast.probeN(i);
-            end
-        end
+    % useful debug / bookkeeping values
+    if isfield(trialForecast, 'beta1')
+        row.Npred_beta1 = trialForecast.beta1;
     end
-
+    if isfield(trialForecast, 'pCorrect')
+        row.Npred_pCorrect = trialForecast.pCorrect;
+    end
+    if isfield(trialForecast, 'stdSumDM')
+        row.Npred_stdSumDM = trialForecast.stdSumDM;
+    end
+    if isfield(trialForecast, 'gamma')
+        row.Npred_gamma = trialForecast.gamma;
+    end
+    if isfield(trialForecast, 'rPref')
+        row.Npred_rPref = trialForecast.rPref;
+    end
+    if isfield(trialForecast, 'rProbe')
+        row.Npred_rProbe = trialForecast.rProbe;
+    end
+    if isfield(trialForecast, 'refWindowMS')
+        row.Npred_refWindowMS = trialForecast.refWindowMS;
+    end
+    if isfield(trialForecast, 'nRefFrames')
+        row.Npred_nRefFrames = trialForecast.nRefFrames;
+    end
+    if isfield(trialForecast, 'zTarget')
+        row.Npred_zTarget = trialForecast.zTarget;
+    end
+    if isfield(trialForecast, 'valid')
+        row.Npred_valid = double(trialForecast.valid);
+    end
     % optional bookkeeping
     if isfield(trialForecast, 'beta1')
         row.Npred_beta1 = trialForecast.beta1;
@@ -854,9 +889,18 @@ row.Npred_probe_50 = NaN;
 row.Npred_probe_125 = NaN;
 row.Npred_probe_250 = NaN;
 
-% ---- optional forecast bookkeeping ----
+% ---- forecast debug / bookkeeping ----
 row.Npred_beta1 = NaN;
 row.Npred_pCorrect = NaN;
+row.Npred_stdSumDM = NaN;
+row.Npred_gamma = NaN;
+row.Npred_rPref = NaN;
+row.Npred_rProbe = NaN;
+row.Npred_refWindowMS = NaN;
+row.Npred_nRefFrames = NaN;
+row.Npred_zTarget = NaN;
+row.Npred_valid = NaN;
+
 
 end
 

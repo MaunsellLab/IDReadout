@@ -152,7 +152,6 @@ proj = 2 * opts.cosProbe; % coupled probes at ±45°
 validIdx = [];
 EOT      = [];    % 0 correct, 1 wrong
 stepType = [];    % 1 dec, 2 inc
-
 baseCoh  = [];    % per-trial base coherence (PC)
 stepCoh  = [];    % per-trial step coherence (PC)
 RT       = [];
@@ -164,11 +163,9 @@ for k = 1:numel(trials)
     tStep = tr.trial.data.changeIndex + 1; % 1 dec, 2 inc
 
     hasNoise = ~(isNoNoise(tr.changePrefCohsPC.data(:)) && isNoNoise(tr.changeProbeCohsPC.data(:)));
-
     if ~(tCert == 0 && ismember(tEnd,[0 1]) && ismember(tStep, stepTypes) && hasNoise)
         continue;
     end
-
     b = getScalarField(tr.trial.data, 'baseCohPC');
     s = getScalarField(tr.trial.data, 'stepCohPC');
     if isnan(b) || isnan(s)
@@ -234,7 +231,7 @@ dn  = nCh - nNc;
 
 isRFChange = (chgSide(:) == 0);     % RF contains the change patch on these trials
 isDec = typeStep(:) == 1;
-isInc = ~isDec;
+% isInc = ~isDec;
 nRF  = nan(nStepVFrames, nValid);
 nOpp = nan(nStepVFrames, nValid);
 
@@ -245,7 +242,6 @@ nRF(:, ~isRFChange)  = nNc(:, ~isRFChange);
 nOpp(:, ~isRFChange) = nCh(:, ~isRFChange);
 
 % Per-trial window averages (in % coherence units)
-
 % +1 INC, -1 DEC
 stepSign = ones(nValid,1);
 stepSign(isDec) = -1;
