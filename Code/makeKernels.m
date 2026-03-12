@@ -1,5 +1,5 @@
 function makeKernels(replace, path)
-% makeKernels  Generate kernel and plot files for all Lablib .mat data files.
+% NEW makeKernels  Generate kernel and plot files for all Lablib .mat data files.
 %
 %   makeKernels()
 %       Uses folderPath() to get the base path.
@@ -23,9 +23,7 @@ function makeKernels(replace, path)
   if nargin < 2 || isempty(path)
     path = folderPath();   % user-defined helper
   end
-  if isstring(path)           % Ensure path is a char (fullfile is happier with chars on older MATLABs)
-    path = char(path);
-  end
+  path = char(path);           % Ensure path is a char (fullfile is happier with chars on older MATLABs)
 
   % ---- Define directories and create as needed ----
   dataFolder   = fullfile(path, 'Data');
@@ -108,6 +106,7 @@ function makeKernels(replace, path)
     end
     for s = 1:2
       [prefMat, probeMat, trialOutcomes{s}] = extractNoiseMatrices(header, trials, s, sideType);
+      save (sprintf('Matrices%d', s), 'prefMat', 'probeMat', 'trialOutcomes');
     
       nTrials(s) = numel(trialOutcomes{s});
       nHits(s)   = nTrials(s) - sum(trialOutcomes{s});

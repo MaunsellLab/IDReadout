@@ -1,5 +1,5 @@
-function folderPath = folderPath()
+function dataPath = dataFolderPath()
 
-folderPath = '/Users/Shared/Data/IDReadout';
+dataPath = folderPath + "/Data";
 
 end

@@ -31,10 +31,6 @@ if nTrials == 0
     error('extractNoiseMatrices:EmptyInput', 'Input "trials" is empty.');
 end
 
-% ---- Frame/grid parameters ----
-msPerVFrame = 1000.0 / header.frameRateHz.data(1);
-m = round((header.preStepMS.data(1) + header.stepMS.data(1)) / msPerVFrame);
-
 % ---- Find valid trials (certified, correct/wrong, requested step type, has noise) ----
 validIdx = [];
 trialOutcomes = [];
@@ -80,6 +76,8 @@ if nValid == 0
 end
 
 % ---- Preallocate output ----
+msPerVFrame = 1000.0 / header.frameRateHz.data(1);
+m = round((header.preStepMS.data(1) + header.stepMS.data(1)) / msPerVFrame);
 prefMat  = nan(m, nValid);
 probeMat = nan(m, nValid);
 
@@ -95,8 +93,12 @@ for kk = 1:nValid
 
     switch sideType
         case 0  % difference evidence
-            prefMat(:, kk)  = prefChange    - prefNoChange;
-            probeMat(:, kk) = probeChange   - probeNoChange;
+            prefMat(:, kk)  = prefChange;
+            probeMat(:, kk) = probeChange;
+            % prefMat(:, kk)  = prefChange    - prefNoChange;
+            % probeMat(:, kk) = probeChange   - probeNoChange;
+            % prefMat(:, kk)  = prefNoChange;
+            % probeMat(:, kk) = probeNoChange;
 
         case 3  % change patch only (legacy behavior)
             prefMat(:, kk)  = prefChange;
@@ -172,3 +174,4 @@ end
 function tf = isNoNoise(x)
     tf = isscalar(x) && isequal(x, 0);
 end
+

@@ -1,11 +1,13 @@
 function kernelAverage(baseFolder)
 
-  excludedFiles = {'IDReadout_Meetz_20260113', 'IDReadout_Meetz_20260114', 'IDReadout_Meetz_20260114_2', ...
-    'IDReadout_Meetz_20260114_3', 'IDReadout_Meetz_20260114_4', 'IDReadout_Meetz_20260115', ...
-    'IDReadout_Meetz_20260116', 'IDReadout_Meetz_20260209', 'IDReadout_Meetz_20260210'};
+  % excludedFiles = {'IDReadout_Meetz_20260113', 'IDReadout_Meetz_20260114', 'IDReadout_Meetz_20260114_2', ...
+  %   'IDReadout_Meetz_20260114_3', 'IDReadout_Meetz_20260114_4', 'IDReadout_Meetz_20260115', ...
+  %   'IDReadout_Meetz_20260116', 'IDReadout_Meetz_20260209', 'IDReadout_Meetz_20260210'};
+
+  excludedFies = {};
 
   if nargin < 1 || isempty(baseFolder)
-    baseFolder = dataFolderPath();
+    baseFolder = folderPath();
   end
   dataFolder = baseFolder + "/Kernels/";
   if ~exist(dataFolder, 'dir')
