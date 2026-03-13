@@ -85,34 +85,36 @@ function makeKernels(replace, path)
     prefCohNoisePC  = max(prefVals(prefVals  > 0));
     probeCohNoisePC = max(probeVals(probeVals > 0));
 
-    % 2 x 2 x m kernel vectors (inc/dec, pref/probe, vFrame)
-    kernels = nan(2, 2, m);
-    % 2 x 2 kernel variance scalar (inc/dec, pref/probe)
-    kVars = nan(2, 2);
-    % 2 x 2 struct of sufficient statistics (inc/dec, pref/probe)
-    kStats = repmat(struct('nCorrect',0,'nWrong',0,'sumCorrect',[],'sumWrong',[],'sigma2',nan), 2, 2);    
-    % 1 x 2 cell of trial outcome vectors (inc/dec); pref & probe always same
-    trialOutcomes = cell(1, 2);
-    nHits   = nan(1, 2);
-    nTrials = nan(1, 2);
+    % 5 x 2 x 2 x m kernel vectors (diff/c/nC/RF/Opp, inc/dec, pref/probe, vFrame)
+    kernels = nan(5, 2, 2, m);
+    % 5 x 2 x 2 kernel variance scalar (diff/c/nC/RF/Opp, inc/dec, pref/probe)
+    kVars = nan(5, 2, 2);
+    % 5 x 2 x 2 struct of sufficient statistics (diff/c/nC/RF/Opp, inc/dec, pref/probe)
+    kStats = repmat(struct('nCorrect',0,'nWrong',0,'sumCorrect',[],'sumWrong',[],'sigma2',nan), 5, 2, 2);    
+    % 5 x 2 cell of trial outcome vectors (diff/c/nC/RF/Opp, inc/dec); pref & probe always same
+    trialOutcomes = cell(5, 2);
+    nHits   = nan(5, 2);
+    nTrials = nan(5, 2);
 
     % ---- Compute kernels ----
-    % sideType == 0 means difference evidence (change - noChange)
-    sideType = 0;
-    if sideType == 0
-      ampScale = sqrt(2);
-    else
-      ampScale = 1;
-    end
-    for s = 1:2
-      [prefMat, probeMat, trialOutcomes{s}] = extractNoiseMatrices(header, trials, s, sideType);
-      save (sprintf('Matrices%d', s), 'prefMat', 'probeMat', 'trialOutcomes');
-    
-      nTrials(s) = numel(trialOutcomes{s});
-      nHits(s)   = nTrials(s) - sum(trialOutcomes{s});
-    
-      [kernels(s,1,:), kVars(s,1), kStats(s,1)] = meanPsychKernel(prefMat,  trialOutcomes{s}, ampScale*prefCohNoisePC);
-      [kernels(s,2,:), kVars(s,2), kStats(s,2)] = meanPsychKernel(probeMat, trialOutcomes{s}, ampScale*probeCohNoisePC);
+    for sideType = 1:5                  % for each type of kernel (diff, change, noChange, etc.)
+      if sideType == 1                  % diff kernels need an amplitude adjustment for variance
+        ampScale = sqrt(2);
+      else
+        ampScale = 1;
+      end
+      for s = 1:2                       % INC/Dec
+        [prefMat, probeMat, trialOutcomes{sideType, s}] = extractNoiseMatrices(header, trials, s, sideType);
+        % save (sprintf('Matrices%d', s), 'prefMat', 'probeMat', 'trialOutcomes');
+      
+        nTrials(sideType, s) = numel(trialOutcomes{sideType, s});
+        nHits(sideType, s)   = nTrials(sideType, s) - sum(trialOutcomes{sideType, s});
+      
+        [kernels(sideType, s, 1, :), kVars(sideType, s, 1), kStats(sideType, s, 1)] = ...
+                  meanPsychKernel(prefMat,  trialOutcomes{sideType, s}, ampScale * prefCohNoisePC);
+        [kernels(sideType, s, 2, :), kVars(sideType, s, 2), kStats(sideType, s, 2)] = ...
+                  meanPsychKernel(probeMat, trialOutcomes{sideType, s}, ampScale * probeCohNoisePC);
+      end
     end
     [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
 

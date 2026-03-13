@@ -5,19 +5,11 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
 %   INPUTS:
 %     fig           : number of the figure to use
 %     header        : IDR header structure from dat file
-%     kernels       : 2 x 2 x nVFrames kernel values (inc/dec steps,
-%                     pref/probe, kernel values)
-%     kVars         : 2 x 2 kernel variances (fixed over time) (inc/dec steps, pref/probe) 
-%     kIntegrals    : 2 x 2 integrals of kernels during the summing window
-%     intStartMS    : start of summing window
-%     intStopMS     : end of summing widnow
-%     nHits         : 1 x 2 vector of hits, dec/inc
-%     nTrials       : 1 x 2 vector of trials, dec/inc
-%
-%   OUTPUTS:
-%     kernel   : m x 1 kernel, defined as
-%                  mean(noise | wrong) - mean(noise | correct)
-%     kernelSE : m x 1 standard error of the kernel at each time bin (based on known distribution variance)
+%     kernels       : 5 x 2 x 2 x nVFrames kernels (diff/c/nC/RF/Opp, inc/dec steps, pref/probe)
+%     kVars         : 5 x 2 x 2  (fixed over time) (diff/c/nC/RF/Opp, inc/dec steps, pref/probe) 
+%     kIntegrals    : 5 x 2 x 2 kernel integrals during summing window
+%     nHits         : 5 x 2 hits, diff/c/nC/RF/Opp, dec/inc
+%     nTrials       : 5 x 2 trials, diff/c/nC/RF/Opp, dec/inc
 %
   frameRateHz = header.frameRateHz.data;
   stepMS = header.stepMS.data(1);
@@ -29,43 +21,58 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
   trialDurMS = preStepMS + stepMS;
   m = round(trialDurMS / msPerVFrame); 
   preStepVF = preStepMS / msPerVFrame;
-  plotTitles = {"Decrement", "Increment"};
+  plotTitles = {"Decrements", "Increments"};
+  typeTitles = {"Difference", "Change Side", "No Change Side", "RF Side", "Opp Side"};
 
-  figure(fig);
-  clf
-  ax = nan(1, 2);
+  figure(1);
+  clf;
+  ax = nan(5, 2);
+  overallYMax = 0;
+  overallYMin = 0;
   prefLine = zeros(1, 2);
   probeLine = zeros(1, 2);
-  for s = 1:2                           % for each coherence step direction (inc/dec)    
-    ax(s) = subplot(2, 1, 3 - s);
-    xValues = 1:size(kernels, 3);
-    hold on;
-    [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(s, 1, :)), sqrt(kVars(s, 1)), [0, 0, 1]);
-    [~, probeLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(s, 2, :)), sqrt(kVars(s, 2)), [0.7, 0, 0.7]);
-    plot([1, xValues(end)], [0, 0], 'k-');
-    xticks([1, round(250 / msPerVFrame), round(500 / msPerVFrame), preStepVF, m]);
-    xticklabels({"0", "250", "500", sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)});
-    xlabel("Time During Trial (ms)");
-    ylabel("Percent Coherence");
-    title(sprintf("%s: Coherence %s, \\DeltaMean Kernels", titleStr, plotTitles{s}));
-    text(0.02, 0.98, sprintf("0°: %.2f%%, ±%d°: %.2f%% (R = %.2f ± %.2f SEM)\nn = %d (%.0f%% correct)", ...
-        kIntegrals(s, 1), probeDirDeg, kIntegrals(s, 2), R(s), sqrt(RVar(s)), nTrials(s), ...
-        nHits(s) * 100.0 / nTrials(s)), ...
-        'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 9);
+  for sideType = 1:5
+    for s = 1:2                           % for each coherence step direction (inc/dec)    
+      ax(sideType, s) = subplot(5, 2, (sideType - 1) * 2 + 3 - s);
+      xValues = 1:size(kernels, 4);
+      hold on;
+      [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 1, :)), ...
+                sqrt(kVars(sideType, s, 1)), [0, 0, 1]);
+      [~, probeLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 2, :)), ...
+                sqrt(kVars(sideType, s, 2)), [0.7, 0, 0.7]);
+      plot([1, xValues(end)], [0, 0], 'k-');
+      xticks([1, round(250 / msPerVFrame), round(500 / msPerVFrame), preStepVF, m]);
+      xticklabels({"0", "250", "500", sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)});
+      xlabel("Time During Trial (ms)");
+      ylabel("Percent Coherence");
+      title(sprintf("%s: \\DeltaMean %s %s Kernels", titleStr, typeTitles{sideType}, plotTitles{s}));
+      text(0.02, 0.98, sprintf("0°: %.2f%%, ±%d°: %.2f%% (R = %.2f ± %.2f SEM)\nn = %d (%.0f%% correct)", ...
+          kIntegrals(sideType, s, 1), probeDirDeg, kIntegrals(sideType, s, 2), R(sideType, s), ...
+                sqrt(RVar(sideType, s)), nTrials(sideType, s), ...
+          nHits(sideType, s) * 100.0 / nTrials(sideType, s)), ...
+          'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 9);
+    end
+    yl1 = ylim(ax(sideType, 1));
+    yl2 = ylim(ax(sideType, 2));
+    overallYMin = min(overallYMin, min(yl1(1), yl2(1)));
+    overallYMax = max(overallYMax, max(yl1(2), yl2(2)));
   end
-  yl1 = ylim(ax(1));
-  yl2 = ylim(ax(2));
-  newYL = [min(yl1(1), yl2(1)) max(yl1(2), yl2(2))];
-  for a = 1:2
-    ylim(ax(a), newYL);
-    axes(ax(a));
-    % set(gca, 'YLimMode', 'manual');  % freeze the y axes
-    patch([preStepVF m m preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
-      [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none'); 
-    patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
-      [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none'); 
-    legend([prefLine(a), probeLine(a)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)}, 'location', 'southwest');
+  set(ax, 'YLim', [overallYMin, overallYMax]);
+  newYL = [overallYMin, overallYMax];
+  for sideType = 1:5
+    for a = 1:2
+      ylim(ax(sideType, a), newYL);
+      axes(ax(sideType, a));
+      patch([preStepVF m m preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
+        [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none'); 
+      patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
+        [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none'); 
+    end
   end
+  axes(ax(1, 2));
+  legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)}, 'location', 'southwest');
+
+
 end
 
 function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)

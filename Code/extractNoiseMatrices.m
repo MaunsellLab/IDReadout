@@ -8,11 +8,11 @@ function [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trial
 %     trials    : cell array of trial structs from an IDKReadout data file
 %     stepTypes : vector of valid step types (1 = decrement, 2 = increment)
 %     sideType  : which evidence stream to return
-%                0 = DIFFERENCE evidence  (change - noChange)   [recommended for behavior]
-%                1 = RF patch only
-%                2 = opposite patch only
-%                3 = change patch only     (legacy behavior)
-%                4 = noChange patch only
+%                1 = difference between patches (change - noChange)
+%                2 = change patch only     (legacy behavior)
+%                3 = noChange patch only
+%                4 = RF patch only
+%                5 = opposite patch only
 %
 %   OUTPUT:
 %     prefMat       : m x nTrials matrix for preferred-direction noise evidence
@@ -50,18 +50,16 @@ for k = 1:nTrials
     % Require at least one non-zero noise sample on the streams we need.
     hasChangeNoise   = ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)));
     hasNoChangeNoise = ~(isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
-
     switch sideType
-        case 0  % difference needs both
+        case 1  % difference needs both
             hasNoise = hasChangeNoise || hasNoChangeNoise;
-        case {1,2,3} % these rely on change patch if it is the selected patch on this trial, else noChange patch
+        case {2,4,5} % these rely on change patch if it is the selected patch on this trial, else noChange patch
             hasNoise = hasChangeNoise || hasNoChangeNoise;
-        case 4
+        case 3
             hasNoise = hasNoChangeNoise;
         otherwise
             error('extractNoiseMatrices:BadSideType', 'Unknown sideType=%d.', sideType);
     end
-
     if ~hasNoise
         continue;
     end
@@ -92,23 +90,19 @@ for kk = 1:nValid
     probeNoChange = fillFromTimes(tr.noChangeProbeCohsPC.data(:), tr.noChangeTimesMS.data(:),  m, msPerVFrame);
 
     switch sideType
-        case 0  % difference evidence
-            prefMat(:, kk)  = prefChange;
-            probeMat(:, kk) = probeChange;
-            % prefMat(:, kk)  = prefChange    - prefNoChange;
-            % probeMat(:, kk) = probeChange   - probeNoChange;
-            % prefMat(:, kk)  = prefNoChange;
-            % probeMat(:, kk) = probeNoChange;
+        case 1  % difference evidence
+            prefMat(:, kk)  = prefChange    - prefNoChange;
+            probeMat(:, kk) = probeChange   - probeNoChange;
 
-        case 3  % change patch only (legacy behavior)
+        case 2  % change patch only (legacy behavior)
             prefMat(:, kk)  = prefChange;
             probeMat(:, kk) = probeChange;
 
-        case 4  % noChange patch only
+        case 3  % noChange patch only
             prefMat(:, kk)  = prefNoChange;
             probeMat(:, kk) = probeNoChange;
 
-        case 1  % RF patch only
+        case 4  % RF patch only
             if tr.trial.data.changeSide == 0
                 % RF is the change patch on this trial
                 prefMat(:, kk)  = prefChange;
@@ -119,7 +113,7 @@ for kk = 1:nValid
                 probeMat(:, kk) = probeNoChange;
             end
 
-        case 2  % opposite patch only
+        case 5  % opposite patch only
             if tr.trial.data.changeSide == 1
                 % opposite patch is the change patch on this trial
                 prefMat(:, kk)  = prefChange;
