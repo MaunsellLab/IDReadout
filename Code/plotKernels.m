@@ -1,5 +1,5 @@
-function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar, nHits, nTrials)
-% Make a separate subplot for inc/dec kernels, superimposing both preferred and
+function plotKernels(fig, titleStr, header, kernels, kVars, compStats, nHits, nTrials)
+% Make a separate tile for inc/dec kernels, superimposing both preferred and
 % probe kernel on each. 
 %
 %   INPUTS:
@@ -7,7 +7,7 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
 %     header        : IDR header structure from dat file
 %     kernels       : 5 x 2 x 2 x nVFrames kernels (diff/c/nC/RF/Opp, inc/dec steps, pref/probe)
 %     kVars         : 5 x 2 x 2  (fixed over time) (diff/c/nC/RF/Opp, inc/dec steps, pref/probe) 
-%     kIntegrals    : 5 x 2 x 2 kernel integrals during summing window
+%     compStats     : struct with 5 x 2 x 2 fields for kernel integrals and scale
 %     nHits         : 5 x 2 hits, diff/c/nC/RF/Opp, dec/inc
 %     nTrials       : 5 x 2 trials, diff/c/nC/RF/Opp, dec/inc
 %
@@ -21,11 +21,12 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
   trialDurMS = preStepMS + stepMS;
   m = round(trialDurMS / msPerVFrame); 
   preStepVF = preStepMS / msPerVFrame;
-  plotTitles = {"Decrements", "Increments"};
+  plotTitles = {"Decrement", "Increment"};
   typeTitles = {"Difference", "Change Side", "No Change Side", "RF Side", "Opp Side"};
 
-  figure(1);
+  figure(fig);
   clf;
+  t = tiledlayout(5, 2);
   ax = nan(5, 2);
   overallYMax = 0;
   overallYMin = 0;
@@ -33,7 +34,7 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
   probeLine = zeros(1, 2);
   for sideType = 1:5
     for s = 1:2                           % for each coherence step direction (inc/dec)    
-      ax(sideType, s) = subplot(5, 2, (sideType - 1) * 2 + 3 - s);
+      ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
       xValues = 1:size(kernels, 4);
       hold on;
       [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 1, :)), ...
@@ -43,13 +44,12 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
       plot([1, xValues(end)], [0, 0], 'k-');
       xticks([1, round(250 / msPerVFrame), round(500 / msPerVFrame), preStepVF, m]);
       xticklabels({"0", "250", "500", sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)});
-      xlabel("Time During Trial (ms)");
-      ylabel("Percent Coherence");
-      title(sprintf("%s: \\DeltaMean %s %s Kernels", titleStr, typeTitles{sideType}, plotTitles{s}));
-      text(0.02, 0.98, sprintf("0°: %.2f%%, ±%d°: %.2f%% (R = %.2f ± %.2f SEM)\nn = %d (%.0f%% correct)", ...
-          kIntegrals(sideType, s, 1), probeDirDeg, kIntegrals(sideType, s, 2), R(sideType, s), ...
-                sqrt(RVar(sideType, s)), nTrials(sideType, s), ...
-          nHits(sideType, s) * 100.0 / nTrials(sideType, s)), ...
+      xlabel("Time (ms)");
+      ylabel("Coherence (%)");
+      title(sprintf("%s %s", typeTitles{sideType}, plotTitles{s}));
+      text(0.02, 0.98, sprintf("Integrals: 0°: %.2f%%, ±%d°: %.2f%% (scale = %.2f ± %.2f SEM)", ...
+          compStats.kIntegrals(sideType, s, 1), probeDirDeg, compStats.kIntegrals(sideType, s, 2), ...
+          compStats.scale(sideType, s), compStats.scaleSEM(sideType, s)), ...
           'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 9);
     end
     yl1 = ylim(ax(sideType, 1));
@@ -62,7 +62,7 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
   for sideType = 1:5
     for a = 1:2
       ylim(ax(sideType, a), newYL);
-      axes(ax(sideType, a));
+      axes(ax(sideType, a)); %#ok<*LAXES>
       patch([preStepVF m m preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
         [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none'); 
       patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
@@ -71,8 +71,10 @@ function plotKernels(fig, titleStr, header, kernels, kVars, kIntegrals, R, RVar,
   end
   axes(ax(1, 2));
   legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)}, 'location', 'southwest');
-
-
+  title(t, sprintf(['\\bf\\DeltaMean Kernels %s\\rm\n' ...
+        '\\fontsize{8}Increments: %d trials, %.0f%% correct; Decrements: %d trials %.0f%% correct'], ...
+        titleStr, nTrials(1, 2), nHits(1, 2) * 100.0 / nTrials(1, 2), ...
+        nTrials(1, 1), nHits(1, 1) * 100.0 / nTrials(1, 1)));
 end
 
 function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)

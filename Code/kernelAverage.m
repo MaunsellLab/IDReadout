@@ -105,7 +105,11 @@ for f = 1:length(matFiles)
   end
 
   % ---- Per-session kernel summaries (for plotting individual sessions only) ----
-  [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+  % [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+
+  compStats = struct;
+  [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+  [compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
 
   % ---- Grand-pooled accumulation (requires kStats) ----
   if haveGrandStats
@@ -123,7 +127,7 @@ for f = 1:length(matFiles)
   end
 
   [~, baseName, ~] = fileparts(header.fileName);
-  plotKernels(1, baseName, header, kernels, kVars, kIntegrals, R, RVar, nFileHits, nFileTrials);
+  plotKernels(1, baseName, header, kernels, kVars, compStats, nFileHits, nFileTrials);
   nSessions = nSessions + 1;
 end
 
@@ -145,14 +149,20 @@ for sideType = 1:5
 end
 
 % Integrals and ratios must describe the displayed averaged kernels
-[avgKInts, avgR, avgRVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
+% [avgKInts, avgR, avgRVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
+[compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
+[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(avgKernels, msPerVFrame);
 
 % SEM should be sqrt(variance), not variance itself
-avgRSEM = sqrt(avgRVar);
+for sideType = 1:5
+  for s = 1:2
+    compStats.RVar = sqrt(compStats.RVar);
+  end
+end
+% avgRSEM = sqrt(avgRVar);
 
 plotKernels(2, sprintf('%d Session Average (Diff-of-Means)', nSessions), ...
-  header, avgKernels, avgKVars, avgKInts, avgR, avgRSEM, ...
-  nHits, nTrials);
+  header, avgKernels, avgKVars, compStats, nHits, nTrials);
 
 % ---- Compute and display grand-pooled kernel (if possible) ----
 if ~haveGrandStats
@@ -201,7 +211,9 @@ for sideType = 1:5
   end
 end
 
-[grandKInts, grandR, grandRVar] = kernelIntegral(grandKernels, grandKVars, msPerVFrame);
+compStats = struct;
+[compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(grandKernels, grandKVars, msPerVFrame);
+[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
 
 % Grand counts for plotting: hits/trials by s (pref/probe share outcomes)
 grandTrials = zeros(5, 2);
@@ -214,8 +226,8 @@ for sideType = 1:5
   end
 end
 
-plotKernels(3, sprintf("Grand-Pooled (%d sessions)", nSessions), header, grandKernels, grandKVars, ...
-  grandKInts, grandR, grandRVar, grandHits, grandTrials);
+plotKernels(3, sprintf("Average (%d sessions)", nSessions), header, grandKernels, grandKVars, ...
+  compStats, grandHits, grandTrials);
 pdfFile = fullfile(summaryFolder, 'Summary Kernel.pdf');
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 fprintf('  Saved average kernel: %s\n', pdfFile);
