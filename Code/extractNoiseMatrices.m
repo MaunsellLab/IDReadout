@@ -1,4 +1,4 @@
-function [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trials, stepTypes, sideType)
+function [prefMat, probeMat, trialOutcomes, changeSides] = extractNoiseMatrices(header, trials, stepTypes, sideType)
 % extractNoiseMatrices  Compile coherence-noise evidence into matrices for kernel estimation.
 %
 %   [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trials, stepTypes, sideType)
@@ -34,6 +34,7 @@ end
 % ---- Find valid trials (certified, correct/wrong, requested step type, has noise) ----
 validIdx = [];
 trialOutcomes = [];
+changeSides = [];
 for k = 1:nTrials
     tr = trials{k};
     if ~isfield(tr, 'trialEnd') || ~isfield(tr, 'trialCertify') || ~isfield(tr, 'trial')
@@ -66,6 +67,7 @@ for k = 1:nTrials
 
     validIdx(end+1) = k;          %#ok<AGROW>
     trialOutcomes(end+1) = tEnd;  %#ok<AGROW>
+    changeSides(end+1) = tr.trial.data.changeSide;  %#ok<AGROW>
 end
 
 nValid = numel(validIdx);

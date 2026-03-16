@@ -90,9 +90,11 @@ function makeKernels(replace, path)
     % 5 x 2 x 2 kernel variance scalar (diff/c/nC/RF/Opp, inc/dec, pref/probe)
     kVars = nan(5, 2, 2);
     % 5 x 2 x 2 struct of sufficient statistics (diff/c/nC/RF/Opp, inc/dec, pref/probe)
-    kStats = repmat(struct('nCorrect',0,'nWrong',0,'sumCorrect',[],'sumWrong',[],'sigma2',nan), 5, 2, 2);    
+    kStats = repmat(struct('nCorrect',0, 'nWrong',0,'nContCorrect', 0, 'nContWrong', 0, ...
+        'sumCorrect',[],'sumWrong',[],'sigma2',nan), 5, 2, 2);    
     % 5 x 2 cell of trial outcome vectors (diff/c/nC/RF/Opp, inc/dec); pref & probe always same
     trialOutcomes = cell(5, 2);
+    changeSides = cell(5, 2);
     nHits   = nan(5, 2);
     nTrials = nan(5, 2);
 
@@ -104,9 +106,8 @@ function makeKernels(replace, path)
         ampScale = 1;
       end
       for s = 1:2                       % INC/Dec
-        [prefMat, probeMat, trialOutcomes{sideType, s}] = extractNoiseMatrices(header, trials, s, sideType);
-        % save (sprintf('Matrices%d', s), 'prefMat', 'probeMat', 'trialOutcomes');
-      
+        [prefMat, probeMat, trialOutcomes{sideType, s}, changeSides{sideType, s}] = ...
+                                                    extractNoiseMatrices(header, trials, s, sideType);      
         nTrials(sideType, s) = numel(trialOutcomes{sideType, s});
         nHits(sideType, s)   = nTrials(sideType, s) - sum(trialOutcomes{sideType, s});
       
@@ -114,13 +115,50 @@ function makeKernels(replace, path)
                   meanPsychKernel(prefMat,  trialOutcomes{sideType, s}, ampScale * prefCohNoisePC);
         [kernels(sideType, s, 2, :), kVars(sideType, s, 2), kStats(sideType, s, 2)] = ...
                   meanPsychKernel(probeMat, trialOutcomes{sideType, s}, ampScale * probeCohNoisePC);
+        % We save the number correct contingent on the side being
+        % processed. This is simply the nCorrect for change/noChange/diff.
+        % But for RF/Opp we want to know if performance was side biased
+        switch sideType
+          case {1,2,3}  % there is no contingent correct condition for these
+            kStats(sideType, s, 1).nContCorrect = kStats(sideType, s, 1).nCorrect;
+            kStats(sideType, s, 2).nContCorrect = kStats(sideType, s, 2).nCorrect;
+            kStats(sideType, s, 1).nContWrong = kStats(sideType, s, 1).nWrong;
+            kStats(sideType, s, 2).nContWrong = kStats(sideType, s, 2).nWrong;
+          case {4, 5}      % RF or Opp side correct count
+            outcomes = trialOutcomes{sideType, s};
+            cSides = changeSides{sideType, s};
+            contCorrect = cSides == sideType - 4 & outcomes == 0;
+            kStats(sideType, s, 1).nContCorrect = sum(contCorrect);
+            kStats(sideType, s, 2).nContCorrect = sum(contCorrect);
+            contWrong = cSides == sideType - 4 & outcomes ~= 0;
+            kStats(sideType, s, 1).nContWrong = sum(contWrong);
+            kStats(sideType, s, 2).nContWrong = sum(contWrong);
+
+            if sideType == 4
+              str = "RF: ";
+            else
+              str = "Opp: ";
+            end
+            fprintf('nContCorrect %d, nContWrong %d (%s%.0f%%)\n', ...
+                kStats(sideType, s, 1).nContCorrect, kStats(sideType, s, 1).nContWrong, str,...
+                kStats(sideType, s, 1).nContCorrect ...
+                / (kStats(sideType, s, 1).nContCorrect + kStats(sideType, s, 1).nContWrong) * 100);
+          otherwise
+                error('extractNoiseMatrices:BadSideType', 'Unknown sideType=%d.', sideType);
+        end
       end
     end
-    [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+    % [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+
+    compStats = struct;
+    [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
+    [compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
+
 
     % ---- Plot kernels ----
     % Use figure 1 (as before);
-    plotKernels(1, baseName, header, kernels, kVars, kIntegrals, R, RVar, nHits, nTrials);
+   plotKernels(1, baseName, header, kernels, kVars, compStats, nHits, nTrials);
+   % plotKernels(1, baseName, header, kernels, kVars, kIntegrals, R, RVar, nHits, nTrials);
     if ~exist(plotFolder, 'dir')  % Ensure plot directory exists (in case deleted it mid-run)
       mkdir(plotFolder);
     end
@@ -130,8 +168,8 @@ function makeKernels(replace, path)
     if ~exist(kernelFolder, 'dir')
       mkdir(kernelFolder);
     end
-    save(kernelFilePath, 'header', 'kernels', 'kVars', 'kStats', 'trialOutcomes', ...
-                         'kIntegrals', 'R', 'RVar', 'nHits', 'nTrials', '-v7.3');
+    save(kernelFilePath, 'header', 'kernels', 'kVars', 'kStats', 'trialOutcomes', 'changeSides', ...
+                         'compStats', 'nHits', 'nTrials', '-v7.3');
     fprintf('  Saved kernels: %s\n', kernelFilePath);
     fprintf('  Saved plot:    %s\n', plotFilePath);
   end

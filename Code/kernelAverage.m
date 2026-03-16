@@ -37,6 +37,12 @@ for f = 1:length(matFiles)
 
   S = load(dataFolder + fileName);   % load variables
   header = S.header;
+  % Skip the sessions where we ran with 5% noise.  No signal there and it
+  % distorts the SEM.
+  if header.prefNoiseCohPC.data ~= 10
+    fprintf('\nSkipping fileName -- prefNoiseCohPC is %.0f', header.prefNoiseCohPC.data);
+    continue;
+  end
   kernels = S.kernels;
   kVars = S.kVars;
   trialOutcomes = S.trialOutcomes;
@@ -148,8 +154,7 @@ for sideType = 1:5
   end
 end
 
-% Integrals and ratios must describe the displayed averaged kernels
-% [avgKInts, avgR, avgRVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
+% Integrals and ratios for the averaged kernels
 [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
 [compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(avgKernels, msPerVFrame);
 
@@ -159,10 +164,12 @@ for sideType = 1:5
     compStats.RVar = sqrt(compStats.RVar);
   end
 end
-% avgRSEM = sqrt(avgRVar);
 
-plotKernels(2, sprintf('%d Session Average (Diff-of-Means)', nSessions), ...
-  header, avgKernels, avgKVars, compStats, nHits, nTrials);
+plotKernels(2, sprintf('%d Session Average (Diff-of-Means)', nSessions), header, avgKernels, avgKVars, compStats, ...
+  nHits, nTrials);
+pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', ' Latest Session Average Kernel.pdf');
+exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
+fprintf('  Saved session average kernel: %s\n', pdfFile);
 
 % ---- Compute and display grand-pooled kernel (if possible) ----
 if ~haveGrandStats
@@ -213,7 +220,7 @@ end
 
 compStats = struct;
 [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(grandKernels, grandKVars, msPerVFrame);
-[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
+[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(grandKernels, msPerVFrame);
 
 % Grand counts for plotting: hits/trials by s (pref/probe share outcomes)
 grandTrials = zeros(5, 2);
@@ -226,11 +233,10 @@ for sideType = 1:5
   end
 end
 
-plotKernels(3, sprintf("Average (%d sessions)", nSessions), header, grandKernels, grandKVars, ...
+plotKernels(3, sprintf("Grand-Pooled Trial Average (%d sessions)", nSessions), header, grandKernels, grandKVars, ...
   compStats, grandHits, grandTrials);
-pdfFile = fullfile(summaryFolder, 'Summary Kernel.pdf');
-exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
-fprintf('  Saved average kernel: %s\n', pdfFile);
 
-% summarizeStrategyModels();
+pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', ' Latest Trial Average Kernel.pdf');
+exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
+fprintf('  Saved trials average kernel: %s\n', pdfFile);
 end

@@ -70,10 +70,13 @@ function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, nois
   % ---- Optional output for grand pooling ----
   if nargout > 2
     stats = struct();
-    stats.nCorrect   = nCorrect;
-    stats.nWrong     = nWrong;
-    stats.sumCorrect = sumCorrect;
-    stats.sumWrong   = sumWrong;
-    stats.sigma2     = sigma2;
+    stats.nCorrect      = nCorrect;
+    stats.nWrong        = nWrong;
+    stats.nContCorrect  = nCorrect;  %default number
+    stats.nContWrong    = nWrong;    %default number
+    stats.sumCorrect    = sumCorrect;
+    stats.sumWrong      = sumWrong;
+    stats.sigma2        = sigma2;
+
   end
 end
