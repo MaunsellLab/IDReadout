@@ -1,4 +1,4 @@
-function plotKernels(fig, titleStr, header, kernels, kVars, compStats, nHits, nTrials)
+function plotKernels(fig, titleStr, header, kernels, kVars, compStats, hitStats)
 % Make a separate tile for inc/dec kernels, superimposing both preferred and
 % probe kernel on each. 
 %
@@ -71,10 +71,15 @@ function plotKernels(fig, titleStr, header, kernels, kVars, compStats, nHits, nT
   end
   axes(ax(1, 2));
   legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)}, 'location', 'southwest');
-  title(t, sprintf(['\\bf\\DeltaMean Kernels %s\\rm\n' ...
-        '\\fontsize{8}Increments: %d trials, %.0f%% correct; Decrements: %d trials %.0f%% correct'], ...
-        titleStr, nTrials(1, 2), nHits(1, 2) * 100.0 / nTrials(1, 2), ...
-        nTrials(1, 1), nHits(1, 1) * 100.0 / nTrials(1, 1)));
+  strElement = {"Decrements", "Increments"};
+  for s = 1:2
+    subTitleStr{s} = sprintf('\\fontsize{8}%s: %d trials, %.0f%% correct, %d RF trials (%.1f%%), %.0f%% correct', ...
+        strElement{3 - s}, hitStats.nTrials(3 - s), hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
+        hitStats.nRFTrials(3 - s), hitStats.nRFTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
+        hitStats.nRFHits(3 - s) * 100.0 / hitStats.nRFTrials(3 - s)); %#ok<AGROW>
+  end
+  title(t, sprintf('\\bf\\DeltaMean Kernels %s\\rm\n%s;         %s', ...
+        underscoreToDash(titleStr), subTitleStr{1}, subTitleStr{2}));
 end
 
 function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)
@@ -96,3 +101,12 @@ function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)
   end
 end
 
+function outStr = underscoreToDash(inStr)
+    % Convert input to string if needed
+    if ischar(inStr)
+        inStr = string(inStr);
+    end
+
+    % Replace underscores with dashes
+    outStr = replace(inStr, "_", "-");
+end

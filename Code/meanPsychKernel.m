@@ -1,4 +1,4 @@
-function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, noiseAmpPC)
+function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, changeSide, noiseAmpPC)
 % meanPsychKernel  Compute a psychophysical kernel over time.
 %
 %   [kernel, kernelVar] = meanPsychKernel(cohMat, trialOutcome, noiseAmpPC)
@@ -70,13 +70,14 @@ function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, nois
   % ---- Optional output for grand pooling ----
   if nargout > 2
     stats = struct();
-    stats.nCorrect      = nCorrect;
-    stats.nWrong        = nWrong;
-    stats.nContCorrect  = nCorrect;  %default number
-    stats.nContWrong    = nWrong;    %default number
-    stats.sumCorrect    = sumCorrect;
-    stats.sumWrong      = sumWrong;
-    stats.sigma2        = sigma2;
+    idxRF   = (changeSide == 0);
+    stats.nRFCorrect  = sum(trialOutcome(idxRF) == 0);
+    stats.nRFWrong    = sum(trialOutcome(idxRF) ~= 0);
+    stats.nCorrect    = nCorrect;
+    stats.nWrong      = nWrong;
+    stats.sumCorrect  = sumCorrect;
+    stats.sumWrong    = sumWrong;
+    stats.sigma2      = sigma2;
 
   end
 end

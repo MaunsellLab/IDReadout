@@ -22,8 +22,9 @@ matFiles = dir(fullfile(dataFolder, '*.mat'));
 [firstPreStepMS] = integralWindowMS();
 initialized = false;
 
-% ---- Grand-pooled accumulators (require kStats saved by makeKernels) ----
-haveGrandStats = true;
+% ---- Grand-pooled accumulators ----
+avgHitStats = struct('nTrials', zeros(1,2), 'nHits', zeros(1,2), 'nRFTrials', zeros(1,2), 'nRFHits', zeros(1,2));    
+
 for f = 1:length(matFiles)
   fileName = matFiles(f).name;
   [~, baseName, ~] = fileparts(fileName);  % ignore path, take name
@@ -33,21 +34,21 @@ for f = 1:length(matFiles)
   if exist('excludedFiles', 'var') && ~isempty(excludedFiles) && ismember(baseName, excludedFiles)
     continue;
   end
-  fprintf("\nProcessing %s (%d of %d)\n", fileName, f, length(matFiles));
-
   S = load(dataFolder + fileName);   % load variables
   header = S.header;
   % Skip the sessions where we ran with 5% noise.  No signal there and it
   % distorts the SEM.
   if header.prefNoiseCohPC.data ~= 10
-    fprintf('\nSkipping fileName -- prefNoiseCohPC is %.0f', header.prefNoiseCohPC.data);
+    fprintf("Skipping   %s (%d of %d) -- prefNoiseCohPC is %.0f\n", ...
+      fileName, f, length(matFiles), header.prefNoiseCohPC.data);
     continue;
   end
+  fprintf("Processing %s (%d of %d)\n", fileName, f, length(matFiles));
+
   kernels = S.kernels;
   kVars = S.kVars;
-  trialOutcomes = S.trialOutcomes;
-  haveGrandStats = isfield(S, 'kStats');
-
+  compStats = S.compStats;
+  hitStats = S.hitStats;
   if ~initialized
     firstStepMS = header.stepMS.data(1);
     firstVFrames = size(kernels, 4);
@@ -89,9 +90,6 @@ for f = 1:length(matFiles)
   end
 
   % ---- Session-averaged accumulation (inverse-variance weighted kernels) ----
-  nFileHits = nan(5, 2);
-  nFileTrials = nan(5, 2);
-
   for sideType = 1:5
     for s = 1:2
       for p = 1:2
@@ -102,40 +100,32 @@ for f = 1:length(matFiles)
           sumWeights(sideType, s, p) = sumWeights(sideType, s, p) + w;
         end
       end
-  
-      nFileTrials(sideType, s) = numel(trialOutcomes{sideType, s});
-      nTrials(sideType, s) = nTrials(sideType, s) + nFileTrials(sideType, s);
-      nFileHits(sideType, s) = nFileTrials(sideType, s) - sum(trialOutcomes{sideType, s});
-      nHits(sideType, s) = nHits(sideType, s) + nFileHits(sideType, s);
     end
   end
 
-  % ---- Per-session kernel summaries (for plotting individual sessions only) ----
-  % [kIntegrals, R, RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
-
-  compStats = struct;
-  [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
-  [compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
-
-  % ---- Grand-pooled accumulation (requires kStats) ----
-  if haveGrandStats
-    kStats = S.kStats;
-    for sideType = 1:5
-      for s = 1:2
-        for p = 1:2
-          grandSumCorrect{sideType, s, p} = grandSumCorrect{sideType, s, p} + kStats(sideType, s, p).sumCorrect;
-          grandSumWrong{sideType, s, p}   = grandSumWrong{sideType, s, p}   + kStats(sideType, s, p).sumWrong;
-          grandNCorrect(sideType, s, p)   = grandNCorrect(sideType, s, p) + kStats(sideType, s, p).nCorrect;
-          grandNWrong(sideType, s, p)     = grandNWrong(sideType, s, p)   + kStats(sideType, s, p).nWrong;
-        end
+  % ---- Grand-pooled accumulation ----
+  kStats = S.kStats;
+  for sideType = 1:5
+    for s = 1:2
+      for p = 1:2
+        grandSumCorrect{sideType, s, p} = grandSumCorrect{sideType, s, p} + kStats(sideType, s, p).sumCorrect;
+        grandSumWrong{sideType, s, p}   = grandSumWrong{sideType, s, p}   + kStats(sideType, s, p).sumWrong;
+        grandNCorrect(sideType, s, p)   = grandNCorrect(sideType, s, p) + kStats(sideType, s, p).nCorrect;
+        grandNWrong(sideType, s, p)     = grandNWrong(sideType, s, p)   + kStats(sideType, s, p).nWrong;
       end
     end
   end
-
+  for s = 1:2
+    avgHitStats.nTrials(s) = avgHitStats.nTrials(s) + hitStats.nTrials(s);
+    avgHitStats.nHits(s) = avgHitStats.nHits(s) + hitStats.nHits(s);
+    avgHitStats.nRFTrials(s) = avgHitStats.nRFTrials(s) + hitStats.nRFTrials(s);
+    avgHitStats.nRFHits(s) = avgHitStats.nRFHits(s) + hitStats.nRFHits(s);
+  end
+  % plot this session's kernels
   [~, baseName, ~] = fileparts(header.fileName);
-  plotKernels(1, baseName, header, kernels, kVars, compStats, nFileHits, nFileTrials);
+  plotKernels(1, baseName, header, kernels, kVars, compStats, hitStats);
   nSessions = nSessions + 1;
-end
+end % end of file loop
 
 % ---- Compute and display session-average from weighted-average kernels ----
 avgKVars = nan(5, 2, 2);
@@ -155,32 +145,25 @@ for sideType = 1:5
 end
 
 % Integrals and ratios for the averaged kernels
-[compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
-[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(avgKernels, msPerVFrame);
+avgCompStats = struct;
+[avgCompStats.kIntegrals, avgCompStats.R, avgCompStats.RVar] = kernelIntegral(avgKernels, avgKVars, msPerVFrame);
+[avgCompStats.scale, avgCompStats.scaleSEM, avgCompStats.fitR2, avgCompStats.sse] = ...
+                kernelScaleFit(avgKernels, msPerVFrame);
 
 % SEM should be sqrt(variance), not variance itself
 for sideType = 1:5
   for s = 1:2
-    compStats.RVar = sqrt(compStats.RVar);
+    avgCompStats.RVar = sqrt(avgCompStats.RVar);
   end
 end
 
-plotKernels(2, sprintf('%d Session Average (Diff-of-Means)', nSessions), header, avgKernels, avgKVars, compStats, ...
-  nHits, nTrials);
+plotKernels(2, sprintf('%d Session Average (Diff-of-Means)', nSessions), header, avgKernels, avgKVars, ...
+  avgCompStats, avgHitStats);
 pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', ' Latest Session Average Kernel.pdf');
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
-fprintf('  Saved session average kernel: %s\n', pdfFile);
+fprintf(' Saved session average kernel: %s\n', pdfFile);
 
-% ---- Compute and display grand-pooled kernel (if possible) ----
-if ~haveGrandStats
-  fprintf("\nNOTE: Grand-pooled kernels not computed because kStats was not found in one or more kernel files.\n");
-  fprintf("      Re-run makeKernels after updating it to save kStats.\n\n");
-  return;
-end
-
-grandKernels = nan(5, 2, 2, firstVFrames);
-grandKVars   = nan(5, 2, 2);
-
+% ---- Compute and display grand-pooled kernel ----
 % Grand-pooled variance uses sigma^2 from the stimulus noise distribution.
 % makeKernels/meanPsychKernel now saves stats.sigma2 for each (s,p).
 sigma2Hat = nan(5, 2, 2);
@@ -198,6 +181,8 @@ if isfield(S, 'kStats') && isstruct(S.kStats)
   end
 end
 
+grandKernels = nan(5, 2, 2, firstVFrames);
+grandKVars   = nan(5, 2, 2);
 for sideType = 1:5
   for s = 1:2
     for p = 1:2
@@ -206,8 +191,7 @@ for sideType = 1:5
       if nC > 0 && nW > 0
         meanC = grandSumCorrect{sideType, s, p} ./ nC;
         meanW = grandSumWrong{sideType, s, p}   ./ nW;
-        grandKernels(sideType, s, p, :) = meanC - meanW;
-  
+        grandKernels(sideType, s, p, :) = meanC - meanW;  
         if ~isnan(sigma2Hat(sideType, s, p))
           grandKVars(sideType, s, p) = sigma2Hat(sideType, s, p) * (1/nC + 1/nW);
         else
@@ -218,25 +202,15 @@ for sideType = 1:5
   end
 end
 
+% Compute the integrals and regression scaling for the grand kernels
 compStats = struct;
 [compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(grandKernels, grandKVars, msPerVFrame);
 [compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(grandKernels, msPerVFrame);
 
-% Grand counts for plotting: hits/trials by s (pref/probe share outcomes)
-grandTrials = zeros(5, 2);
-grandHits   = zeros(5, 2);
-for sideType = 1:5
-  for s = 1:2
-    % Use pref channel counts (p=1) as representative (same trials)
-    grandTrials(sideType, s) = grandNCorrect(sideType, s, 1) + grandNWrong(sideType, s, 1);
-    grandHits(sideType, s)   = grandNCorrect(sideType, s, 1);
-  end
-end
-
 plotKernels(3, sprintf("Grand-Pooled Trial Average (%d sessions)", nSessions), header, grandKernels, grandKVars, ...
-  compStats, grandHits, grandTrials);
+  compStats, avgHitStats);
 
 pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', ' Latest Trial Average Kernel.pdf');
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
-fprintf('  Saved trials average kernel: %s\n', pdfFile);
+fprintf(' Saved trials average kernel: %s\n', pdfFile);
 end
