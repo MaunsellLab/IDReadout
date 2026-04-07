@@ -2,7 +2,6 @@ function dailyUpdate()
 
 convertIDRData();
 makeKernels();
-makeStrategyModels();
-kernelAverage();
+kernelAverage([], 1000);
 
 end

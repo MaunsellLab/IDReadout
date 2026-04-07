@@ -1,4 +1,5 @@
-function [prefMat, probeMat, trialOutcomes, changeSides] = extractNoiseMatrices(header, trials, stepTypes, sideType)
+function [prefMat, probeMat, trialOutcomes, changeSides, changeIndices] = ...
+  extractNoiseMatrices(header, trials, stepTypes, sideType)
 % extractNoiseMatrices  Compile coherence-noise evidence into matrices for kernel estimation.
 %
 %   [prefMat, probeMat, trialOutcomes] = extractNoiseMatrices(header, trials, stepTypes, sideType)
@@ -35,6 +36,7 @@ end
 validIdx = [];
 trialOutcomes = [];
 changeSides = [];
+changeIndices = [];
 for k = 1:nTrials
     tr = trials{k};
     if ~isfield(tr, 'trialEnd') || ~isfield(tr, 'trialCertify') || ~isfield(tr, 'trial')
@@ -51,23 +53,24 @@ for k = 1:nTrials
     % Require at least one non-zero noise sample on the streams we need.
     hasChangeNoise   = ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)));
     hasNoChangeNoise = ~(isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
-    switch sideType
-        case 1  % difference needs both
-            hasNoise = hasChangeNoise || hasNoChangeNoise;
-        case {2,4,5} % these rely on change patch if it is the selected patch on this trial, else noChange patch
-            hasNoise = hasChangeNoise || hasNoChangeNoise;
-        case 3
-            hasNoise = hasNoChangeNoise;
-        otherwise
-            error('extractNoiseMatrices:BadSideType', 'Unknown sideType=%d.', sideType);
+    % switch sideType
+    %     case 1  % difference needs both
+    %         hasNoise = hasChangeNoise || hasNoChangeNoise;
+    %     case {2,4,5} % these rely on change patch if it is the selected patch on this trial, else noChange patch
+    %         hasNoise = hasChangeNoise || hasNoChangeNoise;
+    %     case 3
+    %         hasNoise = hasNoChangeNoise;
+    %     otherwise
+    %         error('extractNoiseMatrices:BadSideType', 'Unknown sideType=%d.', sideType);
+    % end
+    % if ~hasNoise
+    if ~hasChangeNoise && ~hasNoChangeNoise
+      continue;
     end
-    if ~hasNoise
-        continue;
-    end
-
     validIdx(end+1) = k;          %#ok<AGROW>
     trialOutcomes(end+1) = tEnd;  %#ok<AGROW>
     changeSides(end+1) = tr.trial.data.changeSide;  %#ok<AGROW>
+    changeIndices(end+1) = tr.trial.data.changeIndex;  %#ok<AGROW>
 end
 
 nValid = numel(validIdx);
@@ -83,49 +86,49 @@ probeMat = nan(m, nValid);
 
 % ---- Extract evidence ----
 for kk = 1:nValid
-    tr = trials{validIdx(kk)};
+  tr = trials{validIdx(kk)};
 
-    % Build matrices for each patch, aligned by that patch's own timestamps.
-    prefChange    = fillFromTimes(tr.changePrefCohsPC.data(:),    tr.changeTimesMS.data(:),    m, msPerVFrame);
-    probeChange   = fillFromTimes(tr.changeProbeCohsPC.data(:),   tr.changeTimesMS.data(:),    m, msPerVFrame);
-    prefNoChange  = fillFromTimes(tr.noChangePrefCohsPC.data(:),  tr.noChangeTimesMS.data(:),  m, msPerVFrame);
-    probeNoChange = fillFromTimes(tr.noChangeProbeCohsPC.data(:), tr.noChangeTimesMS.data(:),  m, msPerVFrame);
+  % Build matrices for each patch, aligned by that patch's own timestamps.
+  prefChange    = fillFromTimes(tr.changePrefCohsPC.data(:),    tr.changeTimesMS.data(:),    m, msPerVFrame);
+  probeChange   = fillFromTimes(tr.changeProbeCohsPC.data(:),   tr.changeTimesMS.data(:),    m, msPerVFrame);
+  prefNoChange  = fillFromTimes(tr.noChangePrefCohsPC.data(:),  tr.noChangeTimesMS.data(:),  m, msPerVFrame);
+  probeNoChange = fillFromTimes(tr.noChangeProbeCohsPC.data(:), tr.noChangeTimesMS.data(:),  m, msPerVFrame);
 
-    switch sideType
-        case 1  % difference evidence
-            prefMat(:, kk)  = prefChange    - prefNoChange;
-            probeMat(:, kk) = probeChange   - probeNoChange;
+  switch sideType
+    case 1  % difference evidence
+      prefMat(:, kk)  = prefChange    - prefNoChange;
+      probeMat(:, kk) = probeChange   - probeNoChange;
 
-        case 2  % change patch only (legacy behavior)
-            prefMat(:, kk)  = prefChange;
-            probeMat(:, kk) = probeChange;
+    case 2  % change patch only (legacy behavior)
+      prefMat(:, kk)  = prefChange;
+      probeMat(:, kk) = probeChange;
 
-        case 3  % noChange patch only
-            prefMat(:, kk)  = prefNoChange;
-            probeMat(:, kk) = probeNoChange;
+    case 3  % noChange patch only
+      prefMat(:, kk)  = prefNoChange;
+      probeMat(:, kk) = probeNoChange;
 
-        case 4  % RF patch only
-            if tr.trial.data.changeSide == 0
-                % RF is the change patch on this trial
-                prefMat(:, kk)  = prefChange;
-                probeMat(:, kk) = probeChange;
-            else
-                % RF is the noChange patch on this trial
-                prefMat(:, kk)  = prefNoChange;
-                probeMat(:, kk) = probeNoChange;
-            end
+    case 4  % RF patch only
+      if tr.trial.data.changeSide == 0
+        % RF is the change patch on this trial
+        prefMat(:, kk)  = prefChange;
+        probeMat(:, kk) = probeChange;
+      else
+        % RF is the noChange patch on this trial
+        prefMat(:, kk)  = prefNoChange;
+        probeMat(:, kk) = probeNoChange;
+      end
 
-        case 5  % opposite patch only
-            if tr.trial.data.changeSide == 1
-                % opposite patch is the change patch on this trial
-                prefMat(:, kk)  = prefChange;
-                probeMat(:, kk) = probeChange;
-            else
-                % opposite patch is the noChange patch on this trial
-                prefMat(:, kk)  = prefNoChange;
-                probeMat(:, kk) = probeNoChange;
-            end
-    end
+    case 5  % opposite patch only
+      if tr.trial.data.changeSide == 1
+        % opposite patch is the change patch on this trial
+        prefMat(:, kk)  = prefChange;
+        probeMat(:, kk) = probeChange;
+      else
+        % opposite patch is the noChange patch on this trial
+        prefMat(:, kk)  = prefNoChange;
+        probeMat(:, kk) = probeNoChange;
+      end
+  end
 end
 end
 

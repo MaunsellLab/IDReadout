@@ -1,4 +1,4 @@
-function convertIDRData(singleFile)
+function convertIDRData()
 % convertIDRData  Convert Lablib .dat files to .mat format if needed.
 %   convertIDRData() uses the default dataFolder.
 %   convertIDRData(dataFolder) uses the specified folder.
@@ -7,19 +7,23 @@ function convertIDRData(singleFile)
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
 
-specifier = "Data";               % default to a list from the Data folder
-if nargin > 0
-  specifier = specifier + '/' + singleFile;
-end
-[names, paths] = getMatFileList(specifier, "dat");
+  % specifier = folderPath() + "/DatFiles";               % default to a list from the Data folder
+  % if nargin > 0
+  %   specifier = specifier + '/' + singleFile;
+  % end
+  path = char(folderPath());
+  convertedFolder = fullfile(path, 'Data', 'Converted');
+  dataFolder   = fullfile(path, 'Data', 'DatFiles');
+  [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
   
   % Convert any unconverted .dat files
   for fi = 1:numel(paths)
     datPath = string(paths(fi));
     datName = string(names(fi));
-    [filePath, baseName] = fileparts(datPath);
-    infoFileName = sprintf('%s/%s_fileInfo.mat', filePath, baseName); % Expected .mat headerfile name for this .dat file
-    outFileName = sprintf('%s/%s.mat', filePath, baseName);           % Expected .mat data file name for this .dat file
+    [~, baseName] = fileparts(datPath);
+    tempInfoFileName = sprintf('%s/%s_fileInfo.mat', dataFolder, baseName);
+    infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % Expected .mat headerfile name for this .dat file
+    outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % Expected .mat data file name for this .dat file
     if isfile(infoFileName) && isfile(outFileName)                    % Skip if *_fileInfo.mat already exists
       fprintf('convertIDRData: Skipping %s (output exists)\n', datName);
       continue;
@@ -28,13 +32,9 @@ end
       delete(infoFileName);
     end
   
-    % Only proceed if the .dat file itself is present (paranoid check)
-    if ~isfile(datPath)
-      fprintf('Warning: %s not found, skipping.\n', datName);
-      continue;
-    end
-    fprintf('Reading %s', datName);
+    fprintf('Reading %s\n', datName);
     header = readLLFile('i', datPath);
+    movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
     nTrials = header.numberOfTrials;
     trials  = cell(1, nTrials);
     for t = 1:nTrials
@@ -50,7 +50,7 @@ end
 
     % Save header and trials; use -v7.3 if these can get large
     save(outFileName, 'trials', 'header');
-    fprintf('Converted %s → %s & %s\n', datPath, infoFileName, outFileName);
+    fprintf('Converted %s.dat → %s.mat & %s_fileInfo.mat\n', baseName, baseName, baseName);
   end
 end
 
@@ -66,7 +66,6 @@ function trials = correctIndices(header, trials)
 
 d = datetime(strtrim(string(header.date)), 'InputFormat', 'MMMM d, yyyy');
 if d < datetime(2026, 2, 13) || d > datetime(2026, 3, 12)
-    fprintf('Data from %s. No trial-shift error correction required.\n', header.date);
     return;
 else
   fprintf('Data from %s. Correcting trial-shift error.\n', header.date);

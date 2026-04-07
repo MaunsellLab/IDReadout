@@ -19,7 +19,7 @@ function [names, paths] = getMatFileList(target, extension)
     wildcardExtension = sprintf('*.%s', extension);
   end
 
-    validSubfolders = {'Data','Kernels','Models','Plots','Summaries'};
+    validSubfolders = {'Data/DatFiles','Plots'};
     rootFolder = folderPath();
 
     if isstring(target)
