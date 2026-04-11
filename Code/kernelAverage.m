@@ -94,8 +94,8 @@ for f = 1:length(matFiles)
   sessionHeaders{end+1}   = header; %#ok<AGROW>
 
   % Plot this session's kernels
-  [~, sessBaseName, ~] = fileparts(header.fileName);
-  plotKernels(1, sessBaseName, header, kernels, kVars, compStats, hitStats);
+  % [~, sessBaseName, ~] = fileparts(header.fileName);
+  % plotKernels(1, sessBaseName, header, kernels, kVars, compStats, hitStats);
 
   nSessions = nSessions + 1;
 end

@@ -36,18 +36,19 @@ function staleProbeDirs = makeKernels(replace, path)
   dataFolder   = fullfile(path, 'Data', 'Converted');
   kernelFolder = fullfile(path, 'Data', 'Kernels');
   matrixFolder = fullfile(path, 'Data', 'NoiseMatrices');
-  plotFolder   = fullfile(path, 'Plots', 'Kernels');
+  plotRoot = fullfile(path, 'Plots', 'Kernels');
+
+  if ~exist(plotRoot, 'dir')
+    mkdir(plotRoot);
+  end
   if ~exist(dataFolder, 'dir')
-    error('makeKernels: MissingConvertedFolder', 'Converted data folder not found: %s', dataFolder);
+    error('makeKernels: MissingConvertedFolder -- Converted data folder not found: %s', dataFolder);
   end
   if ~exist(kernelFolder, 'dir')
     mkdir(kernelFolder);
   end
   if ~exist(matrixFolder, 'dir')
     mkdir(matrixFolder);
-  end
-  if ~exist(plotFolder, 'dir')
-    mkdir(plotFolder);
   end
 
   % ---- Find all relevant .mat data files ----
@@ -72,15 +73,25 @@ function staleProbeDirs = makeKernels(replace, path)
     dataFilePath = fullfile(dataFolder, dataFileName);
     [~, baseName] = fileparts(dataFileName);
 
+
     % fprintf('Checking %s ...\n', dataFileName);
 
     % ---- Load header first so probeDirDeg is available for validation and naming ----
+
     S = load(dataFilePath, 'header');
     header = S.header;
     probeDirDeg = header.probeDirDeg.data;
     probeTag = sprintf('probe%d', round(probeDirDeg));
+    % kernelFilePath = fullfile(kernelFolder, [baseName '.mat']);
+    % matrixFilePath = fullfile(matrixFolder, [baseName '.mat']);
+    probePlotFolder = fullfile(plotRoot, probeTag);
+    if ~exist(probePlotFolder, 'dir')
+      mkdir(probePlotFolder);
+    end
+    plotFilePath = fullfile(probePlotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
 
-    plotFilePath   = fullfile(plotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
+
+    % plotFilePath   = fullfile(plotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
     if ~replace && isfile(plotFilePath)
       % fprintf('Skipping %s (output exists)\n', dataFileName);
       numSkipped = numSkipped + 1;
@@ -139,9 +150,10 @@ function staleProbeDirs = makeKernels(replace, path)
     % ---- Mark this probe direction as stale only after successful write ----
     staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
   end
-
+  
   if numSkipped > 0
     fprintf(' makeKernels: Skipped %d previously processed files.\n', numSkipped);
+  end
   staleProbeDirs = unique(staleProbeDirs);
 
 end

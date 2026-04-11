@@ -5,7 +5,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
 %       Runs with defaults:
 %         replace     = false
 %         doBootstrap = false
-%         nBoot       = 1000
+%         nBoot       = 100
 %         path        = folderPath()
 %
 %   dailyUpdate(replace, doBootstrap, nBoot, path)
@@ -36,7 +36,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
     doBootstrap = false;
   end
   if nargin < 3 || isempty(nBoot)
-    nBoot = 1000;
+    nBoot = 100;
   end
   if nargin < 4 || isempty(path)
     path = folderPath();
@@ -49,12 +49,14 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
   % ---- Session-level update ----
   staleProbeDirs = makeKernels(replace, path);
 
-  if isempty(staleProbeDirs)
+  if isempty(staleProbeDirs) && ~doBootstrap
     fprintf(' No session-level updates detected.\n');
     fprintf(' Skipping per-probe averages.\n');
   else
+    if doBootstrap
+      staleProbeDirs = [45, 180];
+    end
     fprintf('Refreshing probe averages for: %s\n', mat2str(staleProbeDirs));
-
     for p = staleProbeDirs(:).'
       fprintf(' Updating average for probe %g\n', p);
       kernelAverageByProbe(path, p, doBootstrap, nBoot);

@@ -60,7 +60,6 @@ for f = 1:length(matFiles)
   if endsWith(fileName, '_fileInfo.mat')
     continue;
   end
-
   sessionData = load(fullfile(dataFolder, fileName));
   header = sessionData.header;
 
@@ -70,31 +69,13 @@ for f = 1:length(matFiles)
   end
 
   % Probe-direction filter
-  if ~isfield(header, 'probeDirDeg') || isempty(header.probeDirDeg)
-    error('kernelAverageByProbe:MissingProbeDir', ...
-          'Missing header.probeDirDeg in %s', fileName);
-  end
   thisProbeDirDeg = header.probeDirDeg.data;
-  if ~isscalar(thisProbeDirDeg) || ~isnumeric(thisProbeDirDeg)
-    error('kernelAverageByProbe:BadProbeDir', ...
-          'Invalid header.probeDirDeg in %s', fileName);
-  end
   if thisProbeDirDeg ~= probeDirDeg
     continue;
   end
-
-  % Skip sessions with 5%% pref noise
-  if header.prefNoiseCohPC.data ~= 10
-    fprintf("Skipping   %s (%d of %d) -- prefNoiseCohPC is %.0f\n", ...
-            fileName, f, length(matFiles), header.prefNoiseCohPC.data);
-    continue;
-  end
-
-  fprintf("Processing %s (%d of %d) [probe %d]\n", ...
-          fileName, f, length(matFiles), probeDirDeg);
+  fprintf("Processing %s (%d of %d) [probe %d]\n", fileName, f, length(matFiles), probeDirDeg);
 
   [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
-
   if ~initialized
     firstStepMS   = header.stepMS.data(1);
     firstVFrames  = size(kernels, 4);
@@ -211,11 +192,14 @@ plotKernels(2, sprintf('%d Session Average (Probe %d%c)', ...
   nSessions, probeDirDeg, char(176)), ...
   header, avgKernels, avgKVars, avgCompStats, avgHitStats);
 
-plotDir = fullfile(baseFolder, 'Plots', 'Kernels');
+plotRoot = fullfile(baseFolder, 'Plots', 'Kernels');
+if ~exist(plotRoot, 'dir')
+  mkdir(plotRoot);
+end
+plotDir = fullfile(plotRoot, tag);
 if ~exist(plotDir, 'dir')
   mkdir(plotDir);
 end
-
 pdfFile = fullfile(plotDir, sprintf('Latest Session Average Kernel_%s.pdf', tag));
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 fprintf(' Saved session average kernel: %s\n', pdfFile);
