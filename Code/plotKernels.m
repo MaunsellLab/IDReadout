@@ -1,4 +1,10 @@
-function plotKernels(fig, titleStr, header, kernels, kVars, compStats, hitStats)
+function plotKernels(fig, titleStr, header, kernels, kVars, compStats, hitStats, probeDirDeg)
+% Make a separate tile for inc/dec kernels, superimposing both preferred and
+% probe kernel on each.
+
+if nargin < 8
+    probeDirDeg = [];
+end
 % Make a separate tile for inc/dec kernels, superimposing both preferred and
 % probe kernel on each.
 %
@@ -16,7 +22,7 @@ function plotKernels(fig, titleStr, header, kernels, kVars, compStats, hitStats)
 %
 frameRateHz = header.frameRateHz.data;
 stepMS = header.stepMS.data(1);
-probeDirDeg = header.probeDirDeg.data(1);
+% probeDirDeg = getProbeDirDeg();
 msPerVFrame = 1000.0 / frameRateHz;
 [preStepMS, intStartMS, intDurMS] = integralWindowMS();
 intStartVF = round((preStepMS + intStartMS) / msPerVFrame);
@@ -25,15 +31,14 @@ trialDurMS = preStepMS + stepMS;
 m = round(trialDurMS / msPerVFrame);
 preStepVF = preStepMS / msPerVFrame;
 plotTitles = {"Decrements", "Increments"};
-% typeTitles = {"(Change RDK - No Change RDK)", "Change RDK", "No Change RDK", "RF RDK ", "Opp RDK"};
-nSideTypes = size(kernels, 1);
 
+% nSideTypes = size(kernels, 1);
+nSideTypes = 5;   % don't plot the RF/Opp kernels
 typeTitles = { ...
   '(Change RDK - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', 'RF RDK', 'Opp RDK'};
 
 figure(fig);
 clf;
-
 t = tiledlayout(nSideTypes, 2);
 ax = nan(nSideTypes, 2);
 overallYMax = 0;
@@ -44,20 +49,6 @@ probeLine = zeros(1, 2);
 for sideType = 1:nSideTypes
   for s = 1:2
     ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
-    %
-    %     ...
-    %
-    % title(sprintf("Coherence %s: %s", plotTitles{s}, typeTitles{sideType}));
-
-
-
-    % figure(fig);
-    % clf;
-    % t = tiledlayout(5, 2);
-    % ax = nan(5, 2);
-    % for sideType = 1:5
-    %   for s = 1:2                           % for each coherence step direction (inc/dec)
-    % ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
     xValues = 1:size(kernels, 4);
     hold on;
     [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 1, :)), ...
@@ -86,15 +77,8 @@ for sideType = 1:nSideTypes
         compStats.kIntegrals(sideType, s, 2) / compStats.kIntegrals(sideType, s, 1), ...
         compStats.scale(sideType, s));
     end
-
     text(0.02, 0.98, textStr, 'units', 'normalized', ...
       'VerticalAlignment', 'top', 'fontSize', 9);
-
-
-    % text(0.02, 0.98, sprintf("Integrals: 0°: %.2f%%, ±%d°: %.2f%%\n\\fontsize{6}(integral: %.2f scale = %.2f)", ...
-    %     compStats.kIntegrals(sideType, s, 1), probeDirDeg, compStats.kIntegrals(sideType, s, 2), ...
-    %     compStats.kIntegrals(sideType, s, 2) / compStats.kIntegrals(sideType, s, 1), ...
-    %     compStats.scale(sideType, s)), 'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 9);
   end
   yl1 = ylim(ax(sideType, 1));
   yl2 = ylim(ax(sideType, 2));
@@ -118,41 +102,45 @@ legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)
 strElement = {"Decrements", "Increments"};
 for s = 1:2
   subTitleStr{s} = sprintf('\\fontsize{8}%s: %d trials, %.0f%% correct, %d Left trials (%.1f%%), %.0f%% correct', ...
-      strElement{3 - s}, hitStats.nTrials(3 - s), ...
-      hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
-      hitStats.nLeftTrials(3 - s), ...
-      hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
-      hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s)); %#ok<AGROW>
+    strElement{3 - s}, hitStats.nTrials(3 - s), ...
+    hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
+    hitStats.nLeftTrials(3 - s), ...
+    hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
+    hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s)); %#ok<AGROW>
 end
-title(t, sprintf('\\bf\\DeltaMean Kernels %s\\rm\n%s;         %s', ...
-  underscoreToDash(titleStr), subTitleStr{1}, subTitleStr{2}));
+if ~isempty(probeDirDeg)
+  probeStr = sprintf(' (Probe %d°)', probeDirDeg);
+else
+  probeStr = '';
+end
+title(t, sprintf('\\bf\\DeltaMean Kernels %s%s\\rm\n%s;         %s', ...
+  underscoreToDash(titleStr), probeStr, subTitleStr{1}, subTitleStr{2}));
 end
 
+%-- plotWithConstSEM() --
 function [hPatch, hLine] = plotWithConstSEM(x, y, sem, faceColor)
-
-holdState = ishold;
-hold on;
-yUpper = y + sem;
-yLower = y - sem;
-xPatch = [x(:)', fliplr(x(:)')];
-yPatch = [yUpper(:)', fliplr(yLower(:)')];
-faceAlpha = 0.35;
-hPatch = patch(xPatch, yPatch, [0.7 0.7 0.7], 'faceColor', faceColor, 'FaceAlpha', faceAlpha, ...
-  'EdgeColor', 'none');
-hLine = plot(x, y, '-' , 'color', faceColor, 'lineWidth', 1.5);
-uistack(hLine, 'top');
-
-if ~holdState
-  hold off;
+  holdState = ishold;
+  hold on;
+  yUpper = y + sem;
+  yLower = y - sem;
+  xPatch = [x(:)', fliplr(x(:)')];
+  yPatch = [yUpper(:)', fliplr(yLower(:)')];
+  faceAlpha = 0.35;
+  hPatch = patch(xPatch, yPatch, [0.7 0.7 0.7], 'faceColor', faceColor, 'FaceAlpha', faceAlpha, ...
+    'EdgeColor', 'none');
+  hLine = plot(x, y, '-' , 'color', faceColor, 'lineWidth', 1.5);
+  uistack(hLine, 'top');
+  
+  if ~holdState
+    hold off;
+  end
 end
-end
 
+%-- underscoreToDash() --
 function outStr = underscoreToDash(inStr)
-% Convert input to string if needed
+% Replace underscores with dashes
 if ischar(inStr)
   inStr = string(inStr);
 end
-
-% Replace underscores with dashes
 outStr = replace(inStr, "_", "-");
 end

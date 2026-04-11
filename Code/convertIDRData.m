@@ -17,6 +17,7 @@ function convertIDRData()
   [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
   
   % Convert any unconverted .dat files
+  numSkipped = 0;
   for fi = 1:numel(paths)
     datPath = string(paths(fi));
     datName = string(names(fi));
@@ -25,7 +26,8 @@ function convertIDRData()
     infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % Expected .mat headerfile name for this .dat file
     outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % Expected .mat data file name for this .dat file
     if isfile(infoFileName) && isfile(outFileName)                    % Skip if *_fileInfo.mat already exists
-      fprintf('convertIDRData: Skipping %s (output exists)\n', datName);
+      % fprintf('convertIDRData: Skipping %s (output exists)\n', datName);
+      numSkipped = numSkipped + 1;
       continue;
     end
     if isfile(infoFileName) && ~isfile(outFileName)                   % Skip only *_fileInfo.mat exists, re-read
@@ -37,20 +39,24 @@ function convertIDRData()
     movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
     nTrials = header.numberOfTrials;
     trials  = cell(1, nTrials);
+    fprintf('Converting %s\n', datName);
     for t = 1:nTrials
       trials{t} = readLLFile('t', t);   
       if t == nTrials || mod(t, 500) == 0                            % Occasionally update the waitbar text
         fprintf('Reading %s: Trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
       end
     end
-    fprintf('Saving %s', outFileName);
 
     % correct indexing errors that existed in earlier version of IDR
     trials = correctIndices(header, trials);
 
     % Save header and trials; use -v7.3 if these can get large
+    fprintf('Saving %s', outFileName);
     save(outFileName, 'trials', 'header');
-    fprintf('Converted %s.dat → %s.mat & %s_fileInfo.mat\n', baseName, baseName, baseName);
+    % fprintf('Converted %s.dat → %s.mat & %s_fileInfo.mat\n', baseName, baseName, baseName);
+  end
+  if numSkipped > 0
+    fprintf(' convertIDRData: Skipped %d previously converted files\n', numSkipped);
   end
 end
 
