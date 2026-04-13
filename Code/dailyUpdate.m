@@ -66,12 +66,9 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
   % ---- Across-offset summary update ----
   % Keep this call unconditional if you want cross-offset summaries to stay
   % synchronized with any existing per-probe summary files.
-  if exist('updateAcrossOffsetSummaries', 'file') == 2
-    fprintf(' Updating across-offset summaries. (stub)\n');
-    updateAcrossOffsetSummaries();
-  else
-    fprintf('updateAcrossOffsetSummaries.m not found; skipping.\n');
-  end
+  fprintf(' Updating across-offset summaries\n');
+  acrossOffsetSummary = updateAcrossOffsetSummaries('/Users/Shared/Data/IDReadout/Data/KernelSummaries', ...
+        'NBoot', 10, 'MakePlots', false, 'ScaleSideType', 'change', 'ScaleStepType', 'inc'); 
 
   fprintf('--- Daily update complete ---\n');
 

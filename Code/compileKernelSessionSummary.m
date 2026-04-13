@@ -196,62 +196,6 @@ save(summaryFile, 'summary');
 end
 
 
-% function [prefCohNoisePC, probeCohNoisePC] = localGetNoiseAmplitudes(header)
-% % Try likely locations for stored noise amplitudes.
-% % Adjust here if your header uses different field names.
-% 
-% prefCohNoisePC = NaN;
-% probeCohNoisePC = NaN;
-% 
-% candidateParents = {'blockStatus', 'status', ''};
-% prefNames  = {'prefCohNoisePC', 'prefNoisePC', 'prefNoise'};
-% probeNames = {'probeCohNoisePC', 'probeNoisePC', 'probeNoise'};
-% 
-% for i = 1:numel(candidateParents)
-%   parentName = candidateParents{i};
-% 
-%   if isempty(parentName)
-%     H = header;
-%   elseif isfield(header, parentName)
-%     H = header.(parentName);
-%   else
-%     continue
-%   end
-% 
-%   for j = 1:numel(prefNames)
-%     if isfield(H, prefNames{j})
-%       prefCohNoisePC = localExtractDataField(H.(prefNames{j}));
-%       break
-%     end
-%   end
-% 
-%   for j = 1:numel(probeNames)
-%     if isfield(H, probeNames{j})
-%       probeCohNoisePC = localExtractDataField(H.(probeNames{j}));
-%       break
-%     end
-%   end
-% 
-%   if isfinite(prefCohNoisePC) && isfinite(probeCohNoisePC)
-%     return
-%   end
-% end
-% 
-% if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC)
-%   error('Could not find pref/probe noise amplitudes in header.');
-% end
-% end
-
-
-function val = localExtractDataField(x)
-if isstruct(x) && isfield(x, 'data')
-  val = x.data(1);
-else
-  val = x(1);
-end
-end
-
-
 function dt = localDateFromHeaderOrFile(header, baseName)
 dt = NaT;
 

@@ -73,17 +73,12 @@ function staleProbeDirs = makeKernels(replace, path)
     dataFilePath = fullfile(dataFolder, dataFileName);
     [~, baseName] = fileparts(dataFileName);
 
-
-    % fprintf('Checking %s ...\n', dataFileName);
-
     % ---- Load header first so probeDirDeg is available for validation and naming ----
 
     S = load(dataFilePath, 'header');
     header = S.header;
     probeDirDeg = header.probeDirDeg.data;
     probeTag = sprintf('probe%d', round(probeDirDeg));
-    % kernelFilePath = fullfile(kernelFolder, [baseName '.mat']);
-    % matrixFilePath = fullfile(matrixFolder, [baseName '.mat']);
     probePlotFolder = fullfile(plotRoot, probeTag);
     if ~exist(probePlotFolder, 'dir')
       mkdir(probePlotFolder);
@@ -100,7 +95,6 @@ function staleProbeDirs = makeKernels(replace, path)
     kernelFilePath = fullfile(kernelFolder, [baseName '.mat']);
     matrixFilePath = fullfile(matrixFolder, [baseName '.mat']);
     if ~replace && isfile(kernelFilePath) && isfile(matrixFilePath)
-      % fprintf('Skipping %s (output exists)\n', dataFileName);
       numSkipped = numSkipped + 1;
       continue;
     end
@@ -141,6 +135,9 @@ function staleProbeDirs = makeKernels(replace, path)
         'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     fprintf('  Saved kernels:        %s\n', kernelFilePath);
 
+   % ---- Save kernel summary ----
+    makeKernelSessionSummaries();
+
     % ---- Plot/export ----
     plotKernels(1, sprintf('%s (Probe %g%c)', baseName, probeDirDeg, char(176)), ...
     header, kernels, kVars, compStats, hitStats);
@@ -150,7 +147,7 @@ function staleProbeDirs = makeKernels(replace, path)
     % ---- Mark this probe direction as stale only after successful write ----
     staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
   end
-  
+
   if numSkipped > 0
     fprintf(' makeKernels: Skipped %d previously processed files.\n', numSkipped);
   end
