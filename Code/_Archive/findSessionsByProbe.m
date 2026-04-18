@@ -23,3 +23,24 @@ for i = 1:numel(d)
     fileList{i} = filePath;
 end
 end
+
+function probeDirDeg = getProbeDirDeg(filePath)
+
+S = load(filePath, 'header');
+
+if ~isfield(S, 'header') || ~isfield(S.header, 'probeDirDeg')
+    error('Missing header.probeDirDeg in %s', filePath);
+end
+
+probeDirDeg = S.header.probeDirDeg.data;
+
+if ~isscalar(probeDirDeg) || ~isnumeric(probeDirDeg)
+    error('Invalid probeDirDeg in %s', filePath);
+end
+end
+
+function tag = probeDirTag(probeDirDeg)
+
+tag = sprintf('probe%d', round(probeDirDeg));
+
+end

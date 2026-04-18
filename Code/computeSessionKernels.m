@@ -122,17 +122,6 @@ for s = 1:2
   hitStats.nLeftHits(s)   = sum(trialOutcomesByCond{1, s} == 0 & idxLeft);
 end
 
-% hitStats = struct;
-% for s = 1:2
-%   idxStep = (changeIndicesAll == s);
-%   hitStats.nTrials(s) = sum(idxStep);
-%   hitStats.nHits(s)   = sum(trialOutcomesAll(idxStep) == 0);
-% 
-%   idxRF = idxStep & (changeSidesAll == 0);
-%   hitStats.nRFTrials(s) = sum(idxRF);
-%   hitStats.nRFHits(s)   = sum(trialOutcomesAll(idxRF) == 0);
-% end
-
 msPerVFrame = 1000.0 / sessionData.header.frameRateHz.data(1);
 
 compStats = struct;
