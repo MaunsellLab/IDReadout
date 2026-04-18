@@ -22,7 +22,6 @@ end
 %
 frameRateHz = header.frameRateHz.data;
 stepMS = header.stepMS.data(1);
-% probeDirDeg = getProbeDirDeg();
 msPerVFrame = 1000.0 / frameRateHz;
 [preStepMS, intStartMS, intDurMS] = integralWindowMS();
 intStartVF = round((preStepMS + intStartMS) / msPerVFrame);

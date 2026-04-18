@@ -50,8 +50,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
   staleProbeDirs = makeKernels(replace, path);
 
   if isempty(staleProbeDirs) && ~doBootstrap
-    fprintf(' No session-level updates detected.\n');
-    fprintf(' Skipping per-probe averages.\n');
+    fprintf(' No session-level updates detected. Skipping per-probe averages.\n');
   else
     if doBootstrap
       staleProbeDirs = [45, 180];

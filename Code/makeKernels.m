@@ -38,11 +38,11 @@ function staleProbeDirs = makeKernels(replace, path)
   matrixFolder = fullfile(path, 'Data', 'NoiseMatrices');
   plotRoot = fullfile(path, 'Plots', 'Kernels');
 
-  if ~exist(plotRoot, 'dir')
-    mkdir(plotRoot);
-  end
   if ~exist(dataFolder, 'dir')
     error('makeKernels: MissingConvertedFolder -- Converted data folder not found: %s', dataFolder);
+  end
+  if ~exist(plotRoot, 'dir')
+    mkdir(plotRoot);
   end
   if ~exist(kernelFolder, 'dir')
     mkdir(kernelFolder);
@@ -84,11 +84,7 @@ function staleProbeDirs = makeKernels(replace, path)
       mkdir(probePlotFolder);
     end
     plotFilePath = fullfile(probePlotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
-
-
-    % plotFilePath   = fullfile(plotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
     if ~replace && isfile(plotFilePath)
-      % fprintf('Skipping %s (output exists)\n', dataFileName);
       numSkipped = numSkipped + 1;
       continue;
     end
@@ -101,6 +97,16 @@ function staleProbeDirs = makeKernels(replace, path)
     fprintf('Processing %s [probe %g] ...\n', dataFileName, probeDirDeg);
     S = load(dataFilePath, 'trials');
     trials = S.trials;
+
+    % For a while we weren't putting prefDirDeg into the file header. It can be
+    % extracted, but it is very useful to have it available in the header.
+    % This was fixed in IDR eventually, but here we update the header for older
+    % data files
+    if ~isfield(header, 'prefDirDeg')
+      header.prefDirDeg = struct('data', trials{1}.changeDots.data.directionDeg);
+      fprintf('%s updating header\n', dataFilePath);
+      save(dataFilePath, 'header', 'trials');
+    end
 
     % ---- Extract patchwise noise matrices and trial labels ----
     [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, changeIndicesAll] = ...
@@ -152,5 +158,4 @@ function staleProbeDirs = makeKernels(replace, path)
     fprintf(' makeKernels: Skipped %d previously processed files.\n', numSkipped);
   end
   staleProbeDirs = unique(staleProbeDirs);
-
 end
