@@ -17,9 +17,14 @@ titleStr       = char(p.Results.titleStr);
 plotOffsetsDeg = p.Results.plotOffsetsDeg(:)';
 
 phiDeg = mt.phiDeg;
-w      = makeReadout(phiDeg, fit.modelName, fit.params);
-pred   = predictScalesFromReadout(plotOffsetsDeg, mt, fit.modelName, fit.params);
 
+fixedOffset = [];
+if isstruct(fit) && isfield(fit, 'fixedOffset')
+    fixedOffset = fit.fixedOffset;
+end
+
+w    = makeReadout(phiDeg, fit.modelName, fit.params, fixedOffset);
+pred = predictScalesFromReadout(plotOffsetsDeg, mt, fit.modelName, fit.params, fixedOffset);
 figure; clf;
 
 subplot(1,2,1); hold on;

@@ -1,4 +1,4 @@
-function pred = predictScalesFromReadout(offsetsDeg, mt, modelName, params)
+function pred = predictScalesFromReadout(offsetsDeg, mt, modelName, params, fixedOffset)
 % predictScalesFromReadout
 %
 % Predict normalized behavioral scales:
@@ -13,13 +13,19 @@ function pred = predictScalesFromReadout(offsetsDeg, mt, modelName, params)
 %
 % Output:
 %   pred       : predicted scale at each offset
-
+if nargin < 5
+    fixedOffset = [];
+end
 offsetsDeg = offsetsDeg(:)';
 phiDeg     = mt.phiDeg(:)';
 
-w = makeReadout(phiDeg, modelName, params);
+w = makeReadout(phiDeg, modelName, params, fixedOffset);
 
 R0 = sum(w .* mt.shiftedGFun(phiDeg, 0));
+if ~isfinite(R0) || abs(R0) < 1e-9
+    pred = nan(size(offsetsDeg));
+    return;
+end
 
 pred = nan(size(offsetsDeg));
 for i = 1:numel(offsetsDeg)

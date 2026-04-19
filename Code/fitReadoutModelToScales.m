@@ -1,4 +1,4 @@
-function fit = fitReadoutModelToScales(offsetsDeg, obsScale, obsVar, mt, modelName)
+function fit = fitReadoutModelToScales(offsetsDeg, obsScale, obsVar, mt, modelName, fixedOffset)
 % fitReadoutModelToScales
 %
 % Fit mechanistic readout model to observed non-anchor scales.
@@ -22,6 +22,9 @@ function fit = fitReadoutModelToScales(offsetsDeg, obsScale, obsVar, mt, modelNa
 %   fit.exitFlag
 %   fit.mtParams
 
+if nargin < 6
+    fixedOffset = [];
+end
 offsetsDeg = offsetsDeg(:)';
 obsScale   = obsScale(:)';
 obsVar     = obsVar(:)';
@@ -32,25 +35,23 @@ assert(all(obsVar > 0), 'All obsVar entries must be positive.');
 
 switch lower(modelName)
     case 'gaussian_offset'
-        p0 = [30, 0];
-        lb = [1, -2];
-        ub = [180, 2];
-
+      p0 = [30, 0];
+      lb = [1, -2];
+      ub = [180, 2];
     case 'dog'
-        p0 = [20, 80, 0.3];
-        lb = [1,  2,  0];
-        ub = [180, 180, 5];
-
+      p0 = [20, 80, 0.3];
+      lb = [1,  2,  0];
+      ub = [180, 180, 5];
     otherwise
-        error('fitReadoutModelToScales:UnknownModel', 'Unknown modelName: %s', modelName);
+      error('fitReadoutModelToScales:UnknownModel', 'Unknown modelName: %s', modelName);
 end
 
-obj = @(p) weightedObjective(p, offsetsDeg, obsScale, obsVar, mt, modelName);
+obj = @(p) weightedObjective(p, offsetsDeg, obsScale, obsVar, mt, modelName, fixedOffset);
 
 opts = optimset('Display', 'off');
 [pHat, fval] = fminsearchbndLocal(obj, p0, lb, ub, opts);
 
-predScale = predictScalesFromReadout(offsetsDeg, mt, modelName, pHat);
+predScale = predictScalesFromReadout(offsetsDeg, mt, modelName, pHat, fixedOffset);
 resid     = obsScale - predScale;
 
 fit = struct();
@@ -67,12 +68,11 @@ fit.mtParams     = struct( ...
     'sigmaDeg', mt.sigmaDeg, ...
     'nullRatioAbs', mt.nullRatioAbs, ...
     'phiDeg', mt.phiDeg);
-
+fit.fixedOffset = fixedOffset;
 end
 
-function err = weightedObjective(params, offsetsDeg, obsScale, obsVar, mt, modelName)
-
-pred = predictScalesFromReadout(offsetsDeg, mt, modelName, params);
+function err = weightedObjective(params, offsetsDeg, obsScale, obsVar, mt, modelName, fixedOffset)
+pred = predictScalesFromReadout(offsetsDeg, mt, modelName, params, fixedOffset);
 resid = obsScale - pred;
 err = sum((resid.^2) ./ obsVar);
 

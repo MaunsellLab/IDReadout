@@ -107,24 +107,6 @@ acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
-if ischar(opts.DOGFixedOffset) || isstring(opts.DOGFixedOffset)
-    key = lower(char(string(opts.DOGFixedOffset)));
-    switch key
-        case 'empirical180'
-            offsets = [empirical.probeOffsetDeg];
-            idx180 = find(abs(offsets - 180) < 1e-9, 1, 'first');
-
-            if isempty(idx180) || ~isfinite(empirical(idx180).pooledScale)
-                error('DOGFixedOffset=''empirical180'' requested, but no valid 180 deg pooled scale is available.');
-            end
-
-            opts.DOGFixedOffset = empirical(idx180).pooledScale;
-
-        otherwise
-            error('Unknown DOGFixedOffset mode: %s', char(string(opts.DOGFixedOffset)));
-    end
-end
-
 bootstrap = runHierarchicalBootstrap(offsetData, opts);
 acrossOffsetSummary.bootstrap = bootstrap;
 
@@ -162,9 +144,9 @@ if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
 
-    activeModelName = opts.Model;
-  readoutFit = fitReadoutModelToScales( ...
-      fitOffsetsDeg, fitScales, fitVars, mt, activeModelName, opts.DOGFixedOffset);
+    activeModelName = 'gaussian_offset';
+    readoutFit = fitReadoutModelToScales(fitOffsetsDeg, fitScales, fitVars, mt, activeModelName);
+
     acrossOffsetSummary.readoutModel = struct();
     acrossOffsetSummary.readoutModel.activeModelName = activeModelName;
     acrossOffsetSummary.readoutModel.mtParams = struct( ...
@@ -179,13 +161,15 @@ if numel(fitOffsetsDeg) >= 1 && ...
 
     acrossOffsetSummary.readoutModel.fit = readoutFit;
     acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = ...
-        predictScalesFromReadout(offsetsDegAll, mt, activeModelName, readoutFit.params, opts.DOGFixedOffset);
+        predictScalesFromReadout(offsetsDegAll, mt, activeModelName, readoutFit.params);
+
     acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
     acrossOffsetSummary.readoutModel.plotPredictedScale = ...
-        predictScalesFromReadout(offsetsDegAll, mt, activeModelName, readoutFit.params, opts.DOGFixedOffset);
+        predictScalesFromReadout(acrossOffsetSummary.readoutModel.plotOffsetsDeg, ...
+                                 mt, activeModelName, readoutFit.params);
 else
     acrossOffsetSummary.readoutModel = struct();
-    acrossOffsetSummary.readoutModel.activeModelName = opts.Model;
+    acrossOffsetSummary.readoutModel.activeModelName = 'gaussian_offset';
     acrossOffsetSummary.readoutModel.mtParams = struct( ...
         'sigmaDeg', mt.sigmaDeg, ...
         'nullRatioAbs', mt.nullRatioAbs, ...
@@ -238,7 +222,6 @@ addParameter(p, 'PlotDir',  fullfile(summaryDir, 'AcrossOffsetSummaries', 'Plots
 addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
 addParameter(p, 'Model', 'gaussian_offset', @(x) ischar(x) || isstring(x));
-addParameter(p, 'CandidateModels', {'gaussian_offset','dog'}, @(x) ischar(x) || isstring(x) || iscellstr(x) || (iscell(x) && all(cellfun(@(c) ischar(c) || isstring(c), x))));
 addParameter(p, 'AngleGridDeg', 0:1:180, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
 addParameter(p, 'ExcludeFcn', [], @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
@@ -251,8 +234,6 @@ addParameter(p, 'ScaleSideType', 'change', @(x) ischar(x) || isstring(x) || isnu
 addParameter(p, 'ScaleStepType', 'inc', @(x) ischar(x) || isstring(x) || isnumeric(x));
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
-addParameter(p, 'DOGFixedOffset', 'empirical180', ...
-    @(x) (isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x));
 
 parse(p, summaryDir, varargin{:});
 opts = p.Results;
@@ -260,7 +241,6 @@ opts.summaryDir = summaryDir;
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
 opts.Model    = char(opts.Model);
-opts.CandidateModels = normalizeModelList(opts.CandidateModels, opts.Model);
 opts.FilePattern = char(opts.FilePattern);
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
@@ -498,7 +478,6 @@ acrossOffsetSummary.meta = struct( ...
     'nBoot', opts.NBoot, ...
     'bootstrapType', 'hierarchical_session_trial', ...
     'fitModelDefault', opts.Model, ...
-    'candidateModels', {opts.CandidateModels}, ...
     'angleUnits', 'deg', ...
     'normalization', 'w0_equals_1', ...
     'offsetKeysDeg', [], ...
@@ -690,12 +669,11 @@ for b = 1:nBoot
         bootParams(b, :) = params;
         bootLoss(b) = loss;
         fitSuccess(b) = true;
-        curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, opts.Model, opts);
+        curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, opts.Model);
     end
 end
 
 bootstrap = struct();
-bootstrap.bootScaleMat = bootScaleMat;
 bootstrap.offsetBootstrap = repmat(struct( ...
     'probeOffsetDeg', NaN, ...
     'bootScale', [], ...
@@ -914,15 +892,11 @@ end
 
 switch lower(opts.Model)
     case 'gaussian_offset'
-      p0 = initialGuessGaussian(x, y);
-      [lb, ub] = getGaussianBounds(opts.Bounds);
-      obj = @(p) sum(w .* localResidualSquared(evaluateGaussianOffset(p, x), y), 'omitnan');
-    case 'dog'
-      p0 = initialGuessDOG(x, y);
-      [lb, ub] = getDOGBounds(opts.Bounds);
-      obj = @(p) dogObjective(p, x, y, w, opts);
+        p0 = initialGuessGaussian(x, y);
+        [lb, ub] = getGaussianBounds(opts.Bounds);
+        obj = @(p) sum(w .* (evaluateGaussianOffset(p, x).' - y).^2, 'omitnan');
     otherwise
-      error('Unsupported model: %s', opts.Model);
+        error('Unsupported model: %s', opts.Model);
 end
 
 try
@@ -947,30 +921,13 @@ catch
 end
 
 end
-% ========================================================================
-function err = dogObjective(p, x, y, w, opts)
-    yHat = evaluateDOG(p, x, opts.DOGFixedOffset).';
-    err = sum(w .* (yHat - y).^2, 'omitnan');
-
-    sigmaC = p(1);
-    sigmaS = p(2);
-    minRatio = 1.25;
-    if sigmaS < minRatio * sigmaC
-        err = err + 1e6 + 1e3 * (minRatio * sigmaC - sigmaS);
-    end
-    if ~isfinite(err)
-        err = 1e12;
-    end
-end
 
 % ========================================================================
-function y = evaluateAcrossOffsetModel(params, angleDeg, modelName, opts)
+function y = evaluateAcrossOffsetModel(params, angleDeg, modelName)
 
 switch lower(modelName)
     case 'gaussian_offset'
         y = evaluateGaussianOffset(params, angleDeg);
-    case 'dog'
-      y = evaluateDOG(params, angleDeg, opts.DOGFixedOffset);
     otherwise
         error('Unsupported model: %s', modelName);
 end
@@ -983,66 +940,6 @@ function y = evaluateGaussianOffset(params, angleDeg)
 sigmaDeg = params(1);
 offset   = params(2);
 y = (1 - offset) .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaDeg.^2)) + offset;
-
-end
-
-% ========================================================================
-function y = evaluateDOG(params, angleDeg, fixedOffset)
-
-sigmaC = params(1);
-sigmaS = params(2);
-alpha  = params(3);
-a      = fixedOffset;
-
-hRaw = exp(-(angleDeg(:)'.^2) ./ (2 * sigmaC.^2)) ...
-     - alpha .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaS.^2));
-
-h0 = 1 - alpha;
-if ~isfinite(h0) || abs(h0) < 1e-9
-    y = nan(size(angleDeg(:)'));
-    return;
-end
-
-h = hRaw ./ h0;
-y = a + (1 - a) .* h;
-end
-
-% ========================================================================
-function p0 = initialGuessDOG(x, y)
-
-sigmaC0 = max(10, min(60, median(x(x > 0), 'omitnan')));
-if isempty(sigmaC0) || ~isfinite(sigmaC0)
-    sigmaC0 = 25;
-end
-
-sigmaS0 = max(sigmaC0 + 10, 90);
-alpha0  = 0.5;
-
-p0 = [sigmaC0, sigmaS0, alpha0];
-end
-
-% ========================================================================
-function [lb, ub] = getDOGBounds(boundsStruct)
-
-lb = [1e-3, 1e-3, 0];
-ub = [300, 300, 5];
-
-if isfield(boundsStruct, 'dog')
-    B = boundsStruct.dog;
-    if isfield(B, 'lb'), lb = B.lb; end
-    if isfield(B, 'ub'), ub = B.ub; end
-end
-end
-
-% ========================================================================
-function r2 = localResidualSquared(yhat, y)
-
-yhat = yhat(:);
-y = y(:);
-
-bad = ~isfinite(yhat) | ~isfinite(y);
-r2 = (yhat - y).^2;
-r2(bad) = 1e12;
 
 end
 
@@ -1079,88 +976,77 @@ end
 % ========================================================================
 function modelFits = summarizeModelFits(bootstrap, empirical, opts)
 
-angleGrid = bootstrap.fitBootstrap.angleGridDeg;
-bootScaleMat = bootstrap.bootScaleMat;
-fitWeights = [];
-if isfield(bootstrap, 'fitBootstrap') && isfield(bootstrap.fitBootstrap, 'fitWeights')
-    fitWeights = bootstrap.fitBootstrap.fitWeights;
-end
+fb = bootstrap.fitBootstrap;
+good = fb.fitSuccess;
+params = fb.params(good, :);
+curves = fb.curveValues(good, :);
 
-xMeasured = [empirical.probeOffsetDeg];
-xFitPoint  = [0, xMeasured];
-yFitPoint  = [1, [empirical.meanScale]];
-
-modelFits = struct();
-for iModel = 1:numel(opts.CandidateModels)
-    modelName = char(opts.CandidateModels{iModel});
-    modelOpts = opts;
-    modelOpts.Model = modelName;
-
-    nParams = modelParamCount(modelName);
-    bootParams = nan(opts.NBoot, nParams);
-    bootLoss   = nan(opts.NBoot, 1);
-    fitSuccess = false(opts.NBoot, 1);
-    curveValues = nan(opts.NBoot, numel(angleGrid));
-
-    for b = 1:opts.NBoot
-        scaleVec = bootScaleMat(b, :);
-        yFitBoot = [1, scaleVec];
-        [params, loss, ok] = fitAcrossOffsetModel(xFitPoint, yFitBoot, modelOpts, fitWeights);
-        if ok
-            bootParams(b, :) = params;
-            bootLoss(b) = loss;
-            fitSuccess(b) = true;
-            curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, modelName, opts);
-        end
-    end
-
-    good = fitSuccess;
-    paramsGood = bootParams(good, :);
-    curvesGood = curveValues(good, :);
-
-    [pointEstimateParams, pointEstimateLoss, pointEstimateOK] = ...
-        fitAcrossOffsetModel(xFitPoint, yFitPoint, modelOpts, fitWeights);
-    if ~pointEstimateOK
-        pointEstimateParams = nan(1, nParams);
-        pointEstimateLoss = NaN;
-    end
-
-    entry = struct( ...
-        'isFit', any(good), ...
-        'paramNames', {modelParamNames(modelName)}, ...
-        'pointEstimate', pointEstimateParams, ...
-        'ci68', ciFromMatrix(paramsGood, 68), ...
-        'ci95', ciFromMatrix(paramsGood, 95), ...
-        'angleGridDeg', angleGrid, ...
-        'curvePointEstimate', evaluateAcrossOffsetModel(pointEstimateParams, angleGrid, modelName, opts), ...
-        'curveMedianBootstrap', nanpercentile(curvesGood, 50), ...
-        'curve68', curveCI(curvesGood, 68), ...
-        'curve95', curveCI(curvesGood, 95), ...
+if isempty(params)
+    modelFits = struct();
+    modelFits.(opts.Model) = struct( ...
+        'isFit', false, ...
+        'paramNames', {fb.paramNames}, ...
+        'pointEstimate', nan(1, modelParamCount(opts.Model)), ...
+        'ci68', nan(modelParamCount(opts.Model), 2), ...
+        'ci95', nan(modelParamCount(opts.Model), 2), ...
+        'angleGridDeg', fb.angleGridDeg, ...
+        'curvePointEstimate', nan(1, numel(fb.angleGridDeg)), ...
+        'curveMedianBootstrap', nan(1, numel(fb.angleGridDeg)), ...
+        'curve68', nan(2, numel(fb.angleGridDeg)), ...
+        'curve95', nan(2, numel(fb.angleGridDeg)), ...
         'fitMethod', 'bootstrap_refit', ...
         'objective', 'least_squares', ...
         'bounds', opts.Bounds, ...
         'startPointRule', 'data-driven crude initializer', ...
-        'lossPointEstimate', pointEstimateLoss, ...
-        'fitNotes', 'w(0)=1 normalization enforced', ...
-        'bootstrapParams', bootParams, ...
-        'bootstrapLoss', bootLoss, ...
-        'bootstrapFitSuccess', fitSuccess );
+        'lossPointEstimate', NaN, ...
+        'fitNotes', 'No successful bootstrap fits');
+    return;
+end
 
-    for c = 1:numel(opts.CILevels)
-        lvl = opts.CILevels(c);
-        entry.(sprintf('ci%d', round(lvl))) = ciFromMatrix(paramsGood, lvl);
-        entry.(sprintf('curve%d', round(lvl))) = curveCI(curvesGood, lvl);
-    end
+xFit = [0, [empirical.probeOffsetDeg]];
+yFit = [1, [empirical.meanScale]];
+fitWeights = [];
+if isfield(bootstrap, 'fitBootstrap') && isfield(bootstrap.fitBootstrap, 'fitWeights')
+    fitWeights = bootstrap.fitBootstrap.fitWeights;
+end
+[pointEstimateParams, pointEstimateLoss, pointEstimateOK] = ...
+    fitAcrossOffsetModel(xFit, yFit, opts, fitWeights);
+if ~pointEstimateOK
+    pointEstimateParams = nan(1, modelParamCount(opts.Model));
+    pointEstimateLoss = NaN;
+end
 
-    if size(paramsGood, 2) >= 2 && size(paramsGood, 1) >= 2
-        entry.bootstrapParamCov = cov(paramsGood, 'omitrows');
-        entry.bootstrapParamCorr = corrcoef(paramsGood, 'Rows', 'pairwise');
-    else
-        entry.bootstrapParamCov = NaN;
-        entry.bootstrapParamCorr = NaN;
-    end
+modelFits = struct();
+modelFits.(opts.Model) = struct( ...
+    'isFit', any(good), ...
+    'paramNames', {fb.paramNames}, ...
+    'pointEstimate', pointEstimateParams, ...
+    'ci68', ciFromMatrix(params, 68), ...
+    'ci95', ciFromMatrix(params, 95), ...
+    'angleGridDeg', fb.angleGridDeg, ...
+    'curvePointEstimate', evaluateAcrossOffsetModel(nanpercentile(params, 50), fb.angleGridDeg, opts.Model), ...
+    'curveMedianBootstrap', nanpercentile(curves, 50), ...
+    'curve68', curveCI(curves, 68), ...
+    'curve95', curveCI(curves, 95), ...
+    'fitMethod', 'bootstrap_refit', ...
+    'objective', 'least_squares', ...
+    'bounds', opts.Bounds, ...
+    'startPointRule', 'data-driven crude initializer', ...
+    'lossPointEstimate', pointEstimateLoss, ...
+    'fitNotes', 'w(0)=1 normalization enforced' );
 
-    modelFits.(modelName) = entry;
+for c = 1:numel(opts.CILevels)
+    lvl = opts.CILevels(c);
+    modelFits.(opts.Model).(sprintf('ci%d', round(lvl))) = ciFromMatrix(params, lvl);
+    modelFits.(opts.Model).(sprintf('curve%d', round(lvl))) = curveCI(curves, lvl);
+end
+
+if size(params, 2) >= 2 && size(params, 1) >= 2
+    modelFits.(opts.Model).bootstrapParamCov = cov(params, 'omitrows');
+    modelFits.(opts.Model).bootstrapParamCorr = corrcoef(params, 'Rows', 'pairwise');
+else
+    modelFits.(opts.Model).bootstrapParamCov = NaN;
+    modelFits.(opts.Model).bootstrapParamCorr = NaN;
 end
 
 end
@@ -1203,41 +1089,17 @@ meanScale = [emp.meanScale];
 ci68 = vertcat(emp.boot68);
 
 fig = figure(300); clf; hold on;
-
-hData = errorbar(offsets, meanScale, meanScale - ci68(:,1)', ci68(:,2)' - meanScale, ...
-    'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
-
-hPoint = plot(fb.angleGridDeg, mf.curvePointEstimate, 'k-', 'LineWidth', 2);
-
-hBoot = plot(fb.angleGridDeg, mf.curveMedianBootstrap, 'k--', 'LineWidth', 1.5);
-
-hCIlo = [];
-hCIhi = [];
+errorbar(offsets, meanScale, meanScale - ci68(:,1)', ci68(:,2)' - meanScale, 'ko', 'LineWidth', 1.2);
+plot(fb.angleGridDeg, mf.curveMedianBootstrap, 'k-', 'LineWidth', 2);
 if isfield(mf, 'curve95')
     c95 = mf.curve95;
-    hCIlo = plot(fb.angleGridDeg, c95(1,:), 'k:', 'LineWidth', 1);
-    hCIhi = plot(fb.angleGridDeg, c95(2,:), 'k:', 'LineWidth', 1);
+    plot(fb.angleGridDeg, c95(1,:), 'k--');
+    plot(fb.angleGridDeg, c95(2,:), 'k--');
 end
-
 xlabel('Probe offset (deg)');
 ylabel('Relative scale');
 title(sprintf('Across-offset fit (%s)', strrep(opts.Model, '_', '\_')));
 box off;
-
-if ~isempty(hCIlo)
-    legend([hData, hPoint, hBoot, hCIlo], ...
-        {'Empirical pooled scale (68% CI)', ...
-         'Point-estimate fit', ...
-         'Bootstrap median fit', ...
-         'Bootstrap 95% CI'}, ...
-        'Location', 'best');
-else
-    legend([hData, hPoint, hBoot], ...
-        {'Empirical pooled scale (68% CI)', ...
-         'Point-estimate fit', ...
-         'Bootstrap median fit'}, ...
-        'Location', 'best');
-end
 
 saveas(fig, fullfile(opts.PlotDir, sprintf('acrossOffset_%s.png', opts.Model)));
 
@@ -1260,8 +1122,6 @@ function n = modelParamCount(modelName)
 switch lower(modelName)
     case 'gaussian_offset'
         n = 2;
-    case 'dog'
-        n = 3;
     otherwise
         error('Unsupported model: %s', modelName);
 end
@@ -1274,27 +1134,8 @@ function names = modelParamNames(modelName)
 switch lower(modelName)
     case 'gaussian_offset'
         names = {'sigmaDeg', 'offset'};
-    case 'dog'
-      names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
     otherwise
         error('Unsupported model: %s', modelName);
-end
-
-end
-
-% ========================================================================
-function models = normalizeModelList(candidateModels, activeModel)
-
-if ischar(candidateModels) || isstring(candidateModels)
-    models = {char(candidateModels)};
-else
-    models = cellfun(@(c) char(string(c)), candidateModels, 'UniformOutput', false);
-end
-
-models = unique(models, 'stable');
-activeModel = char(string(activeModel));
-if ~any(strcmpi(models, activeModel))
-    models = [{activeModel}, models];
 end
 
 end
