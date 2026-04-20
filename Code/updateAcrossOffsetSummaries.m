@@ -1,15 +1,26 @@
 function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % updateAcrossOffsetSummaries
-% This function currently supports two conceptually distinct fit layers:
-%   1) descriptive across-offset scale fits in scale space
-%   2) mechanistic MT-readout fits using a fixed MT tuning kernel and
-%      linear readout, normalized so predicted scale at 0 deg equals 1
+%  Effective-weighting fit:
+%       fits a parameterized effective MT-to-choice weighting function,
+%       with predicted scale normalized so that scale(0) == 1.
+%
+%   MT assumptions enter only through the forward model used to map the
+%   effective weighting function onto predicted psychophysical scale.
+%
+%   The effective-weighting fit remains exploratory while the 180 deg
+%   dataset is sparse, especially when the DOG baseline must be fixed from
+%   empirical measurements.
 %
 % This function is intentionally modular: it does NOT construct per-session
 % summaries. It loads previously saved per-session summary files, groups them
 % by probe offset, applies exclusion logic, performs across-offset bootstrap
 % resampling, fits a normalized Gaussian-plus-offset model (and optionally
 % other models later), and saves a single across-offset summary structure.
+%
+%   DOG baseline handling:
+%       BaselineMode = 'auto' uses a fixed baseline when fewer than
+%       MinOffsetsForFitBaseline non-anchor offsets are available;
+%       otherwise baseline is fit as a free parameter.
 %
 % REQUIRED INPUT
 %   summaryDir : directory containing per-session summary .mat files
@@ -19,7 +30,7 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 %   'PlotDir'         : directory for output plots
 %   'NBoot'           : number of hierarchical bootstrap replicates (default 1000)
 %   'CILevels'        : e.g. [68 95]
-%   'Model'           : descriptive scale-space fit model, currently 'gaussian_offset' (default)
+%   'Model'           : active effective-weighting model (default 'dog')
 %   'AngleGridDeg'    : dense angle grid for fitted curves (default 0:1:180)
 %   'ExcludeFcn'      : function handle, [tf, reason] = f(sessionStruct)
 %   'Verbose'         : logical, default false
@@ -59,12 +70,16 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 %       w(theta) = (1-b)*exp(-(theta.^2)/(2*sigma^2)) + b
 %   so that w(0) == 1 by construction.
 %
-%   Mechanistic MT-readout fit:
-%       uses a fixed MT tuning kernel and linear readout, with predicted
-%       scale normalized so that scale(0) == 1.
+%   Effective-weighting fit:
+%       fits a parameterized effective MT-to-choice weighting function,
+%       with predicted scale normalized so that scale(0) == 1.
 %
-%   The mechanistic readout fit is currently exploratory and should not be
-%   over-interpreted while the 180 deg dataset remains sparse.
+%   MT assumptions enter only through the forward model used to map the
+%   effective weighting function onto predicted psychophysical scale.
+%
+%   The effective-weighting fit remains exploratory while the 180 deg
+%   dataset is sparse, especially when the DOG baseline must be fixed from
+%   empirical measurements.
 %
 %   Future models (e.g. DOG) can be added without changing the top-level
 %   summary struct organization.
@@ -107,21 +122,28 @@ acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
-if ischar(opts.DOGFixedOffset) || isstring(opts.DOGFixedOffset)
-    key = lower(char(string(opts.DOGFixedOffset)));
+% Resolve DOG fixed baseline option for descriptive DOG model fits.
+% This keeps the legacy descriptive/bootstrap DOG pathway working when the
+% user specifies a symbolic baseline source such as 'empirical180'.
+if isfield(opts, 'DOGFixedBaseline') && ...
+        (ischar(opts.DOGFixedBaseline) || isstring(opts.DOGFixedBaseline))
+
+    key = lower(char(string(opts.DOGFixedBaseline)));
     switch key
         case 'empirical180'
             offsets = [empirical.probeOffsetDeg];
             idx180 = find(abs(offsets - 180) < 1e-9, 1, 'first');
 
             if isempty(idx180) || ~isfinite(empirical(idx180).pooledScale)
-                error('DOGFixedOffset=''empirical180'' requested, but no valid 180 deg pooled scale is available.');
+                error(['DOGFixedBaseline=''empirical180'' requested, ' ...
+                    'but no valid 180 deg pooled scale is available.']);
             end
 
-            opts.DOGFixedOffset = empirical(idx180).pooledScale;
+            opts.DOGFixedBaseline = empirical(idx180).pooledScale;
 
         otherwise
-            error('Unknown DOGFixedOffset mode: %s', char(string(opts.DOGFixedOffset)));
+            error('Unknown DOGFixedBaseline mode: %s', ...
+                char(string(opts.DOGFixedBaseline)));
     end
 end
 
@@ -131,16 +153,18 @@ acrossOffsetSummary.bootstrap = bootstrap;
 modelFits = summarizeModelFits(bootstrap, empirical, opts);
 acrossOffsetSummary.modelFits = modelFits;
 
-%% ---- Mechanistic MT-readout fit (active model: gaussian_offset) ----
+%% ---- Effective MT-to-choice weighting fit ----
 
 offsetsDegAll   = [empirical.probeOffsetDeg];
 pooledScaleAll  = [empirical.pooledScale];
 bootstrapVarAll = bootstrap.fitBootstrap.offsetFitVar;
+
 assert(numel(bootstrapVarAll) == numel(offsetsDegAll), ...
     'bootstrap offset variances do not match empirical offsets');
 
-% Fixed MT assumptions
-mt = makeMTKernel( ...
+% Fixed MT forward-model assumptions used only to map the effective
+% weighting function onto predicted scale.
+mtModel = makeMTForwardModel( ...
     'sigmaDeg', 37.5, ...
     'nullRatioAbs', 1/3, ...
     'phiDeg', -180:1:179);
@@ -157,45 +181,123 @@ fitOffsetsDeg = offsetsDegAll(~isAnchor);
 fitScales     = pooledScaleAll(~isAnchor);
 fitVars       = bootstrapVarAll(~isAnchor);
 
+% Resolve baseline mode
+
+nNonAnchor = numel(fitOffsetsDeg);
+baselineModeRequested = lower(char(string(opts.BaselineMode)));
+
+switch baselineModeRequested
+    case 'auto'
+        if nNonAnchor < opts.MinOffsetsForFitBaseline
+            baselineModeResolved = 'fixed';
+        else
+            baselineModeResolved = 'fit';
+        end
+
+    case 'fixed'
+        baselineModeResolved = 'fixed';
+
+    case 'fit'
+        baselineModeResolved = 'fit';
+
+    otherwise
+        error('Unknown BaselineMode: %s', char(string(opts.BaselineMode)));
+end
+
+% Resolve fixed DOG baseline if needed
+effectiveFixedBaseline = [];
+if strcmpi(baselineModeResolved, 'fixed')
+    effectiveFixedBaseline = opts.DOGFixedBaseline;
+
+    if ischar(effectiveFixedBaseline) || isstring(effectiveFixedBaseline)
+        key = lower(char(string(effectiveFixedBaseline)));
+        switch key
+            case 'empirical180'
+                offsets = [empirical.probeOffsetDeg];
+                idx180 = find(abs(offsets - 180) < 1e-9, 1, 'first');
+
+                if isempty(idx180) || ~isfinite(empirical(idx180).pooledScale)
+                    error(['DOGFixedBaseline=''empirical180'' requested, ' ...
+                        'but no valid 180 deg pooled scale is available.']);
+                end
+
+                effectiveFixedBaseline = empirical(idx180).pooledScale;
+
+            otherwise
+                error('Unknown DOGFixedBaseline mode: %s', ...
+                    char(string(effectiveFixedBaseline)));
+        end
+    end
+end
+
+acrossOffsetSummary.effectiveWeightModel = struct();
+acrossOffsetSummary.effectiveWeightModel.activeModelName = opts.Model;
+acrossOffsetSummary.effectiveWeightModel.baselineMode    = baselineModeResolved;
+acrossOffsetSummary.effectiveWeightModel.fixedBaseline   = effectiveFixedBaseline;
+acrossOffsetSummary.effectiveWeightModel.minOffsetsForFitBaseline = ...
+    opts.MinOffsetsForFitBaseline;
+acrossOffsetSummary.effectiveWeightModel.sourceScaleSideType = opts.ScaleSideType;
+acrossOffsetSummary.effectiveWeightModel.sourceScaleStepType = opts.ScaleStepType;
+acrossOffsetSummary.effectiveWeightModel.sourceScaleMode     = opts.ScaleMode;
+acrossOffsetSummary.effectiveWeightModel.mtForwardModelParams = struct( ...
+    'sigmaDeg', mtModel.sigmaDeg, ...
+    'nullRatioAbs', mtModel.nullRatioAbs, ...
+    'phiDeg', mtModel.phiDeg);
+
+if strcmpi(opts.Model, 'dog')
+    if isempty(effectiveFixedBaseline)
+        acrossOffsetSummary.effectiveWeightModel.baselineMode = 'implicit_zero';
+    else
+        acrossOffsetSummary.effectiveWeightModel.baselineMode = 'fixed';
+    end
+else
+    acrossOffsetSummary.effectiveWeightModel.baselineMode = 'model_specific';
+end
+
 if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitScales)) && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
 
     activeModelName = opts.Model;
-  readoutFit = fitReadoutModelToScales( ...
-      fitOffsetsDeg, fitScales, fitVars, mt, activeModelName, opts.DOGFixedOffset);
-    acrossOffsetSummary.readoutModel = struct();
-    acrossOffsetSummary.readoutModel.activeModelName = activeModelName;
-    acrossOffsetSummary.readoutModel.mtParams = struct( ...
-        'sigmaDeg', mt.sigmaDeg, ...
-        'nullRatioAbs', mt.nullRatioAbs, ...
-        'phiDeg', mt.phiDeg);
-    acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
-    acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
-    acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
-    acrossOffsetSummary.readoutModel.note = ...
-        'Exploratory mechanistic readout fit; interpret cautiously while 180 deg data remain sparse.';
+    
+    effectiveWeightFit = fitEffectiveWeightingToScales( ...
+        fitOffsetsDeg, fitScales, fitVars, mtModel, ...
+        activeModelName, ...
+        'BaselineMode', baselineModeResolved, ...
+        'FixedBaseline', effectiveFixedBaseline, ...
+        'MinOffsetsForFitBaseline', opts.MinOffsetsForFitBaseline, ...
+        'Bounds', opts.Bounds);
 
-    acrossOffsetSummary.readoutModel.fit = readoutFit;
-    acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = ...
-        predictScalesFromReadout(offsetsDegAll, mt, activeModelName, readoutFit.params, opts.DOGFixedOffset);
-    acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
-    acrossOffsetSummary.readoutModel.plotPredictedScale = ...
-        predictScalesFromReadout(offsetsDegAll, mt, activeModelName, readoutFit.params, opts.DOGFixedOffset);
+    acrossOffsetSummary.effectiveWeightModel.note = ...
+        ['Fit of a single effective MT-to-choice weighting function. ' ...
+         'MT assumptions enter only through the forward model used to map ' ...
+         'effective weighting onto predicted psychophysical scale. ' ...
+         'DOG baseline mode: ' baselineModeResolved '.'];
+
+    acrossOffsetSummary.effectiveWeightModel.fit = effectiveWeightFit;
+    acrossOffsetSummary.effectiveWeightModel.predictedAtMeasuredOffsets = ...
+        predictScalesFromEffectiveWeighting( ...
+            offsetsDegAll, mtModel, activeModelName, ...
+            effectiveWeightFit.params, effectiveFixedBaseline);
+    acrossOffsetSummary.effectiveWeightModel.nFreeParams = ...
+            acrossOffsetSummary.effectiveWeightModel.fit.nFreeParams;
+
+    acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg = 0:1:180;
+    acrossOffsetSummary.effectiveWeightModel.plotPredictedScale = ...
+        predictScalesFromEffectiveWeighting( ...
+            acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg, ...
+            mtModel, activeModelName, ...
+            effectiveWeightFit.params, effectiveFixedBaseline);
 else
-    acrossOffsetSummary.readoutModel = struct();
-    acrossOffsetSummary.readoutModel.activeModelName = opts.Model;
-    acrossOffsetSummary.readoutModel.mtParams = struct( ...
-        'sigmaDeg', mt.sigmaDeg, ...
-        'nullRatioAbs', mt.nullRatioAbs, ...
-        'phiDeg', mt.phiDeg);
-    acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
-    acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
-    acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
-    acrossOffsetSummary.readoutModel.fit = [];
-    acrossOffsetSummary.readoutModel.note = ...
-        'Mechanistic readout model not fit: insufficient valid non-anchor offsets. Exploratory use only while 180 deg data remain sparse.';
+    acrossOffsetSummary.effectiveWeightModel.fit = [];
+    acrossOffsetSummary.effectiveWeightModel.note = ...
+        ['Effective-weighting model not fit: insufficient valid non-anchor ' ...
+         'offsets. MT assumptions would enter only through the forward ' ...
+         'model used to map effective weighting onto predicted scale.'];
+    acrossOffsetSummary.effectiveWeightModel.predictedAtMeasuredOffsets = [];
+    acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg = 0:1:180;
+    acrossOffsetSummary.effectiveWeightModel.plotPredictedScale = [];
 end
 
 acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
@@ -214,12 +316,14 @@ if opts.Verbose
     fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
 end
 
-if isfield(acrossOffsetSummary, 'readoutModel') && ...
-        isfield(acrossOffsetSummary.readoutModel, 'fit') && ...
-        ~isempty(acrossOffsetSummary.readoutModel.fit)
+if isfield(acrossOffsetSummary, 'effectiveWeightModel') && ...
+        isfield(acrossOffsetSummary.effectiveWeightModel, 'fit') && ...
+        ~isempty(acrossOffsetSummary.effectiveWeightModel.fit)
 
-    plotReadoutFit(acrossOffsetSummary.readoutModel.fit, mt, ...
-        'titleStr', 'Across-offset MT readout fit');
+    plotEffectiveWeightingFit( ...
+        acrossOffsetSummary.effectiveWeightModel.fit, ...
+        mtModel, ...
+        'titleStr', 'Across-offset effective weighting fit');
 end
 end
 
@@ -237,12 +341,9 @@ addParameter(p, 'SaveFile', fullfile(summaryDir, 'AcrossOffsetSummaries', 'IDR_a
 addParameter(p, 'PlotDir',  fullfile(summaryDir, 'AcrossOffsetSummaries', 'Plots'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'Model', 'gaussian_offset', @(x) ischar(x) || isstring(x));
-addParameter(p, 'CandidateModels', {'gaussian_offset','dog'}, @(x) ischar(x) || isstring(x) || iscellstr(x) || (iscell(x) && all(cellfun(@(c) ischar(c) || isstring(c), x))));
-addParameter(p, 'AngleGridDeg', 0:1:180, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
 addParameter(p, 'ExcludeFcn', [], @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakePlots', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(p, 'OffsetField', 'probeOffsetDeg', @(x) ischar(x) || isstring(x));
 addParameter(p, 'SessionNameField', 'sessionName', @(x) ischar(x) || isstring(x));
@@ -251,8 +352,14 @@ addParameter(p, 'ScaleSideType', 'change', @(x) ischar(x) || isstring(x) || isnu
 addParameter(p, 'ScaleStepType', 'inc', @(x) ischar(x) || isstring(x) || isnumeric(x));
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
-addParameter(p, 'DOGFixedOffset', 'empirical180', ...
+addParameter(p, 'AngleGridDeg', 0:1:180, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
+addParameter(p, 'Model', 'dog', @(x) ischar(x) || isstring(x));
+addParameter(p, 'CandidateModels', {'dog'}, @(x) ischar(x) || isstring(x) || iscellstr(x) || (iscell(x) && all(cellfun(@(c) ischar(c) || isstring(c), x))));
+addParameter(p, 'BaselineMode', 'auto', @(x) ischar(x) || isstring(x));
+addParameter(p, 'DOGFixedBaseline', 'empirical180', ...
     @(x) (isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x));
+addParameter(p, 'MinOffsetsForFitBaseline', 3, ...
+    @(x) isnumeric(x) && isscalar(x) && x >= 1);
 
 parse(p, summaryDir, varargin{:});
 opts = p.Results;
@@ -911,7 +1018,9 @@ w = w(valid);
 if numel(x) < modelParamCount(opts.Model)
     return;
 end
-
+% NOTE:
+%   Gaussian-offset support is retained only as legacy comparison
+%   scaffolding. The active pathway uses DOG.
 switch lower(opts.Model)
     case 'gaussian_offset'
       p0 = initialGuessGaussian(x, y);
@@ -949,7 +1058,7 @@ end
 end
 % ========================================================================
 function err = dogObjective(p, x, y, w, opts)
-    yHat = evaluateDOG(p, x, opts.DOGFixedOffset).';
+    yHat = evaluateDOG(p, x, opts.DOGFixedBaseline).';
     err = sum(w .* (yHat - y).^2, 'omitnan');
 
     sigmaC = p(1);
@@ -970,7 +1079,7 @@ switch lower(modelName)
     case 'gaussian_offset'
         y = evaluateGaussianOffset(params, angleDeg);
     case 'dog'
-      y = evaluateDOG(params, angleDeg, opts.DOGFixedOffset);
+      y = evaluateDOG(params, angleDeg, opts.DOGFixedBaseline);
     otherwise
         error('Unsupported model: %s', modelName);
 end
@@ -1174,6 +1283,8 @@ history = struct( ...
     'offsetsDeg', [acrossOffsetSummary.empirical.probeOffsetDeg], ...
     'nSessionsByOffset', [acrossOffsetSummary.empirical.nSessions], ...
     'modelName', opts.Model, ...
+    'baselineMode', acrossOffsetSummary.effectiveWeightModel.baselineMode, ...
+    'nFreeParams', acrossOffsetSummary.effectiveWeightModel.nFreeParams, ...
     'medianParams', acrossOffsetSummary.bootstrap.fitBootstrap.medianParams, ...
     'saveFile', opts.SaveFile );
 
@@ -1212,11 +1323,21 @@ hPoint = plot(fb.angleGridDeg, mf.curvePointEstimate, 'k-', 'LineWidth', 2);
 hBoot = plot(fb.angleGridDeg, mf.curveMedianBootstrap, 'k--', 'LineWidth', 1.5);
 
 hCIlo = [];
-hCIhi = [];
+hCIhi = []; %#ok<NASGU>
+
+disp(isfield(mf, 'curve95'))
+if isfield(mf, 'curve95')
+    disp(size(mf.curve95))
+    disp(any(isfinite(mf.curve95(:))))
+end
+
 if isfield(mf, 'curve95')
     c95 = mf.curve95;
-    hCIlo = plot(fb.angleGridDeg, c95(1,:), 'k:', 'LineWidth', 1);
-    hCIhi = plot(fb.angleGridDeg, c95(2,:), 'k:', 'LineWidth', 1);
+    if isnumeric(c95) && size(c95,1) == 2 && size(c95,2) == numel(fb.angleGridDeg) && ...
+            any(isfinite(c95(1,:))) && any(isfinite(c95(2,:)))
+        hCIlo = plot(fb.angleGridDeg, c95(1,:), 'k:', 'LineWidth', 1);
+        hCIhi = plot(fb.angleGridDeg, c95(2,:), 'k:', 'LineWidth', 1); %#ok<NASGU>
+    end
 end
 
 xlabel('Probe offset (deg)');
