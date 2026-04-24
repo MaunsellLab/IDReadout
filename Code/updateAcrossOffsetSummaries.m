@@ -84,7 +84,6 @@ end
 
 sessionList = loadSessionSummaries(opts);
 acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList);
-
 if isempty(sessionList)
     warning('No usable session summaries found in %s.', summaryDir);
     saveAcrossOffsetSummary(opts, acrossOffsetSummary);
@@ -104,7 +103,6 @@ end
 acrossOffsetSummary.offsetData = offsetData;
 acrossOffsetSummary.meta.offsetKeysDeg = offsetKeys;
 acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
-
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
@@ -112,7 +110,6 @@ acrossOffsetSummary.empirical = empirical;
 % readout-model fit. In the readout model, a fixed baseline must be an
 % explicit numeric value for readout offset b, not a symbolic mapping from
 % an empirical scale measurement such as 180 deg.
-
 bootstrap = runHierarchicalBootstrap(offsetData, opts);
 acrossOffsetSummary.bootstrap = bootstrap;
 
@@ -146,15 +143,14 @@ acrossOffsetSummary.measurements.pooledScale  = pooledScaleAll(:)';
 acrossOffsetSummary.measurements.bootstrapVar = bootstrapVarAll(:)';
 
 % Fit only non-anchor offsets
-isAnchor = abs(offsetsDegAll) < 1e-9;
-fitOffsetsDeg = offsetsDegAll(~isAnchor);
-fitScales     = pooledScaleAll(~isAnchor);
-fitVars       = bootstrapVarAll(~isAnchor);
+% isAnchor = abs(offsetsDegAll) < 1e-9;
+% fitOffsetsDeg = offsetsDegAll(~isAnchor);
+% fitScales     = pooledScaleAll(~isAnchor);
+% fitVars       = bootstrapVarAll(~isAnchor);
 
 % Resolve baseline mode
-
-nNonAnchor = numel(fitOffsetsDeg);
-baselineModeRequested = lower(char(string(opts.BaselineMode)));
+% nNonAnchor = numel(fitOffsetsDeg);
+% baselineModeRequested = lower(char(string(opts.BaselineMode)));
 
 acrossOffsetSummary.readoutModel.activeModelName = 'dog_readout';
 acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
@@ -203,13 +199,13 @@ end
 
 % Resolve fixed readout baseline b if needed
 fixedReadoutBaseline = [];
-invalidSymbolicFixedBaseline = false;
+% invalidSymbolicFixedBaseline = false;
 
 if strcmpi(baselineModeResolved, 'fixed')
     fixedReadoutBaseline = opts.FixedReadoutBaseline;
 
     if ischar(fixedReadoutBaseline) || isstring(fixedReadoutBaseline)
-        invalidSymbolicFixedBaseline = true;
+        % invalidSymbolicFixedBaseline = true;
         fixedReadoutBaseline = [];
     end
 end
@@ -217,16 +213,11 @@ end
 % With too few non-anchor offsets, the readout DOG is underconstrained.
 % In that regime we only allow fitting if the user has supplied a numeric
 % fixed baseline for b.
-insufficientOffsetsForStableReadoutFit = ...
-    nNonAnchor < opts.MinOffsetsForFitBaseline;
-
-hasNumericFixedBaseline = ...
-    isnumeric(opts.FixedReadoutBaseline) && isscalar(opts.FixedReadoutBaseline) && ...
-    isfinite(opts.FixedReadoutBaseline);
-
-allowSparseFixedBaselineFit = ...
-    strcmpi(baselineModeResolved, 'fixed') && hasNumericFixedBaseline;
-
+% insufficientOffsetsForStableReadoutFit = nNonAnchor < opts.MinOffsetsForFitBaseline;
+% hasNumericFixedBaseline = ...
+%     isnumeric(opts.FixedReadoutBaseline) && isscalar(opts.FixedReadoutBaseline) && ...
+%     isfinite(opts.FixedReadoutBaseline);
+% allowSparseFixedBaselineFit = strcmpi(baselineModeResolved, 'fixed') && hasNumericFixedBaseline;
 acrossOffsetSummary.readoutModel.baselineModeRequested = baselineModeRequested;
 acrossOffsetSummary.readoutModel.baselineModeResolved  = baselineModeResolved;
 acrossOffsetSummary.readoutModel.fixedBaseline         = fixedReadoutBaseline;
@@ -242,11 +233,7 @@ if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitScales)) && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
-  
-   readoutFit = fitReadoutDOGToScales( ...
-    fitOffsetsDeg, fitScales, fitVars, mtModel, ...
-    'Bounds', opts.Bounds);
-
+    readoutFit = fitReadoutDOGToScales(fitOffsetsDeg, fitScales, fitVars, mtModel, 'Bounds', opts.Bounds);
     acrossOffsetSummary.readoutModel.note = ...
       ['Fit of a DOG readout over MT preferred direction. ' ...
      'Predicted normalized psychophysical scale is computed through the ' ...
@@ -298,17 +285,12 @@ if opts.MakePlots
         warning('Plot generation failed: %s', ME.message);
     end
 end
-
 if opts.Verbose
     fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
 end
-
-phiDeg = acrossOffsetSummary.readoutModel.phiDeg;
-mtp = acrossOffsetSummary.readoutModel.mtForwardModelParams;
-mtModel = makeMTReadoutForwardModel( ...
-    'sigmaMTDeg', mtp.sigmaMTDeg, ...
-    'phiDeg', mtp.phiDeg);
-
+% phiDeg = acrossOffsetSummary.readoutModel.phiDeg;
+% mtp = acrossOffsetSummary.readoutModel.mtForwardModelParams;
+% mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
 % sum(computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel))
 % sum(computeMTSymmetrizedDeltaM(phiDeg, 45, mtModel))
 % sum(computeMTSymmetrizedDeltaM(phiDeg, 180, mtModel))
@@ -397,7 +379,6 @@ for iFile = 1:numel(files)
         warning('Could not load %s: %s', thisFile, ME.message);
         continue;
     end
-
     sessionStruct = extractSessionStruct(S, thisFile, opts);
     if isempty(sessionStruct)
         continue;
@@ -493,14 +474,12 @@ sessionStruct.compStats      = getFieldOrDefault(inStruct, 'compStats', struct()
 sessionStruct.hitStats       = getFieldOrDefault(inStruct, 'hitStats', struct());
 sessionStruct.bootstrapSource = extractBootstrapSource(inStruct);
 sessionStruct.rawSummary     = inStruct;
-
 sessionStruct.scalePointEstimate = extractSessionScaleEstimate(inStruct, opts);
 try
     sessionStruct.scalePointEstimate = recomputeSessionScalePointEstimate(sessionStruct, opts);
 catch
 end
 sessionStruct.nTrialsTotal = extractSessionTrialCount(inStruct);
-
 if isfield(inStruct, 'flags') && isstruct(inStruct.flags)
     if isfield(inStruct.flags, 'excluded') && islogical(inStruct.flags.excluded)
         sessionStruct.isExcluded = inStruct.flags.excluded;
@@ -618,7 +597,7 @@ acrossOffsetSummary.history    = struct([]);
 end
 
 % ========================================================================
-function [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, opts)
+function [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, ~)
 % Group sessions by probe offset and retain both included and excluded items.
 
 allOffsets = [sessionList.probeOffsetDeg];
@@ -629,7 +608,7 @@ offsetData = repmat(emptyOffsetStruct(), numel(offsetKeys), 1);
 
 for k = 1:numel(offsetKeys)
     thisOffset = offsetKeys(k);
-    idx = find([sessionList.probeOffsetDeg] == thisOffset);
+    idx = [sessionList.probeOffsetDeg] == thisOffset;
     these = sessionList(idx);
 
     includeMask = ~[these.isExcluded];
@@ -641,7 +620,7 @@ for k = 1:numel(offsetKeys)
     offsetData(k).nSessions = sum(includeMask);
     offsetData(k).nSessionsTotal = numel(these);
     offsetData(k).nTrialsBySession = [included.nTrialsTotal];
-    offsetData(k).nTrialsTotal = nansum(offsetData(k).nTrialsBySession);
+    offsetData(k).nTrialsTotal = sum(offsetData(k).nTrialsBySession, 'omitnan');
     offsetData(k).scaleBySession = [included.scalePointEstimate];
     offsetData(k).scaleSEMBySession = nan(size(offsetData(k).scaleBySession));
     offsetData(k).scaleCILoBySession = nan(size(offsetData(k).scaleBySession));
@@ -876,43 +855,43 @@ scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleS
 end
 
 % ========================================================================
-function scaleVal = recomputeSessionScaleBootstrap(sessionStruct, opts)
-% Recompute session scale under within-session trial resampling using the
-% project's computeSessionKernels(sessionData, trialIdx) pathway.
-
-bs = sessionStruct.bootstrapSource;
-
-if isempty(fieldnames(bs))
-    scaleVal = sessionStruct.scalePointEstimate;
-    return;
-end
-
-if isfield(bs, 'sessionData') && isstruct(bs.sessionData)
-    sessionData = bs.sessionData;
-elseif hasComputeSessionKernelFields(bs)
-    sessionData = bs;
-elseif isfield(bs, 'noiseFile') && exist(bs.noiseFile, 'file')
-    sessionData = load(bs.noiseFile);
-else
-    scaleVal = sessionStruct.scalePointEstimate;
-    return;
-end
-
-nTrials = size(sessionData.prefNoiseByPatch, 3);
-if isempty(nTrials) || nTrials < 1
-    scaleVal = sessionStruct.scalePointEstimate;
-    return;
-end
-
-trialIdx = randi(nTrials, [1 nTrials]);
-
-[~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, trialIdx);
-scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
-
-end
+% function scaleVal = recomputeSessionScaleBootstrap(sessionStruct, opts)
+% % Recompute session scale under within-session trial resampling using the
+% % project's computeSessionKernels(sessionData, trialIdx) pathway.
+% 
+% bs = sessionStruct.bootstrapSource;
+% 
+% if isempty(fieldnames(bs))
+%     scaleVal = sessionStruct.scalePointEstimate;
+%     return;
+% end
+% 
+% if isfield(bs, 'sessionData') && isstruct(bs.sessionData)
+%     sessionData = bs.sessionData;
+% elseif hasComputeSessionKernelFields(bs)
+%     sessionData = bs;
+% elseif isfield(bs, 'noiseFile') && exist(bs.noiseFile, 'file')
+%     sessionData = load(bs.noiseFile);
+% else
+%     scaleVal = sessionStruct.scalePointEstimate;
+%     return;
+% end
+% 
+% nTrials = size(sessionData.prefNoiseByPatch, 3);
+% if isempty(nTrials) || nTrials < 1
+%     scaleVal = sessionStruct.scalePointEstimate;
+%     return;
+% end
+% 
+% trialIdx = randi(nTrials, [1 nTrials]);
+% 
+% [~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, trialIdx);
+% scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
+% 
+% end
 
 % ========================================================================
-function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionStruct, opts, doTrialBootstrap)
+function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionStruct, ~, doTrialBootstrap)
 % Recompute full session kernel outputs from source data.
 
 bs = sessionStruct.bootstrapSource;
@@ -1055,7 +1034,7 @@ mtModel.note = ['Delta m(phi;delta) is defined as G(phi-delta) minus the ' ...
 end
 
 % ========================================================================
-function diag = diagnoseReadoutDOGReachability(varargin)
+function diag = diagnoseReadoutDOGReachability(varargin) %#ok<DEFNU>
 % Brute-force diagnostic for the DOG readout model.
 %
 % Maps the reachable (S45, S180) pairs over a parameter grid to determine
@@ -1144,7 +1123,7 @@ else
 end
 
 if opt.MakePlot && ~isempty(S45)
-    fig = figure; clf; hold on;
+    figure; clf; hold on;
     scatter(S45, S180, 10, 'filled');
     xlabel('Predicted S(45)');
     ylabel('Predicted S(180)');
@@ -1314,7 +1293,7 @@ obj = @(p) readoutDOGObjective(p, offsetsDeg, obsScale, obsVar, mtModel);
 
 params = nan(size(p0));
 loss = NaN;
-fitSuccess = false;
+% fitSuccess = false;
 
 try
     problem = createOptimProblem('fmincon', ...
@@ -1366,26 +1345,6 @@ end
 end
 
 % ========================================================================
-function plotReadoutDOGFit(fitResult, mtModel, varargin)
-% Minimal plot helper for fitted readout over MT preferred direction.
-
-p = inputParser;
-addParameter(p, 'titleStr', 'DOG readout fit', @(x) ischar(x) || isstring(x));
-parse(p, varargin{:});
-
-if isempty(fitResult) || ~isfield(fitResult, 'fitSuccess') || ~fitResult.fitSuccess
-    return;
-end
-
-fig = figure; clf; hold on;
-plot(mtModel.phiDeg, fitResult.readoutPhi, 'k-', 'LineWidth', 2);
-xlabel('\phi (deg)');
-ylabel('a(\phi)');
-title(char(string(p.Results.titleStr)));
-box off;
-end
-
-% ========================================================================
 function plotReadoutOverlapDiagnostic(acrossOffsetSummary, varargin)
 % Plot fitted readout, MT templates, and their products to visualize how
 % overlap determines predicted normalized scale.
@@ -1396,8 +1355,8 @@ function plotReadoutOverlapDiagnostic(acrossOffsetSummary, varargin)
 
 p = inputParser;
 addParameter(p, 'OffsetsDeg', [0 45 180], @(x) isnumeric(x) && isvector(x));
-addParameter(p, 'titleStr', 'Fit-vs-flat overlap diagnostic', ...
-    @(x) ischar(x) || isstring(x));
+addParameter(p, 'titleStr', 'Readout Function and MT Population Response to Probes', ...
+  @(x) ischar(x) || isstring(x));
 addParameter(p, 'SaveFile', '', @(x) ischar(x) || isstring(x));
 parse(p, varargin{:});
 opt = p.Results;
@@ -1406,14 +1365,10 @@ rm = acrossOffsetSummary.readoutModel;
 if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
     return;
 end
-
 phiDeg = rm.phiDeg(:)';
 aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
-
 mtp = rm.mtForwardModelParams;
-mtModel = makeMTReadoutForwardModel( ...
-    'sigmaMTDeg', mtp.sigmaMTDeg, ...
-    'phiDeg', mtp.phiDeg);
+mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
 offsetsDeg = opt.OffsetsDeg(:)';
 nOffsets = numel(offsetsDeg);
 
@@ -1434,7 +1389,7 @@ end
 idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
 if isempty(idx0)
     warning('plotReadoutOverlapDiagnostic: OffsetsDeg does not include 0. Ratios will not be shown.');
-    refOverlap = NaN;
+    % refOverlap = NaN;
     predScale = nan(size(overlap));
 else
     refOverlap = overlap(idx0);
@@ -1455,13 +1410,12 @@ for i = 1:nOffsets
 end
 
 fig = figure(302); clf;
-t = tiledlayout(2,1, 'TileSpacing', 'compact', 'Padding', 'compact');
-
+tiledlayout(2,1, 'TileSpacing', 'compact', 'Padding', 'compact');
 co = lines(nOffsets);
 
 % ---- Top panel: readout functions and MT templates ----
 nexttile; hold on;
-
+title('Readout Function and MT Population Responses to Probes');
 % Readout functions
 hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
 hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.8);
@@ -1469,47 +1423,40 @@ hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.8);
 % MT templates, same colors used in the lower panel
 hTemplates = gobjects(1, nOffsets);
 for i = 1:nOffsets
-    hTemplates(i) = plot(phiDeg, deltaM{i}, '-', ...
-        'Color', co(i,:), 'LineWidth', 1.5);
+    hTemplates(i) = plot(phiDeg, deltaM{i}, '-', 'Color', co(i,:), 'LineWidth', 1.5);
 end
-
 yline(0, 'k:');
 xlabel('\phi (deg)');
-ylabel('Value');
-title(char(string(opt.titleStr)));
+ylabel('a(\phi) or \Delta m(\phi;\delta)');
+% title(char(string(opt.titleStr)));
 legend([hFitReadout, hFlatReadout, hTemplates], ...
     [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}, ...
      arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
-     'UniformOutput', false)], ...
-    'Location', 'best');
+     'UniformOutput', false)], 'Location', 'best');
 box off;
 
 % ---- Bottom panel: overlap contribution functions ----
 nexttile; hold on;
-
+title('Weighted Population Responses (Fit and Flat)');
 legendHandles = gobjects(0);
 legendLabels = {};
 
 for i = 1:nOffsets
     h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', co(i,:), 'LineWidth', 2);
     h2 = plot(phiDeg, prodTermFlat{i}, '--', 'Color', co(i,:), 'LineWidth', 1.5);
-
     flatOverlap = sum(prodTermFlat{i});
 
     legendHandles(end+1) = h1; %#ok<AGROW>
-    legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', ...
-        offsetsDeg(i), overlap(i)); %#ok<AGROW>
+    legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', offsetsDeg(i), overlap(i)); %#ok<AGROW>
 
     legendHandles(end+1) = h2; %#ok<AGROW>
-    legendLabels{end+1} = sprintf('%g^\\circ flat, <a,\\Deltam> = %.2f', ...
-        offsetsDeg(i), flatOverlap); %#ok<AGROW>
+    legendLabels{end+1} = sprintf('%g^\\circ flat, <a,\\Deltam> = %.2f', offsetsDeg(i), flatOverlap); %#ok<AGROW>
 end
 yline(0, 'k:');
 xlabel('\phi (deg)');
 ylabel('a(\phi)\Delta m(\phi;\delta)');
 legend(legendHandles, legendLabels, 'Location', 'best');
 box off;
-subtitle(t, ['Upper: Readout Functions and MT Templates. ' 'Lower: Contribution Functions.']);
 
 if ~isempty(char(string(opt.SaveFile)))
     saveas(fig, char(string(opt.SaveFile)));
@@ -1539,7 +1486,7 @@ names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
 end
 
 % ========================================================================
-function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, boundsStruct)
+function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, ~, boundsStruct)
 
 sigmaC0 = max(10, min(50, median(offsetsDeg(offsetsDeg > 0), 'omitnan')));
 if isempty(sigmaC0) || ~isfinite(sigmaC0)
@@ -1624,7 +1571,6 @@ switch lower(opts.Model)
     otherwise
       error('Unsupported model: %s', opts.Model);
 end
-
 try
     problem = createOptimProblem('fmincon', ...
         'objective', obj, ...
@@ -1645,8 +1591,8 @@ catch
         ok = false;
     end
 end
-
 end
+
 % ========================================================================
 function err = dogObjective(p, x, y, w, opts)
     yHat = evaluateDOG(p, x, opts.DOGFixedBaseline).';
@@ -1708,7 +1654,7 @@ y = a + (1 - a) .* h;
 end
 
 % ========================================================================
-function p0 = initialGuessDOG(x, y)
+function p0 = initialGuessDOG(x, ~)
 
 sigmaC0 = max(10, min(60, median(x(x > 0), 'omitnan')));
 if isempty(sigmaC0) || ~isfinite(sigmaC0)
@@ -1917,26 +1863,18 @@ hasReadoutFit = isfield(acrossOffsetSummary, 'readoutModel') && ...
 
 % ---- Plot 1: observed scale by offset; overlay prediction if available ----
 fig1 = figure(300); clf; hold on;
-
-hObs = errorbar(offsets, obsScale, ...
-    obsScale - ci68(:,1)', ci68(:,2)' - obsScale, ...
+hObs = errorbar(offsets, obsScale, obsScale - ci68(:,1)', ci68(:,2)' - obsScale, ...
     'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
-
 if hasReadoutFit
     rm = acrossOffsetSummary.readoutModel;
     predScale = rm.predictedAtMeasuredOffsets;
     hPred = plot(offsets, predScale, 'k-', 'LineWidth', 2);
-
-    legend([hObs, hPred], ...
-        {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, ...
-        'Location', 'best');
+    legend([hObs, hPred], {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, 'Location', 'northwest');
     title('Observed vs predicted scale');
 else
-    legend(hObs, {'Observed pooled scale (68% CI)'}, ...
-        'Location', 'best');
+    legend(hObs, {'Observed pooled scale (68% CI)'}, 'Location', 'northwest');
     title('Observed scale by probe offset');
 end
-
 xlabel('Probe offset (deg)');
 ylabel('Normalized scale');
 box off;
@@ -1956,10 +1894,7 @@ if hasReadoutFit
     box off;
 
     saveas(fig2, fullfile(opts.PlotDir, 'fitted_readout_phi.png'));
-
-    plotReadoutOverlapDiagnostic( ...
-    acrossOffsetSummary, ...
-    'OffsetsDeg', [0 45 180], ...
+    plotReadoutOverlapDiagnostic(acrossOffsetSummary, 'OffsetsDeg', [0 45 180], ...
     'titleStr', 'Readout / MT overlap diagnostic', ...
     'SaveFile', fullfile(opts.PlotDir, 'readout_overlap_diagnostic.png'));
 end
@@ -2039,15 +1974,8 @@ if isempty(name) && isfield(inStruct, 'sessionID')
 end
 
 if isempty(name)
-    name = fileStem(sourceFile);
+    [~, name, ~] = fileparts(sourceFile);
 end
-
-end
-
-% ========================================================================
-function out = fileStem(f)
-
-[~, out, ~] = fileparts(f);
 
 end
 
@@ -2120,7 +2048,7 @@ end
 if isfield(inStruct, 'avgHitStats') && isstruct(inStruct.avgHitStats)
     hs = inStruct.avgHitStats;
     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-        nTrials = nansum(hs.nTrials(:));
+        nTrials = sum(hs.nTrials(:), 'omitnan');
         return;
     end
 end
@@ -2128,7 +2056,7 @@ end
 if isfield(inStruct, 'hitStats') && isstruct(inStruct.hitStats)
     hs = inStruct.hitStats;
     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-        nTrials = nansum(hs.nTrials(:));
+        nTrials = sum(hs.nTrials(:), 'omitnan');
         return;
     end
 end
