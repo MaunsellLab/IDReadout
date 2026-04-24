@@ -33,7 +33,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
     replace = false;
   end
   if nargin < 2 || isempty(doBootstrap)
-    doBootstrap = false;
+    doBootstrap = true;
   end
   if nargin < 3 || isempty(nBoot)
     nBoot = 100;

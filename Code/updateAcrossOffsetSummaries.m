@@ -1,26 +1,23 @@
 function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % updateAcrossOffsetSummaries
-%  Effective-weighting fit:
-%       fits a parameterized effective MT-to-choice weighting function,
-%       with predicted scale normalized so that scale(0) == 1.
+%  MT readout fit:
+%       fits a parameterized DOG readout over MT preferred direction,
+%       and uses a fixed MT forward model to map that readout onto
+%       predicted normalized psychophysical scale.
 %
-%   MT assumptions enter only through the forward model used to map the
-%   effective weighting function onto predicted psychophysical scale.
-%
-%   The effective-weighting fit remains exploratory while the 180 deg
-%   dataset is sparse, especially when the DOG baseline must be fixed from
-%   empirical measurements.
+%   The fitted object is the readout a(phi), not an "effective weighting"
+%   defined in kernel space.
 %
 % This function is intentionally modular: it does NOT construct per-session
 % summaries. It loads previously saved per-session summary files, groups them
 % by probe offset, applies exclusion logic, performs across-offset bootstrap
-% resampling, fits a normalized Gaussian-plus-offset model (and optionally
-% other models later), and saves a single across-offset summary structure.
+% resampling, fits the readout model, and saves a single across-offset
+% summary structure.
 %
-%   DOG baseline handling:
-%       BaselineMode = 'auto' uses a fixed baseline when fewer than
+%   BaselineMode handling:
+%       BaselineMode = 'auto' uses a fixed readout offset b when fewer than
 %       MinOffsetsForFitBaseline non-anchor offsets are available;
-%       otherwise baseline is fit as a free parameter.
+%       otherwise b is fit as a free parameter.
 %
 % REQUIRED INPUT
 %   summaryDir : directory containing per-session summary .mat files
@@ -65,26 +62,15 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % OUTPUT
 %   acrossOffsetSummary : top-level struct saved to disk and returned
 %
-% NOTES
-%   Descriptive scale-space fit:
-%       w(theta) = (1-b)*exp(-(theta.^2)/(2*sigma^2)) + b
-%   so that w(0) == 1 by construction.
-%
-%   Effective-weighting fit:
-%       fits a parameterized effective MT-to-choice weighting function,
-%       with predicted scale normalized so that scale(0) == 1.
-%
-%   MT assumptions enter only through the forward model used to map the
-%   effective weighting function onto predicted psychophysical scale.
-%
-%   The effective-weighting fit remains exploratory while the 180 deg
-%   dataset is sparse, especially when the DOG baseline must be fixed from
-%   empirical measurements.
-%
-%   Future models (e.g. DOG) can be added without changing the top-level
-%   summary struct organization.
-%
 % -------------------------------------------------------------------------
+% diag = diagnoseReadoutDOGReachability( ...
+%     'TargetS45', 0.206, ...
+%     'TargetS180', 0.584, ...
+%     'MakePlot', true);
+% 
+% diag.bestParams
+% diag.bestPrediction
+% diag.bestDistance
 
 opts = parseInputs(summaryDir, varargin{:});
 
@@ -122,36 +108,22 @@ acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
-% Resolve DOG fixed baseline option for descriptive DOG model fits.
-% This keeps the legacy descriptive/bootstrap DOG pathway working when the
-% user specifies a symbolic baseline source such as 'empirical180'.
-if isfield(opts, 'DOGFixedBaseline') && ...
-        (ischar(opts.DOGFixedBaseline) || isstring(opts.DOGFixedBaseline))
-
-    key = lower(char(string(opts.DOGFixedBaseline)));
-    switch key
-        case 'empirical180'
-            offsets = [empirical.probeOffsetDeg];
-            idx180 = find(abs(offsets - 180) < 1e-9, 1, 'first');
-
-            if isempty(idx180) || ~isfinite(empirical(idx180).pooledScale)
-                error(['DOGFixedBaseline=''empirical180'' requested, ' ...
-                    'but no valid 180 deg pooled scale is available.']);
-            end
-
-            opts.DOGFixedBaseline = empirical(idx180).pooledScale;
-
-        otherwise
-            error('Unknown DOGFixedBaseline mode: %s', ...
-                char(string(opts.DOGFixedBaseline)));
-    end
-end
+% Legacy symbolic DOGFixedBaseline handling is not applied to the active
+% readout-model fit. In the readout model, a fixed baseline must be an
+% explicit numeric value for readout offset b, not a symbolic mapping from
+% an empirical scale measurement such as 180 deg.
 
 bootstrap = runHierarchicalBootstrap(offsetData, opts);
 acrossOffsetSummary.bootstrap = bootstrap;
 
+% Legacy descriptive model-fit summaries retained temporarily for backward
+% compatibility, but no longer the primary interpretive fit.
 modelFits = summarizeModelFits(bootstrap, empirical, opts);
 acrossOffsetSummary.modelFits = modelFits;
+acrossOffsetSummary.modelFitsNote = ...
+    ['Legacy offset-space model summaries retained for backward ' ...
+     'compatibility only. Primary interpretation should use ' ...
+     'acrossOffsetSummary.readoutModel.'];
 
 %% ---- Effective MT-to-choice weighting fit ----
 
@@ -162,14 +134,12 @@ bootstrapVarAll = bootstrap.fitBootstrap.offsetFitVar;
 assert(numel(bootstrapVarAll) == numel(offsetsDegAll), ...
     'bootstrap offset variances do not match empirical offsets');
 
-% Fixed MT forward-model assumptions used only to map the effective
-% weighting function onto predicted scale.
-mtModel = makeMTForwardModel( ...
-    'sigmaDeg', 37.5, ...
-    'nullRatioAbs', 1/3, ...
+% Fixed MT forward model used to map the DOG readout onto predicted scale.
+mtModel = makeMTReadoutForwardModel( ...
+    'sigmaMTDeg', 37.5, ...
     'phiDeg', -180:1:179);
 
-% Store measurement layer
+% Store measured pooled scales by offset for downstream plotting/fits
 acrossOffsetSummary.measurements = struct();
 acrossOffsetSummary.measurements.offsetsDeg   = offsetsDegAll(:)';
 acrossOffsetSummary.measurements.pooledScale  = pooledScaleAll(:)';
@@ -183,6 +153,33 @@ fitVars       = bootstrapVarAll(~isAnchor);
 
 % Resolve baseline mode
 
+nNonAnchor = numel(fitOffsetsDeg);
+baselineModeRequested = lower(char(string(opts.BaselineMode)));
+
+acrossOffsetSummary.readoutModel.activeModelName = 'dog_readout';
+acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
+acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
+acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
+acrossOffsetSummary.readoutModel.mtForwardModelParams = struct( ...
+    'sigmaMTDeg', mtModel.sigmaMTDeg, ...
+    'phiDeg', mtModel.phiDeg);
+acrossOffsetSummary.readoutModel.note = '';
+acrossOffsetSummary.readoutModel = struct();
+acrossOffsetSummary.readoutModel.activeModelName = 'dog_readout';
+acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
+acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
+acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
+acrossOffsetSummary.readoutModel.mtForwardModelParams = struct( ...
+    'sigmaMTDeg', mtModel.sigmaMTDeg, ...
+    'phiDeg', mtModel.phiDeg);
+
+% Fit only non-anchor offsets
+isAnchor = abs(offsetsDegAll) < 1e-9;
+fitOffsetsDeg = offsetsDegAll(~isAnchor);
+fitScales     = pooledScaleAll(~isAnchor);
+fitVars       = bootstrapVarAll(~isAnchor);
+
+% Resolve BaselineMode for readout offset b only
 nNonAnchor = numel(fitOffsetsDeg);
 baselineModeRequested = lower(char(string(opts.BaselineMode)));
 
@@ -204,102 +201,92 @@ switch baselineModeRequested
         error('Unknown BaselineMode: %s', char(string(opts.BaselineMode)));
 end
 
-% Resolve fixed DOG baseline if needed
-effectiveFixedBaseline = [];
+% Resolve fixed readout baseline b if needed
+fixedReadoutBaseline = [];
+invalidSymbolicFixedBaseline = false;
+
 if strcmpi(baselineModeResolved, 'fixed')
-    effectiveFixedBaseline = opts.DOGFixedBaseline;
+    fixedReadoutBaseline = opts.FixedReadoutBaseline;
 
-    if ischar(effectiveFixedBaseline) || isstring(effectiveFixedBaseline)
-        key = lower(char(string(effectiveFixedBaseline)));
-        switch key
-            case 'empirical180'
-                offsets = [empirical.probeOffsetDeg];
-                idx180 = find(abs(offsets - 180) < 1e-9, 1, 'first');
-
-                if isempty(idx180) || ~isfinite(empirical(idx180).pooledScale)
-                    error(['DOGFixedBaseline=''empirical180'' requested, ' ...
-                        'but no valid 180 deg pooled scale is available.']);
-                end
-
-                effectiveFixedBaseline = empirical(idx180).pooledScale;
-
-            otherwise
-                error('Unknown DOGFixedBaseline mode: %s', ...
-                    char(string(effectiveFixedBaseline)));
-        end
+    if ischar(fixedReadoutBaseline) || isstring(fixedReadoutBaseline)
+        invalidSymbolicFixedBaseline = true;
+        fixedReadoutBaseline = [];
     end
 end
 
-acrossOffsetSummary.effectiveWeightModel = struct();
-acrossOffsetSummary.effectiveWeightModel.activeModelName = opts.Model;
-acrossOffsetSummary.effectiveWeightModel.baselineMode    = baselineModeResolved;
-acrossOffsetSummary.effectiveWeightModel.fixedBaseline   = effectiveFixedBaseline;
-acrossOffsetSummary.effectiveWeightModel.minOffsetsForFitBaseline = ...
+% With too few non-anchor offsets, the readout DOG is underconstrained.
+% In that regime we only allow fitting if the user has supplied a numeric
+% fixed baseline for b.
+insufficientOffsetsForStableReadoutFit = ...
+    nNonAnchor < opts.MinOffsetsForFitBaseline;
+
+hasNumericFixedBaseline = ...
+    isnumeric(opts.FixedReadoutBaseline) && isscalar(opts.FixedReadoutBaseline) && ...
+    isfinite(opts.FixedReadoutBaseline);
+
+allowSparseFixedBaselineFit = ...
+    strcmpi(baselineModeResolved, 'fixed') && hasNumericFixedBaseline;
+
+acrossOffsetSummary.readoutModel.baselineModeRequested = baselineModeRequested;
+acrossOffsetSummary.readoutModel.baselineModeResolved  = baselineModeResolved;
+acrossOffsetSummary.readoutModel.fixedBaseline         = fixedReadoutBaseline;
+acrossOffsetSummary.readoutModel.minOffsetsForFitBaseline = ...
     opts.MinOffsetsForFitBaseline;
-acrossOffsetSummary.effectiveWeightModel.sourceScaleSideType = opts.ScaleSideType;
-acrossOffsetSummary.effectiveWeightModel.sourceScaleStepType = opts.ScaleStepType;
-acrossOffsetSummary.effectiveWeightModel.sourceScaleMode     = opts.ScaleMode;
-acrossOffsetSummary.effectiveWeightModel.mtForwardModelParams = struct( ...
-    'sigmaDeg', mtModel.sigmaDeg, ...
-    'nullRatioAbs', mtModel.nullRatioAbs, ...
-    'phiDeg', mtModel.phiDeg);
 
-if strcmpi(opts.Model, 'dog')
-    if isempty(effectiveFixedBaseline)
-        acrossOffsetSummary.effectiveWeightModel.baselineMode = 'implicit_zero';
-    else
-        acrossOffsetSummary.effectiveWeightModel.baselineMode = 'fixed';
-    end
-else
-    acrossOffsetSummary.effectiveWeightModel.baselineMode = 'model_specific';
-end
+acrossOffsetSummary.readoutModel.measurements = struct();
+acrossOffsetSummary.readoutModel.measurements.offsetsDeg  = offsetsDegAll(:)';
+acrossOffsetSummary.readoutModel.measurements.pooledScale = pooledScaleAll(:)';
+acrossOffsetSummary.readoutModel.measurements.bootstrapVar = bootstrapVarAll(:)';
 
 if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitScales)) && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
+  
+   readoutFit = fitReadoutDOGToScales( ...
+    fitOffsetsDeg, fitScales, fitVars, mtModel, ...
+    'Bounds', opts.Bounds);
 
-    activeModelName = opts.Model;
+    acrossOffsetSummary.readoutModel.note = ...
+      ['Fit of a DOG readout over MT preferred direction. ' ...
+     'Predicted normalized psychophysical scale is computed through the ' ...
+     'fixed MT forward model. The readout offset b is not fit because it ' ...
+     'is not identifiable under the mean-subtracted forward model.'];
+    acrossOffsetSummary.readoutModel.fit = readoutFit;
+    acrossOffsetSummary.readoutModel.nFreeParams = readoutFit.nFreeParams;
+    acrossOffsetSummary.readoutModel.phiDeg = mtModel.phiDeg;
+    acrossOffsetSummary.readoutModel.readoutPhiRaw = readoutFit.readoutPhiRaw;
+    acrossOffsetSummary.readoutModel.readoutPhi = readoutFit.readoutPhi;
+    acrossOffsetSummary.readoutModel.readoutNormalization = 'a(0)=1';
+    acrossOffsetSummary.readoutModel.paramNames = readoutFit.paramNames;
+    acrossOffsetSummary.readoutModel.params = readoutFit.params;
+    acrossOffsetSummary.readoutModel.paramStruct = readoutFit.paramStruct;
+    acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = ...
+        predictNormalizedScaleFromReadout( ...
+            offsetsDegAll, mtModel, readoutFit.params);
     
-    effectiveWeightFit = fitEffectiveWeightingToScales( ...
-        fitOffsetsDeg, fitScales, fitVars, mtModel, ...
-        activeModelName, ...
-        'BaselineMode', baselineModeResolved, ...
-        'FixedBaseline', effectiveFixedBaseline, ...
-        'MinOffsetsForFitBaseline', opts.MinOffsetsForFitBaseline, ...
-        'Bounds', opts.Bounds);
-
-    acrossOffsetSummary.effectiveWeightModel.note = ...
-        ['Fit of a single effective MT-to-choice weighting function. ' ...
-         'MT assumptions enter only through the forward model used to map ' ...
-         'effective weighting onto predicted psychophysical scale. ' ...
-         'DOG baseline mode: ' baselineModeResolved '.'];
-
-    acrossOffsetSummary.effectiveWeightModel.fit = effectiveWeightFit;
-    acrossOffsetSummary.effectiveWeightModel.predictedAtMeasuredOffsets = ...
-        predictScalesFromEffectiveWeighting( ...
-            offsetsDegAll, mtModel, activeModelName, ...
-            effectiveWeightFit.params, effectiveFixedBaseline);
-    acrossOffsetSummary.effectiveWeightModel.nFreeParams = ...
-            acrossOffsetSummary.effectiveWeightModel.fit.nFreeParams;
-
-    acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg = 0:1:180;
-    acrossOffsetSummary.effectiveWeightModel.plotPredictedScale = ...
-        predictScalesFromEffectiveWeighting( ...
-            acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg, ...
-            mtModel, activeModelName, ...
-            effectiveWeightFit.params, effectiveFixedBaseline);
+    acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
+    acrossOffsetSummary.readoutModel.plotPredictedScale = ...
+        predictNormalizedScaleFromReadout( ...
+            acrossOffsetSummary.readoutModel.plotOffsetsDeg, ...
+            mtModel, readoutFit.params);
 else
-    acrossOffsetSummary.effectiveWeightModel.fit = [];
-    acrossOffsetSummary.effectiveWeightModel.note = ...
-        ['Effective-weighting model not fit: insufficient valid non-anchor ' ...
-         'offsets. MT assumptions would enter only through the forward ' ...
-         'model used to map effective weighting onto predicted scale.'];
-    acrossOffsetSummary.effectiveWeightModel.predictedAtMeasuredOffsets = [];
-    acrossOffsetSummary.effectiveWeightModel.plotOffsetsDeg = 0:1:180;
-    acrossOffsetSummary.effectiveWeightModel.plotPredictedScale = [];
+    acrossOffsetSummary.readoutModel.fit = [];
+    acrossOffsetSummary.readoutModel.note = ...
+        ['Readout model not fit: insufficient valid non-anchor offsets or ' ...
+         'invalid scale/variance inputs for DOG readout fitting.'];
+    acrossOffsetSummary.readoutModel.nFreeParams = NaN;
+    acrossOffsetSummary.readoutModel.phiDeg = mtModel.phiDeg;
+    acrossOffsetSummary.readoutModel.readoutPhiRaw = nan(size(mtModel.phiDeg));
+    acrossOffsetSummary.readoutModel.readoutPhi = nan(size(mtModel.phiDeg));
+    acrossOffsetSummary.readoutModel.readoutNormalization = 'a(0)=1';
+    acrossOffsetSummary.readoutModel.paramNames = {};
+    acrossOffsetSummary.readoutModel.params = [];
+    acrossOffsetSummary.readoutModel.paramStruct = struct();
+    acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = [];
+    acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
+    acrossOffsetSummary.readoutModel.plotPredictedScale = [];
 end
-
 acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
 
 saveAcrossOffsetSummary(opts, acrossOffsetSummary);
@@ -316,15 +303,17 @@ if opts.Verbose
     fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
 end
 
-if isfield(acrossOffsetSummary, 'effectiveWeightModel') && ...
-        isfield(acrossOffsetSummary.effectiveWeightModel, 'fit') && ...
-        ~isempty(acrossOffsetSummary.effectiveWeightModel.fit)
+phiDeg = acrossOffsetSummary.readoutModel.phiDeg;
+mtp = acrossOffsetSummary.readoutModel.mtForwardModelParams;
+mtModel = makeMTReadoutForwardModel( ...
+    'sigmaMTDeg', mtp.sigmaMTDeg, ...
+    'phiDeg', mtp.phiDeg);
 
-    plotEffectiveWeightingFit( ...
-        acrossOffsetSummary.effectiveWeightModel.fit, ...
-        mtModel, ...
-        'titleStr', 'Across-offset effective weighting fit');
-end
+% sum(computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel))
+% sum(computeMTSymmetrizedDeltaM(phiDeg, 45, mtModel))
+% sum(computeMTSymmetrizedDeltaM(phiDeg, 180, mtModel))
+
+
 end
 
 % ========================================================================
@@ -343,7 +332,7 @@ addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
 addParameter(p, 'ExcludeFcn', [], @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'MakePlots', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(p, 'OffsetField', 'probeOffsetDeg', @(x) ischar(x) || isstring(x));
 addParameter(p, 'SessionNameField', 'sessionName', @(x) ischar(x) || isstring(x));
@@ -356,6 +345,8 @@ addParameter(p, 'AngleGridDeg', 0:1:180, @(x) isnumeric(x) && isvector(x) && all
 addParameter(p, 'Model', 'dog', @(x) ischar(x) || isstring(x));
 addParameter(p, 'CandidateModels', {'dog'}, @(x) ischar(x) || isstring(x) || iscellstr(x) || (iscell(x) && all(cellfun(@(c) ischar(c) || isstring(c), x))));
 addParameter(p, 'BaselineMode', 'auto', @(x) ischar(x) || isstring(x));
+addParameter(p, 'FixedReadoutBaseline', [], ...
+    @(x) isempty(x) || ((isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x)));
 addParameter(p, 'DOGFixedBaseline', 'empirical180', ...
     @(x) (isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x));
 addParameter(p, 'MinOffsetsForFitBaseline', 3, ...
@@ -372,6 +363,12 @@ opts.FilePattern = char(opts.FilePattern);
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
 opts.ScaleMode = char(opts.ScaleMode);
+% Active option for fixed readout baseline b.
+% Prefer FixedReadoutBaseline; fall back to legacy DOGFixedBaseline only if
+% the new option was not supplied.
+if isempty(opts.FixedReadoutBaseline)
+    opts.FixedReadoutBaseline = opts.DOGFixedBaseline;
+end
 
 if ~exist(fileparts(opts.SaveFile), 'dir')
     mkdir(fileparts(opts.SaveFile));
@@ -607,8 +604,9 @@ acrossOffsetSummary.meta = struct( ...
     'fitModelDefault', opts.Model, ...
     'candidateModels', {opts.CandidateModels}, ...
     'angleUnits', 'deg', ...
-    'normalization', 'w0_equals_1', ...
+    'normalization', 'scale_anchor_at_0deg', ...
     'offsetKeysDeg', [], ...
+    'readoutBaselineOption', 'inactive_not_identifiable', ...
     'notes', '' );
 
 acrossOffsetSummary.offsetData = struct([]);
@@ -940,6 +938,34 @@ end
 end
 
 % ========================================================================
+function deltaM = computeMTSymmetrizedDeltaM(phiDeg, deltaDeg, mtModel)
+% Compute the effective MT template for the probe-noise configuration.
+%
+% Conventions:
+%   - delta = 0 deg: single noise channel
+%   - 0 < delta < 180 deg: symmetric probe noise at +delta and -delta.
+%     Each stream has amplitude 1/sqrt(2) relative to the single-stream
+%     probe amplitude, so the effective template is
+%         (1/sqrt(2)) * [Delta m(+delta) + Delta m(-delta)].
+%   - delta = 180 deg: single noise channel
+
+phiDeg = phiDeg(:)';
+if numel(phiDeg) ~= numel(mtModel.phiDeg) || any(phiDeg ~= mtModel.phiDeg)
+    error('computeMTSymmetrizedDeltaM requires the shared phi-grid from mtModel.phiDeg.');
+end
+
+deltaDeg = abs(deltaDeg);
+
+if abs(deltaDeg) < 1e-9 || abs(deltaDeg - 180) < 1e-9
+    deltaM = computeMTDeltaM(phiDeg, deltaDeg, mtModel);
+else
+    deltaMPlus  = computeMTDeltaM(phiDeg, +deltaDeg, mtModel);
+    deltaMMinus = computeMTDeltaM(phiDeg, -deltaDeg, mtModel);
+    deltaM = (1 / sqrt(2)) .* (deltaMPlus + deltaMMinus);
+end
+end
+
+% ========================================================================
 function pooledScale = computeOffsetPooledScale(offsetStruct, opts, doBootstrap)
 % Mirror kernelAverage: recompute session kernels, pool with inverse-variance
 % weighting, then compute scale from the pooled kernels.
@@ -996,6 +1022,571 @@ tf = all(isfield(S, req));
 
 end
 
+% ========================================================================
+function mtModel = makeMTReadoutForwardModel(varargin)
+% Fixed MT forward model for mapping readout a(phi) onto predicted scale.
+%
+% Conventions:
+%   - 1 deg phi grid
+%   - do not double-count -180 and 180
+%   - same grid used for readout, MT tuning, and discrete mean subtraction
+
+p = inputParser;
+addParameter(p, 'sigmaMTDeg', 37.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'phiDeg', -180:1:179, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
+parse(p, varargin{:});
+
+phiDeg = p.Results.phiDeg(:)';
+sigmaMTDeg = p.Results.sigmaMTDeg;
+
+mtModel = struct();
+mtModel.sigmaMTDeg = sigmaMTDeg;
+mtModel.phiDeg = phiDeg;
+mtModel.gridStepDeg = median(diff(phiDeg));
+
+% Canonical MT tuning template centered at 0 deg.
+G0 = exp(-(phiDeg.^2) ./ (2 * sigmaMTDeg.^2));
+Gbar = mean(G0);
+
+mtModel.G0 = G0;
+mtModel.Gbar = Gbar;
+mtModel.note = ['Delta m(phi;delta) is defined as G(phi-delta) minus the ' ...
+    'discrete mean of G on the same phi-grid.'];
+end
+
+% ========================================================================
+function diag = diagnoseReadoutDOGReachability(varargin)
+% Brute-force diagnostic for the DOG readout model.
+%
+% Maps the reachable (S45, S180) pairs over a parameter grid to determine
+% whether the empirical target lies within the model family's range.
+%
+% Example:
+%   diag = diagnoseReadoutDOGReachability( ...
+%       'TargetS45', 0.206, ...
+%       'TargetS180', 0.584, ...
+%       'MakePlot', true);
+
+p = inputParser;
+addParameter(p, 'SigmaCenterDeg', 5:5:120, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SigmaSurroundDeg', 10:5:180, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SurroundGain', 0:0.05:2.0, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SigmaMTDeg', 37.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'PhiDeg', -180:1:179, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'TargetS45', NaN, @(x) isnumeric(x) && isscalar(x));
+addParameter(p, 'TargetS180', NaN, @(x) isnumeric(x) && isscalar(x));
+addParameter(p, 'MakePlot', true, @(x) islogical(x) && isscalar(x));
+parse(p, varargin{:});
+opt = p.Results;
+
+mtModel = makeMTReadoutForwardModel( ...
+    'sigmaMTDeg', opt.SigmaMTDeg, ...
+    'phiDeg', opt.PhiDeg);
+
+sC = opt.SigmaCenterDeg(:)';
+sS = opt.SigmaSurroundDeg(:)';
+aS = opt.SurroundGain(:)';
+
+nTotal = numel(sC) * numel(sS) * numel(aS);
+
+S45 = nan(nTotal, 1);
+S180 = nan(nTotal, 1);
+paramsMat = nan(nTotal, 3);
+validMask = false(nTotal, 1);
+
+idx = 0;
+for i = 1:numel(sC)
+    for j = 1:numel(sS)
+        if sS(j) <= sC(i)
+            continue;
+        end
+        for k = 1:numel(aS)
+            idx = idx + 1;
+            params = [sC(i), sS(j), aS(k)];
+            pred = predictNormalizedScaleFromReadout([45 180], mtModel, params);
+
+            paramsMat(idx, :) = params;
+            S45(idx) = pred(1);
+            S180(idx) = pred(2);
+            validMask(idx) = all(isfinite(pred));
+        end
+    end
+end
+
+paramsMat = paramsMat(1:idx, :);
+S45 = S45(1:idx);
+S180 = S180(1:idx);
+validMask = validMask(1:idx);
+
+paramsMat = paramsMat(validMask, :);
+S45 = S45(validMask);
+S180 = S180(validMask);
+
+diag = struct();
+diag.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+diag.params = paramsMat;
+diag.S45 = S45;
+diag.S180 = S180;
+diag.target = [opt.TargetS45, opt.TargetS180];
+
+if isfinite(opt.TargetS45) && isfinite(opt.TargetS180) && ~isempty(S45)
+    d2 = (S45 - opt.TargetS45).^2 + (S180 - opt.TargetS180).^2;
+    [bestD2, bestIdx] = min(d2);
+    diag.bestIdx = bestIdx;
+    diag.bestParams = paramsMat(bestIdx, :);
+    diag.bestPrediction = [S45(bestIdx), S180(bestIdx)];
+    diag.bestDistance = sqrt(bestD2);
+else
+    diag.bestIdx = [];
+    diag.bestParams = [];
+    diag.bestPrediction = [];
+    diag.bestDistance = NaN;
+end
+
+if opt.MakePlot && ~isempty(S45)
+    fig = figure; clf; hold on;
+    scatter(S45, S180, 10, 'filled');
+    xlabel('Predicted S(45)');
+    ylabel('Predicted S(180)');
+    title('Reachable (S45, S180) pairs for DOG readout model');
+    box off;
+
+    if isfinite(opt.TargetS45) && isfinite(opt.TargetS180)
+        plot(opt.TargetS45, opt.TargetS180, 'kp', 'MarkerSize', 14, ...
+            'MarkerFaceColor', 'k');
+    end
+end
+end
+
+% ========================================================================
+function [aPhi, paramStruct] = evaluateReadoutDOG(phiDeg, params)
+% Evaluate DOG readout over MT preferred direction.
+%
+% Readout:
+%   a(phi) = exp(-(phi^2)/(2*sigmaC^2)) ...
+%            - As * exp(-(phi^2)/(2*sigmaS^2))
+%
+% Constraints are enforced by the fitter, not here.
+
+phiDeg = phiDeg(:)';
+
+sigmaC = params(1);
+sigmaS = params(2);
+As     = params(3);
+
+aPhi = exp(-(phiDeg.^2) ./ (2 * sigmaC.^2)) ...
+     - As .* exp(-(phiDeg.^2) ./ (2 * sigmaS.^2));
+
+paramStruct = struct( ...
+    'sigmaCenterDeg', sigmaC, ...
+    'sigmaSurroundDeg', sigmaS, ...
+    'surroundGain', As );
+end
+
+% ========================================================================
+function aPhiNorm = normalizeReadoutAtPreferred(phiDeg, aPhi)
+% Normalize readout so that the preferred-direction value a(0) == 1.
+%
+% This is a convention for identifiability and interpretation. It does not
+% affect the predicted normalized scale because the scale prediction is
+% invariant to multiplicative rescaling of the readout.
+
+phiDeg = phiDeg(:)';
+aPhi   = aPhi(:)';
+
+idx0 = find(abs(phiDeg) < 1e-9, 1, 'first');
+if isempty(idx0)
+    error('normalizeReadoutAtPreferred requires phiDeg to contain 0 deg.');
+end
+
+a0 = aPhi(idx0);
+if ~isfinite(a0) || abs(a0) < 1e-12
+    error('Cannot normalize readout at preferred direction because a(0) is zero or non-finite.');
+end
+
+aPhiNorm = aPhi ./ a0;
+end
+
+% ========================================================================
+function deltaM = computeMTDeltaM(phiDeg, deltaDeg, mtModel)
+% Compute Delta m(phi;delta) on the shared phi-grid.
+
+phiDeg = phiDeg(:)';
+if numel(phiDeg) ~= numel(mtModel.phiDeg) || any(phiDeg ~= mtModel.phiDeg)
+    error('computeMTDeltaM requires the shared phi-grid from mtModel.phiDeg.');
+end
+
+shifted = wrapTo180Local(phiDeg - deltaDeg);
+G = exp(-(shifted.^2) ./ (2 * mtModel.sigmaMTDeg.^2));
+deltaM = G - mean(G);
+end
+
+% ========================================================================
+function predScale = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params)
+% The probe template follows the stimulus construction:
+%   - delta = 0 deg: single-channel template
+%   - 0 < delta < 180 deg: two symmetric probe-noise streams at +delta and
+%     -delta, each with amplitude 1/sqrt(2) relative to the single-stream
+%     probe amplitude
+%   - delta = 180 deg: single-channel template
+%
+% For 0 < delta < 180:
+%   Delta m_eff(phi;delta) = (1/sqrt(2)) * [Delta m(phi;+delta) + Delta m(phi;-delta)]
+%
+% S_pred(delta) = sum_phi a(phi) Delta m_eff(phi;delta) / ...
+%                 sum_phi a(phi) Delta m_eff(phi;0)
+
+phiDeg = mtModel.phiDeg;
+[aPhi, ~] = evaluateReadoutDOG(phiDeg, params);
+
+
+refVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel));
+
+offsetsDeg = offsetsDeg(:)';
+predScale = nan(size(offsetsDeg));
+for i = 1:numel(offsetsDeg)
+    probeVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel));
+    if isfinite(refVal) && abs(refVal) > 0
+        predScale(i) = probeVal / refVal;
+    else
+        predScale(i) = NaN;
+    end
+end
+end
+
+% ========================================================================
+function predScale = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhi)
+% Predict normalized scale from an explicit readout vector a(phi).
+%
+% The probe template follows the stimulus construction:
+%   - delta = 0 deg: single-channel template
+%   - 0 < delta < 180 deg: symmetrized template for equal probe-noise
+%     contributions at +delta and -delta
+%   - delta = 180 deg: single-channel template
+
+phiDeg = mtModel.phiDeg(:)';
+aPhi   = aPhi(:)';
+
+if numel(aPhi) ~= numel( ...
+    phiDeg)
+    error('predictNormalizedScaleFromExplicitReadout: aPhi must match mtModel.phiDeg in length.');
+end
+
+refVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel));
+tol = 1e-10;
+
+offsetsDeg = offsetsDeg(:)';
+predScale = nan(size(offsetsDeg));
+
+for i = 1:numel(offsetsDeg)
+    probeVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel));
+    if isfinite(refVal) && abs(refVal) > tol
+        predScale(i) = probeVal / refVal;
+    else
+        predScale(i) = NaN;
+    end
+end
+end
+% ========================================================================
+function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel, varargin)
+% Fit DOG readout parameters to observed non-anchor scale values under the
+% project's probe-to-pref scale convention.
+%
+% Weighted objective:
+%   sum_i (obsScale_i - predScale_i)^2 / obsVar_i
+
+p = inputParser;
+addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
+parse(p, varargin{:});
+opt = p.Results;
+
+offsetsDeg = offsetsDeg(:);
+obsScale   = obsScale(:);
+obsVar     = obsVar(:);
+
+valid = isfinite(offsetsDeg) & isfinite(obsScale) & isfinite(obsVar) & (obsVar > 0);
+offsetsDeg = offsetsDeg(valid);
+obsScale   = obsScale(valid);
+obsVar     = obsVar(valid);
+
+[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, opt.Bounds);
+obj = @(p) readoutDOGObjective(p, offsetsDeg, obsScale, obsVar, mtModel);
+
+params = nan(size(p0));
+loss = NaN;
+fitSuccess = false;
+
+try
+    problem = createOptimProblem('fmincon', ...
+        'objective', obj, ...
+        'x0', p0, ...
+        'lb', lb, ...
+        'ub', ub, ...
+        'options', optimoptions('fmincon', 'Display', 'off', 'Algorithm', 'interior-point'));
+    [params, loss] = fmincon(problem);
+    fitSuccess = all(isfinite(params));
+catch
+    try
+        params = fminsearch(obj, p0, optimset('Display', 'off'));
+        loss = obj(params);
+        fitSuccess = all(isfinite(params));
+    catch
+        fitSuccess = false;
+    end
+end
+
+predMeasured = nan(size(offsetsDeg));
+paramStruct = struct();
+
+if fitSuccess
+    predMeasured = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params).';
+    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
+end
+
+fitResult = struct();
+fitResult.modelName = 'dog_readout';
+fitResult.fitSuccess = fitSuccess;
+fitResult.loss = loss;
+fitResult.params = params;
+fitResult.paramStruct = paramStruct;
+fitResult.paramNames = readoutDOGParamNames();
+fitResult.nFreeParams = numel(params);
+fitResult.offsetsDeg = offsetsDeg(:)';
+fitResult.observedScale = obsScale(:)';
+fitResult.observedVar = obsVar(:)';
+fitResult.predictedScale = predMeasured(:)';
+fitResult.phiDeg = mtModel.phiDeg;
+if fitSuccess
+    fitResult.readoutPhiRaw = evaluateReadoutDOG(mtModel.phiDeg, params);
+    fitResult.readoutPhi = normalizeReadoutAtPreferred(mtModel.phiDeg, fitResult.readoutPhiRaw);
+else
+    fitResult.readoutPhiRaw = nan(size(mtModel.phiDeg));
+    fitResult.readoutPhi = nan(size(mtModel.phiDeg));
+end
+end
+
+% ========================================================================
+function plotReadoutDOGFit(fitResult, mtModel, varargin)
+% Minimal plot helper for fitted readout over MT preferred direction.
+
+p = inputParser;
+addParameter(p, 'titleStr', 'DOG readout fit', @(x) ischar(x) || isstring(x));
+parse(p, varargin{:});
+
+if isempty(fitResult) || ~isfield(fitResult, 'fitSuccess') || ~fitResult.fitSuccess
+    return;
+end
+
+fig = figure; clf; hold on;
+plot(mtModel.phiDeg, fitResult.readoutPhi, 'k-', 'LineWidth', 2);
+xlabel('\phi (deg)');
+ylabel('a(\phi)');
+title(char(string(p.Results.titleStr)));
+box off;
+end
+
+% ========================================================================
+function plotReadoutOverlapDiagnostic(acrossOffsetSummary, varargin)
+% Plot fitted readout, MT templates, and their products to visualize how
+% overlap determines predicted normalized scale.
+%
+% The key diagnostic is that scale is set by:
+%   S(delta) = <a, Delta m_delta> / <a, Delta m_0>
+% not by the local value a(delta) alone.
+
+p = inputParser;
+addParameter(p, 'OffsetsDeg', [0 45 180], @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'titleStr', 'Fit-vs-flat overlap diagnostic', ...
+    @(x) ischar(x) || isstring(x));
+addParameter(p, 'SaveFile', '', @(x) ischar(x) || isstring(x));
+parse(p, varargin{:});
+opt = p.Results;
+
+rm = acrossOffsetSummary.readoutModel;
+if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
+    return;
+end
+
+phiDeg = rm.phiDeg(:)';
+aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
+
+mtp = rm.mtForwardModelParams;
+mtModel = makeMTReadoutForwardModel( ...
+    'sigmaMTDeg', mtp.sigmaMTDeg, ...
+    'phiDeg', mtp.phiDeg);
+offsetsDeg = opt.OffsetsDeg(:)';
+nOffsets = numel(offsetsDeg);
+
+deltaM   = cell(1, nOffsets);
+prodTerm = cell(1, nOffsets);
+overlap  = nan(1, nOffsets);
+posPart  = nan(1, nOffsets);
+negPart  = nan(1, nOffsets);
+
+for i = 1:nOffsets
+    deltaM{i} = computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel);
+    prodTerm{i} = aPhi .* deltaM{i};
+    overlap(i) = sum(prodTerm{i});
+    posPart(i) = sum(max(prodTerm{i}, 0));
+    negPart(i) = sum(min(prodTerm{i}, 0));
+end
+
+idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
+if isempty(idx0)
+    warning('plotReadoutOverlapDiagnostic: OffsetsDeg does not include 0. Ratios will not be shown.');
+    refOverlap = NaN;
+    predScale = nan(size(overlap));
+else
+    refOverlap = overlap(idx0);
+    predScale = overlap ./ refOverlap;
+end
+aPhiFlat = ones(size(aPhi));
+predScaleFlat = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhiFlat);
+predScaleFit  = predScale;
+
+
+% ---- Build fit-vs-flat comparison figure ----
+prodTermFit  = cell(1, nOffsets);
+prodTermFlat = cell(1, nOffsets);
+
+for i = 1:nOffsets
+    prodTermFit{i}  = aPhi .* deltaM{i};
+    prodTermFlat{i} = ones(size(aPhi)) .* deltaM{i};   % flat readout = 1
+end
+
+fig = figure(302); clf;
+t = tiledlayout(2,1, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+co = lines(nOffsets);
+
+% ---- Top panel: readout functions and MT templates ----
+nexttile; hold on;
+
+% Readout functions
+hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
+hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.8);
+
+% MT templates, same colors used in the lower panel
+hTemplates = gobjects(1, nOffsets);
+for i = 1:nOffsets
+    hTemplates(i) = plot(phiDeg, deltaM{i}, '-', ...
+        'Color', co(i,:), 'LineWidth', 1.5);
+end
+
+yline(0, 'k:');
+xlabel('\phi (deg)');
+ylabel('Value');
+title(char(string(opt.titleStr)));
+legend([hFitReadout, hFlatReadout, hTemplates], ...
+    [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}, ...
+     arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
+     'UniformOutput', false)], ...
+    'Location', 'best');
+box off;
+
+% ---- Bottom panel: overlap contribution functions ----
+nexttile; hold on;
+
+legendHandles = gobjects(0);
+legendLabels = {};
+
+for i = 1:nOffsets
+    h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', co(i,:), 'LineWidth', 2);
+    h2 = plot(phiDeg, prodTermFlat{i}, '--', 'Color', co(i,:), 'LineWidth', 1.5);
+
+    flatOverlap = sum(prodTermFlat{i});
+
+    legendHandles(end+1) = h1; %#ok<AGROW>
+    legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', ...
+        offsetsDeg(i), overlap(i)); %#ok<AGROW>
+
+    legendHandles(end+1) = h2; %#ok<AGROW>
+    legendLabels{end+1} = sprintf('%g^\\circ flat, <a,\\Deltam> = %.2f', ...
+        offsetsDeg(i), flatOverlap); %#ok<AGROW>
+end
+yline(0, 'k:');
+xlabel('\phi (deg)');
+ylabel('a(\phi)\Delta m(\phi;\delta)');
+legend(legendHandles, legendLabels, 'Location', 'best');
+box off;
+subtitle(t, ['Upper: Readout Functions and MT Templates. ' 'Lower: Contribution Functions.']);
+
+if ~isempty(char(string(opt.SaveFile)))
+    saveas(fig, char(string(opt.SaveFile)));
+end
+
+% Also print a compact numeric summary to the command window
+fprintf('\nReadout overlap diagnostic:\n');
+for i = 1:nOffsets
+    fprintf(['  delta = %6.1f deg:  <a,Delta m> = %9.4f   ' ...
+             'positive = %9.4f   negative = %9.4f'], ...
+        offsetsDeg(i), overlap(i), posPart(i), negPart(i));
+    if ~isnan(predScaleFit(i))
+        fprintf('   S_fit(delta) = %8.4f', predScaleFit(i));
+    end
+    if ~isnan(predScaleFlat(i))
+        fprintf('   S_flat(delta) = %8.4f', predScaleFlat(i));
+    else
+      fprintf('   S_flat(delta) = undefined (flat readout gives zero overlap)');
+    end
+    fprintf('\n');
+end
+end
+
+% ========================================================================
+function names = readoutDOGParamNames()
+names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+end
+
+% ========================================================================
+function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, boundsStruct)
+
+sigmaC0 = max(10, min(50, median(offsetsDeg(offsetsDeg > 0), 'omitnan')));
+if isempty(sigmaC0) || ~isfinite(sigmaC0)
+    sigmaC0 = 25;
+end
+sigmaS0 = max(sigmaC0 + 20, 90);
+As0 = 0.5;
+
+p0 = [sigmaC0, sigmaS0, As0];
+lb = [1e-3, 1e-3, 0];
+ub = [300, 300, 10];
+
+if isfield(boundsStruct, 'readoutDOG')
+    B = boundsStruct.readoutDOG;
+    if isfield(B, 'lb'), lb = B.lb; end
+    if isfield(B, 'ub'), ub = B.ub; end
+end
+end
+
+% ========================================================================
+function err = readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel)
+
+pred = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params);
+pred = pred(:);
+
+resid = pred - obsScale(:);
+err = sum((resid.^2) ./ obsVar(:), 'omitnan');
+
+sigmaC = params(1);
+sigmaS = params(2);
+As = params(3);
+
+if ~(sigmaS > sigmaC && sigmaC > 0 && As >= 0)
+    err = err + 1e12;
+end
+
+if ~isfinite(err)
+    err = 1e12;
+end
+end
+
+% ========================================================================
+function ang = wrapTo180Local(ang)
+% Map angles to [-180, 180).
+
+ang = mod(ang + 180, 360) - 180;
+end
 % ========================================================================
 function [params, loss, ok] = fitAcrossOffsetModel(offsetDeg, scaleVec, opts, fitWeights)
 
@@ -1200,6 +1791,9 @@ xFitPoint  = [0, xMeasured];
 yFitPoint  = [1, [empirical.meanScale]];
 
 modelFits = struct();
+modelFits.note = ['Legacy offset-space model summaries retained for backward ' ...
+                  'compatibility only. Use acrossOffsetSummary.readoutModel ' ...
+                  'for the primary DOG readout fit.'];
 for iModel = 1:numel(opts.CandidateModels)
     modelName = char(opts.CandidateModels{iModel});
     modelOpts = opts;
@@ -1246,11 +1840,12 @@ for iModel = 1:numel(opts.CandidateModels)
         'curve68', curveCI(curvesGood, 68), ...
         'curve95', curveCI(curvesGood, 95), ...
         'fitMethod', 'bootstrap_refit', ...
-        'objective', 'least_squares', ...
+        'objective', 'legacy_offset_space_least_squares', ...
         'bounds', opts.Bounds, ...
         'startPointRule', 'data-driven crude initializer', ...
         'lossPointEstimate', pointEstimateLoss, ...
-        'fitNotes', 'w(0)=1 normalization enforced', ...
+        'fitNotes', ['Legacy offset-space fit retained for backward compatibility; ' ...
+             'not the primary DOG readout fit over MT preferred direction.'], ... 
         'bootstrapParams', bootParams, ...
         'bootstrapLoss', bootLoss, ...
         'bootstrapFitSuccess', fitSuccess );
@@ -1283,9 +1878,10 @@ history = struct( ...
     'offsetsDeg', [acrossOffsetSummary.empirical.probeOffsetDeg], ...
     'nSessionsByOffset', [acrossOffsetSummary.empirical.nSessions], ...
     'modelName', opts.Model, ...
-    'baselineMode', acrossOffsetSummary.effectiveWeightModel.baselineMode, ...
-    'nFreeParams', acrossOffsetSummary.effectiveWeightModel.nFreeParams, ...
-    'medianParams', acrossOffsetSummary.bootstrap.fitBootstrap.medianParams, ...
+    'primaryFitObject', 'DOG readout over MT preferred direction', ...
+    'baselineMode', acrossOffsetSummary.readoutModel.baselineModeResolved, ...
+    'nFreeParams', acrossOffsetSummary.readoutModel.nFreeParams, ...
+    'medianParams', nan, ...
     'saveFile', opts.SaveFile );
 
 end
@@ -1303,74 +1899,69 @@ end
 
 % ========================================================================
 function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
-% Minimal first-pass plots. Expand as needed.
+% Primary plots for the DOG readout model:
+%   1) observed scale values by probe offset, with predicted values overlaid
+%      when a readout fit is available
+%   2) fitted readout a(phi) over MT preferred direction, only when fit exists
 
 emp = acrossOffsetSummary.empirical;
-fb  = acrossOffsetSummary.bootstrap.fitBootstrap;
-mf  = acrossOffsetSummary.modelFits.(opts.Model);
-
 offsets = [emp.probeOffsetDeg];
-meanScale = [emp.meanScale];
+obsScale = [emp.pooledScale];
 ci68 = vertcat(emp.boot68);
 
-fig = figure(300); clf; hold on;
+hasReadoutFit = isfield(acrossOffsetSummary, 'readoutModel') && ...
+    isfield(acrossOffsetSummary.readoutModel, 'fit') && ...
+    ~isempty(acrossOffsetSummary.readoutModel.fit) && ...
+    isfield(acrossOffsetSummary.readoutModel.fit, 'fitSuccess') && ...
+    acrossOffsetSummary.readoutModel.fit.fitSuccess;
 
-hData = errorbar(offsets, meanScale, meanScale - ci68(:,1)', ci68(:,2)' - meanScale, ...
+% ---- Plot 1: observed scale by offset; overlay prediction if available ----
+fig1 = figure(300); clf; hold on;
+
+hObs = errorbar(offsets, obsScale, ...
+    obsScale - ci68(:,1)', ci68(:,2)' - obsScale, ...
     'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 
-hPoint = plot(fb.angleGridDeg, mf.curvePointEstimate, 'k-', 'LineWidth', 2);
+if hasReadoutFit
+    rm = acrossOffsetSummary.readoutModel;
+    predScale = rm.predictedAtMeasuredOffsets;
+    hPred = plot(offsets, predScale, 'k-', 'LineWidth', 2);
 
-hBoot = plot(fb.angleGridDeg, mf.curveMedianBootstrap, 'k--', 'LineWidth', 1.5);
-
-hCIlo = [];
-hCIhi = []; %#ok<NASGU>
-
-disp(isfield(mf, 'curve95'))
-if isfield(mf, 'curve95')
-    disp(size(mf.curve95))
-    disp(any(isfinite(mf.curve95(:))))
-end
-
-if isfield(mf, 'curve95')
-    c95 = mf.curve95;
-    if isnumeric(c95) && size(c95,1) == 2 && size(c95,2) == numel(fb.angleGridDeg) && ...
-            any(isfinite(c95(1,:))) && any(isfinite(c95(2,:)))
-        hCIlo = plot(fb.angleGridDeg, c95(1,:), 'k:', 'LineWidth', 1);
-        hCIhi = plot(fb.angleGridDeg, c95(2,:), 'k:', 'LineWidth', 1); %#ok<NASGU>
-    end
+    legend([hObs, hPred], ...
+        {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, ...
+        'Location', 'best');
+    title('Observed vs predicted scale');
+else
+    legend(hObs, {'Observed pooled scale (68% CI)'}, ...
+        'Location', 'best');
+    title('Observed scale by probe offset');
 end
 
 xlabel('Probe offset (deg)');
-ylabel('Relative scale');
-title(sprintf('Across-offset fit (%s)', strrep(opts.Model, '_', '\_')));
+ylabel('Normalized scale');
 box off;
 
-if ~isempty(hCIlo)
-    legend([hData, hPoint, hBoot, hCIlo], ...
-        {'Empirical pooled scale (68% CI)', ...
-         'Point-estimate fit', ...
-         'Bootstrap median fit', ...
-         'Bootstrap 95% CI'}, ...
-        'Location', 'best');
-else
-    legend([hData, hPoint, hBoot], ...
-        {'Empirical pooled scale (68% CI)', ...
-         'Point-estimate fit', ...
-         'Bootstrap median fit'}, ...
-        'Location', 'best');
-end
+saveas(fig1, fullfile(opts.PlotDir, 'observed_vs_predicted_scale.png'));
 
-saveas(fig, fullfile(opts.PlotDir, sprintf('acrossOffset_%s.png', opts.Model)));
+% ---- Plot 2: fitted readout over MT preferred direction ----
+if hasReadoutFit
+    rm = acrossOffsetSummary.readoutModel;
 
-fig2 = figure(301); clf;
-params = fb.params(fb.fitSuccess, :);
-if size(params, 2) >= 2
-    scatter(params(:,1), params(:,2), 20, 'filled');
-    xlabel(fb.paramNames{1});
-    ylabel(fb.paramNames{2});
-    title('Bootstrap parameter cloud');
+    fig2 = figure(301); clf; hold on;
+    plot(rm.phiDeg, rm.readoutPhi, 'k-', 'LineWidth', 2);
+
+    xlabel('\phi (deg)');
+    ylabel('a(\phi)');
+    title('Fitted DOG readout over MT preferred direction');
     box off;
-    saveas(fig2, fullfile(opts.PlotDir, sprintf('acrossOffset_%s_paramCloud.png', opts.Model)));
+
+    saveas(fig2, fullfile(opts.PlotDir, 'fitted_readout_phi.png'));
+
+    plotReadoutOverlapDiagnostic( ...
+    acrossOffsetSummary, ...
+    'OffsetsDeg', [0 45 180], ...
+    'titleStr', 'Readout / MT overlap diagnostic', ...
+    'SaveFile', fullfile(opts.PlotDir, 'readout_overlap_diagnostic.png'));
 end
 
 end
