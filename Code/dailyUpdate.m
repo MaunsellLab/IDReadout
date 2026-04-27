@@ -33,7 +33,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
     replace = false;
   end
   if nargin < 2 || isempty(doBootstrap)
-    doBootstrap = true;
+    doBootstrap = false;
   end
   if nargin < 3 || isempty(nBoot)
     nBoot = 100;
@@ -44,29 +44,37 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
   path = char(path);
 
   fprintf('--- Daily update start ---\n');
+  fprintf('---  convertIDRData start ---\n');
   convertIDRData;
+  fprintf('---  convertIDRData complete ---\n');
 
   % ---- Session-level update ----
-  staleProbeDirs = makeKernels(replace, path);
+  fprintf('---  makeKernels start ---\n');
+  [allProbeDirs, staleProbeDirs] = makeKernels(replace, path);
+  fprintf('---  makeKernels complete ---\n');
+
+  % ---- Save kernel summary ----
+  fprintf('---  makeKernelSessionSummaries start ---\n');
+  makeKernelSessionSummaries();
+  fprintf('---  makeKernelSessionSummaries complete ---\n');
 
   if isempty(staleProbeDirs) && ~doBootstrap
-    fprintf(' No session-level updates detected. Skipping per-probe averages.\n');
+    fprintf('--- No session-level updates detected; skipping per-probe averages.\n');
   else
     if doBootstrap
-      staleProbeDirs = [45, 180];
+      staleProbeDirs = allProbeDirs;
     end
-    fprintf('Refreshing probe averages for: %s\n', mat2str(staleProbeDirs));
     for p = staleProbeDirs(:).'
-      fprintf(' Updating average for probe %g\n', p);
+      fprintf('--- Updating average for probe %g\n', p);
+      fprintf('---  kernelAverageByProbe start ---\n');
       kernelAverageByProbe(path, p, doBootstrap, nBoot);
+      fprintf('---  kernelAverageByProbe complete ---\n');
     end
   end
 
   % ---- Across-offset summary update ----
-  fprintf(' Updating across-offset summaries\n');
-  A = updateAcrossOffsetSummaries( ...
-    '/Users/Shared/Data/IDReadout/Data/KernelSummaries', 'NBoot', 10, ...
-    'ScaleSideType', 'change', 'ScaleStepType', 'inc', ...
-    'Model', 'dog', 'BaselineMode', 'auto', 'DOGFixedBaseline', 'empirical180');
+  fprintf('---  updateAcrossOffsetSummaries start ---\n');
+  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1); %#ok<NASGU>
+  fprintf('---  updateAcrossOffsetSummaries complete ---\n');
   fprintf('--- Daily update complete ---\n');
 end

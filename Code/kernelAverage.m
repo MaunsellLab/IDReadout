@@ -92,11 +92,6 @@ for f = 1:length(matFiles)
   sessionHitStats{end+1}  = hitStats; %#ok<AGROW>
   sessionCompStats{end+1} = compStats; %#ok<AGROW>
   sessionHeaders{end+1}   = header; %#ok<AGROW>
-
-  % Plot this session's kernels
-  % [~, sessBaseName, ~] = fileparts(header.fileName);
-  % plotKernels(1, sessBaseName, header, kernels, kVars, compStats, hitStats);
-
   nSessions = nSessions + 1;
 end
 
@@ -175,7 +170,7 @@ end
 plotKernels(2, sprintf('%d Session Average', nSessions), header, avgKernels, avgKVars, ...
   avgCompStats, avgHitStats);
 
-pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', 'Latest Session Average Kernel.pdf');
+pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', '_AverageKernel.pdf');
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 fprintf(' Saved session average kernel: %s\n', pdfFile);
 

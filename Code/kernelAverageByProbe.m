@@ -137,10 +137,8 @@ avgCompStats.RVar = sqrt(avgCompStats.RVar);
 % ---- Hierarchical bootstrap of scale CI ----
 if doBootstrap
   rng(1);
-
   bootScale      = nan([size(avgCompStats.scale), nBoot]);
   bootKIntegrals = nan([size(avgCompStats.kIntegrals), nBoot]);
-
   for b = 1:nBoot
     if mod(b, 25) == 0
       fprintf('Bootstrap %d of %d for probe %d\n', b, nBoot, probeDirDeg);
@@ -162,7 +160,6 @@ if doBootstrap
       bootSessionKernels{j} = bootKernels;
       bootSessionKVars{j}   = bootKVars;
     end
-
     [bootAvgKernels, bootAvgKVars] = ...
         poolSessionKernels(bootSessionKernels, bootSessionKVars, firstVFrames);
 
@@ -189,9 +186,7 @@ end
 
 % ---- Plot/export averaged kernels ----
 plotKernels(2, sprintf('%d Session Average (Probe %d%c)', ...
-  nSessions, probeDirDeg, char(176)), ...
-  header, avgKernels, avgKVars, avgCompStats, avgHitStats);
-
+  nSessions, probeDirDeg, char(176)), header, avgKernels, avgKVars, avgCompStats, avgHitStats);
 plotRoot = fullfile(baseFolder, 'Plots', 'Kernels');
 if ~exist(plotRoot, 'dir')
   mkdir(plotRoot);
@@ -209,18 +204,12 @@ summaryDir = fullfile(baseFolder, 'Summaries');
 if ~exist(summaryDir, 'dir')
   mkdir(summaryDir);
 end
-
 summaryFile = fullfile(summaryDir, sprintf('kernelAverage_%s.mat', tag));
-
-save(summaryFile, ...
-  'probeDirDeg', 'sessionNames', 'sideTypeNames', ...
-  'avgKernels', 'avgKVars', 'avgHitStats', 'avgCompStats', ...
-  'nSessions');
+save(summaryFile, 'probeDirDeg', 'sessionNames', 'sideTypeNames', ...
+  'avgKernels', 'avgKVars', 'avgHitStats', 'avgCompStats', 'nSessions');
 
 fprintf(' Saved summary: %s\n', summaryFile);
-
 end
-
 
 function [avgKernels, avgKVars] = poolSessionKernels(sessionKernels, sessionKVars, nFrames)
 % Pool session kernels using inverse-variance weighting.

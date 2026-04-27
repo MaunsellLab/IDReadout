@@ -1,26 +1,17 @@
 function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % updateAcrossOffsetSummaries
 %  MT readout fit:
-%       fits a parameterized DOG readout over MT preferred direction,
-%       and uses a fixed MT forward model to map that readout onto
-%       predicted normalized psychophysical scale.
+%   Fits a parameterized DOG readout over MT preferred direction using a fixed MT forward model to map
+%   the readout onto experimentally measured normalized psychophysical weights (scales) at probed directions.
+%   The fit is the weighting (readout) across direction of MT activity that yields the psychophysical scales  
+%   measured. 
+% This function loads previously saved per-session summary files, groups them by probe offset, applies 
+% exclusion criteria, performs across-offset bootstrap resampling, fits the readout model, and saves a 
+% single across-offset summary structure.
 %
-%   The fitted object is the readout a(phi), not an "effective weighting"
-%   defined in kernel space.
-%
-% This function is intentionally modular: it does NOT construct per-session
-% summaries. It loads previously saved per-session summary files, groups them
-% by probe offset, applies exclusion logic, performs across-offset bootstrap
-% resampling, fits the readout model, and saves a single across-offset
-% summary structure.
-%
-%   BaselineMode handling:
-%       BaselineMode = 'auto' uses a fixed readout offset b when fewer than
-%       MinOffsetsForFitBaseline non-anchor offsets are available;
-%       otherwise b is fit as a free parameter.
-%
-% REQUIRED INPUT
-%   summaryDir : directory containing per-session summary .mat files
+% BaselineMode handling allows for early fits when only two probde directions have bee tested.
+% BaselineMode = 'auto' uses a fixed readout offset b when fewer than MinOffsetsForFitBaseline (typically 3) 
+% non-anchor offsets are available; otherwise b is fit as a free parameter.
 %
 % NAME-VALUE OPTIONS
 %   'SaveFile'        : full path to output .mat file
@@ -72,6 +63,10 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % diag.bestPrediction
 % diag.bestDistance
 
+if nargin < 1 || isempty(summaryDir) 
+  summaryDir = fullfile(folderPath(), 'Data', 'KernelSummaries');
+end
+    
 opts = parseInputs(summaryDir, varargin{:});
 
 if ~isempty(opts.RandomSeed)
@@ -123,7 +118,6 @@ acrossOffsetSummary.modelFitsNote = ...
      'acrossOffsetSummary.readoutModel.'];
 
 %% ---- Effective MT-to-choice weighting fit ----
-
 offsetsDegAll   = [empirical.probeOffsetDeg];
 pooledScaleAll  = [empirical.pooledScale];
 bootstrapVarAll = bootstrap.fitBootstrap.offsetFitVar;
@@ -219,6 +213,7 @@ end
 %     isfinite(opts.FixedReadoutBaseline);
 % allowSparseFixedBaselineFit = strcmpi(baselineModeResolved, 'fixed') && hasNumericFixedBaseline;
 acrossOffsetSummary.readoutModel.baselineModeRequested = baselineModeRequested;
+
 acrossOffsetSummary.readoutModel.baselineModeResolved  = baselineModeResolved;
 acrossOffsetSummary.readoutModel.fixedBaseline         = fixedReadoutBaseline;
 acrossOffsetSummary.readoutModel.minOffsetsForFitBaseline = ...
@@ -288,13 +283,6 @@ end
 if opts.Verbose
     fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
 end
-% phiDeg = acrossOffsetSummary.readoutModel.phiDeg;
-% mtp = acrossOffsetSummary.readoutModel.mtForwardModelParams;
-% mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
-% sum(computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel))
-% sum(computeMTSymmetrizedDeltaM(phiDeg, 45, mtModel))
-% sum(computeMTSymmetrizedDeltaM(phiDeg, 180, mtModel))
-
 
 end
 
@@ -309,8 +297,8 @@ p.FunctionName = mfilename;
 
 addRequired(p, 'summaryDir', @(x) ischar(x) || isstring(x));
 addParameter(p, 'SaveFile', fullfile(summaryDir, 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat'), @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir',  fullfile(summaryDir, 'AcrossOffsetSummaries', 'Plots'), @(x) ischar(x) || isstring(x));
-addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'ReadoutFits'), @(x) ischar(x) || isstring(x));
+addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
 addParameter(p, 'ExcludeFcn', [], @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
@@ -351,7 +339,6 @@ opts.ScaleMode = char(opts.ScaleMode);
 if isempty(opts.FixedReadoutBaseline)
     opts.FixedReadoutBaseline = opts.DOGFixedBaseline;
 end
-
 if ~exist(fileparts(opts.SaveFile), 'dir')
     mkdir(fileparts(opts.SaveFile));
 end
@@ -508,7 +495,6 @@ s = struct( ...
     'isExcluded', false, ...
     'excludeReason', '', ...
     'sourceFile', '' );
-
 end
 
 % ========================================================================
@@ -766,6 +752,9 @@ curveValues  = nan(nBoot, numel(angleGrid));
 
 % Second pass: fit each bootstrap replicate using fixed empirical weights.
 for b = 1:nBoot
+    if mod(b, 5) == 0
+      fprintf('Bootstrap %4d of %d', b, nBoot);
+    end
     scaleVec = bootScaleMat(b, :);
     xFit = [0, [offsetData.probeOffsetDeg]];
     yFit = [1, scaleVec];
@@ -855,42 +844,6 @@ scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleS
 end
 
 % ========================================================================
-% function scaleVal = recomputeSessionScaleBootstrap(sessionStruct, opts)
-% % Recompute session scale under within-session trial resampling using the
-% % project's computeSessionKernels(sessionData, trialIdx) pathway.
-% 
-% bs = sessionStruct.bootstrapSource;
-% 
-% if isempty(fieldnames(bs))
-%     scaleVal = sessionStruct.scalePointEstimate;
-%     return;
-% end
-% 
-% if isfield(bs, 'sessionData') && isstruct(bs.sessionData)
-%     sessionData = bs.sessionData;
-% elseif hasComputeSessionKernelFields(bs)
-%     sessionData = bs;
-% elseif isfield(bs, 'noiseFile') && exist(bs.noiseFile, 'file')
-%     sessionData = load(bs.noiseFile);
-% else
-%     scaleVal = sessionStruct.scalePointEstimate;
-%     return;
-% end
-% 
-% nTrials = size(sessionData.prefNoiseByPatch, 3);
-% if isempty(nTrials) || nTrials < 1
-%     scaleVal = sessionStruct.scalePointEstimate;
-%     return;
-% end
-% 
-% trialIdx = randi(nTrials, [1 nTrials]);
-% 
-% [~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, trialIdx);
-% scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
-% 
-% end
-
-% ========================================================================
 function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionStruct, ~, doTrialBootstrap)
 % Recompute full session kernel outputs from source data.
 
@@ -911,9 +864,7 @@ if doTrialBootstrap
     nTrials = size(sessionData.prefNoiseByPatch, 3);
     trialIdx = randi(nTrials, [1 nTrials]);
 end
-
 [kernels, kVars, ~, hitStats, compStats] = computeSessionKernels(sessionData, trialIdx);
-
 end
 
 % ========================================================================
@@ -1056,15 +1007,15 @@ addParameter(p, 'TargetS45', NaN, @(x) isnumeric(x) && isscalar(x));
 addParameter(p, 'TargetS180', NaN, @(x) isnumeric(x) && isscalar(x));
 addParameter(p, 'MakePlot', true, @(x) islogical(x) && isscalar(x));
 parse(p, varargin{:});
-opt = p.Results;
+opts = p.Results;
 
 mtModel = makeMTReadoutForwardModel( ...
-    'sigmaMTDeg', opt.SigmaMTDeg, ...
-    'phiDeg', opt.PhiDeg);
+    'sigmaMTDeg', opts.SigmaMTDeg, ...
+    'phiDeg', opts.PhiDeg);
 
-sC = opt.SigmaCenterDeg(:)';
-sS = opt.SigmaSurroundDeg(:)';
-aS = opt.SurroundGain(:)';
+sC = opts.SigmaCenterDeg(:)';
+sS = opts.SigmaSurroundDeg(:)';
+aS = opts.SurroundGain(:)';
 
 nTotal = numel(sC) * numel(sS) * numel(aS);
 
@@ -1106,10 +1057,10 @@ diag.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
 diag.params = paramsMat;
 diag.S45 = S45;
 diag.S180 = S180;
-diag.target = [opt.TargetS45, opt.TargetS180];
+diag.target = [opts.TargetS45, opts.TargetS180];
 
-if isfinite(opt.TargetS45) && isfinite(opt.TargetS180) && ~isempty(S45)
-    d2 = (S45 - opt.TargetS45).^2 + (S180 - opt.TargetS180).^2;
+if isfinite(opts.TargetS45) && isfinite(opts.TargetS180) && ~isempty(S45)
+    d2 = (S45 - opts.TargetS45).^2 + (S180 - opts.TargetS180).^2;
     [bestD2, bestIdx] = min(d2);
     diag.bestIdx = bestIdx;
     diag.bestParams = paramsMat(bestIdx, :);
@@ -1122,7 +1073,7 @@ else
     diag.bestDistance = NaN;
 end
 
-if opt.MakePlot && ~isempty(S45)
+if opts.MakePlot && ~isempty(S45)
     figure; clf; hold on;
     scatter(S45, S180, 10, 'filled');
     xlabel('Predicted S(45)');
@@ -1130,8 +1081,8 @@ if opt.MakePlot && ~isempty(S45)
     title('Reachable (S45, S180) pairs for DOG readout model');
     box off;
 
-    if isfinite(opt.TargetS45) && isfinite(opt.TargetS180)
-        plot(opt.TargetS45, opt.TargetS180, 'kp', 'MarkerSize', 14, ...
+    if isfinite(opts.TargetS45) && isfinite(opts.TargetS180)
+        plot(opts.TargetS45, opts.TargetS180, 'kp', 'MarkerSize', 14, ...
             'MarkerFaceColor', 'k');
     end
 end
@@ -1277,7 +1228,7 @@ function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel
 p = inputParser;
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 parse(p, varargin{:});
-opt = p.Results;
+opts = p.Results;
 
 offsetsDeg = offsetsDeg(:);
 obsScale   = obsScale(:);
@@ -1288,7 +1239,7 @@ offsetsDeg = offsetsDeg(valid);
 obsScale   = obsScale(valid);
 obsVar     = obsVar(valid);
 
-[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, opt.Bounds);
+[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, opts.Bounds);
 obj = @(p) readoutDOGObjective(p, offsetsDeg, obsScale, obsVar, mtModel);
 
 params = nan(size(p0));
@@ -1345,139 +1296,128 @@ end
 end
 
 % ========================================================================
-function plotReadoutOverlapDiagnostic(acrossOffsetSummary, varargin)
+function plotReadoutDiagnostics(acrossOffsetSummary, opts)
 % Plot fitted readout, MT templates, and their products to visualize how
 % overlap determines predicted normalized scale.
 %
-% The key diagnostic is that scale is set by:
-%   S(delta) = <a, Delta m_delta> / <a, Delta m_0>
+% The key diagnostic is that scale is set by: S(delta) = <a, Delta m_delta> / <a, Delta m_0>
 % not by the local value a(delta) alone.
 
-p = inputParser;
-addParameter(p, 'OffsetsDeg', [0 45 180], @(x) isnumeric(x) && isvector(x));
-addParameter(p, 'titleStr', 'Readout Function and MT Population Response to Probes', ...
-  @(x) ischar(x) || isstring(x));
-addParameter(p, 'SaveFile', '', @(x) ischar(x) || isstring(x));
-parse(p, varargin{:});
-opt = p.Results;
+  rm = acrossOffsetSummary.readoutModel;
+  if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
+      return;
+  end
 
-rm = acrossOffsetSummary.readoutModel;
-if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
-    return;
-end
-phiDeg = rm.phiDeg(:)';
-aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
-mtp = rm.mtForwardModelParams;
-mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
-offsetsDeg = opt.OffsetsDeg(:)';
-nOffsets = numel(offsetsDeg);
+  phiDeg = rm.phiDeg(:)';
+  aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
+  mtp = rm.mtForwardModelParams;
+  mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
+  offsetsDeg = [0, [acrossOffsetSummary.offsetData.probeOffsetDeg]];
+  nOffsets = numel(offsetsDeg);
+  
+  deltaM   = cell(1, nOffsets);
+  prodTerm = cell(1, nOffsets);
+  overlap  = nan(1, nOffsets);
+  posPart  = nan(1, nOffsets);
+  negPart  = nan(1, nOffsets);
 
-deltaM   = cell(1, nOffsets);
-prodTerm = cell(1, nOffsets);
-overlap  = nan(1, nOffsets);
-posPart  = nan(1, nOffsets);
-negPart  = nan(1, nOffsets);
+  for i = 1:nOffsets
+      deltaM{i} = computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel);
+      prodTerm{i} = aPhi .* deltaM{i};
+      overlap(i) = sum(prodTerm{i});
+      posPart(i) = sum(max(prodTerm{i}, 0));
+      negPart(i) = sum(min(prodTerm{i}, 0));
+  end
+  
+  idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
+  if isempty(idx0)
+      warning('plotReadoutDiagnostics: OffsetsDeg does not include 0. Ratios will not be shown.');
+      predScale = nan(size(overlap));
+  else
+      refOverlap = overlap(idx0);
+      predScale = overlap ./ refOverlap;
+  end
+  aPhiFlat = ones(size(aPhi));
+  predScaleFlat = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhiFlat);
+  predScaleFit  = predScale;
+  
+  % ---- Build fit-vs-flat comparison figure ----
+  prodTermFit  = cell(1, nOffsets);
+  prodTermFlat = cell(1, nOffsets);
+  for i = 1:nOffsets
+      prodTermFit{i}  = aPhi .* deltaM{i};
+      prodTermFlat{i} = ones(size(aPhi)) .* deltaM{i};   % flat readout = 1
+  end
 
-for i = 1:nOffsets
-    deltaM{i} = computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel);
-    prodTerm{i} = aPhi .* deltaM{i};
-    overlap(i) = sum(prodTerm{i});
-    posPart(i) = sum(max(prodTerm{i}, 0));
-    negPart(i) = sum(min(prodTerm{i}, 0));
-end
+  % -- set up figure to plot three panels
+  fig = figure(301); clf;
+  tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
+  lineCol = lines(nOffsets);
+  
+  % ---- top panel: readout function ----
+  nexttile; hold on;
+  hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
+  hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.5);
+  plot(phiDeg, zeros(size(phiDeg)), 'k:', 'LineWidth', 1);
+  xlabel('\phi (deg)');
+  ylabel('a(\phi)');
+  title(sprintf('Fitted DOG readout over MT preferred direction (%d bootstraps)', opts.NBoot));
+  legend([hFitReadout, hFlatReadout], [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}], 'Location', 'south');
+  ylimits = ylim();
+  ylim([min(-1, ylimits(1)), max(1, ylimits(2))]);
+  box off;
+  
+  % ---- middle panel: MT populations responses ----
+  nexttile; hold on;
+  title('MT Population Responses to Probes');
+  % MT templates, same colors used in the lower panel
+  hTemplates = gobjects(1, nOffsets);
+  for i = 1:nOffsets
+      hTemplates(i) = plot(phiDeg, deltaM{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 1.5);
+  end
+  yline(0, 'k:');
+  xlabel('\phi (deg)');
+  ylabel('\Delta m(\phi;\delta)');
+  legend([hTemplates], [arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
+       'UniformOutput', false)], 'Location', 'best');
+  box off;
+  
+  % ---- Bottom panel: overlap contribution functions ----
+  nexttile; hold on;
+  title('Weighted Population Responses (Fit and Flat)');
+  legendHandles = gobjects(0);
+  legendLabels = {};
+  
+  for i = 1:nOffsets
+      h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 2);
+      legendHandles(end+1) = h1; %#ok<AGROW>
+      legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', offsetsDeg(i), overlap(i)); %#ok<AGROW>
+  end
+  yline(0, 'k:');
+  xlabel('\phi (deg)');
+  ylabel('a(\phi)\Delta m(\phi;\delta)');
+  legend(legendHandles, legendLabels, 'Location', 'best');
+  box off;
+  if ~isempty(char(string(opts.SaveFile)))
+      saveas(fig, fullfile(opts.PlotDir, 'ReadoutFunctions.pdf'));
+  end
 
-idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
-if isempty(idx0)
-    warning('plotReadoutOverlapDiagnostic: OffsetsDeg does not include 0. Ratios will not be shown.');
-    % refOverlap = NaN;
-    predScale = nan(size(overlap));
-else
-    refOverlap = overlap(idx0);
-    predScale = overlap ./ refOverlap;
-end
-aPhiFlat = ones(size(aPhi));
-predScaleFlat = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhiFlat);
-predScaleFit  = predScale;
-
-
-% ---- Build fit-vs-flat comparison figure ----
-prodTermFit  = cell(1, nOffsets);
-prodTermFlat = cell(1, nOffsets);
-
-for i = 1:nOffsets
-    prodTermFit{i}  = aPhi .* deltaM{i};
-    prodTermFlat{i} = ones(size(aPhi)) .* deltaM{i};   % flat readout = 1
-end
-
-fig = figure(302); clf;
-tiledlayout(2,1, 'TileSpacing', 'compact', 'Padding', 'compact');
-co = lines(nOffsets);
-
-% ---- Top panel: readout functions and MT templates ----
-nexttile; hold on;
-title('Readout Function and MT Population Responses to Probes');
-% Readout functions
-hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
-hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.8);
-
-% MT templates, same colors used in the lower panel
-hTemplates = gobjects(1, nOffsets);
-for i = 1:nOffsets
-    hTemplates(i) = plot(phiDeg, deltaM{i}, '-', 'Color', co(i,:), 'LineWidth', 1.5);
-end
-yline(0, 'k:');
-xlabel('\phi (deg)');
-ylabel('a(\phi) or \Delta m(\phi;\delta)');
-% title(char(string(opt.titleStr)));
-legend([hFitReadout, hFlatReadout, hTemplates], ...
-    [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}, ...
-     arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
-     'UniformOutput', false)], 'Location', 'best');
-box off;
-
-% ---- Bottom panel: overlap contribution functions ----
-nexttile; hold on;
-title('Weighted Population Responses (Fit and Flat)');
-legendHandles = gobjects(0);
-legendLabels = {};
-
-for i = 1:nOffsets
-    h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', co(i,:), 'LineWidth', 2);
-    h2 = plot(phiDeg, prodTermFlat{i}, '--', 'Color', co(i,:), 'LineWidth', 1.5);
-    flatOverlap = sum(prodTermFlat{i});
-
-    legendHandles(end+1) = h1; %#ok<AGROW>
-    legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', offsetsDeg(i), overlap(i)); %#ok<AGROW>
-
-    legendHandles(end+1) = h2; %#ok<AGROW>
-    legendLabels{end+1} = sprintf('%g^\\circ flat, <a,\\Deltam> = %.2f', offsetsDeg(i), flatOverlap); %#ok<AGROW>
-end
-yline(0, 'k:');
-xlabel('\phi (deg)');
-ylabel('a(\phi)\Delta m(\phi;\delta)');
-legend(legendHandles, legendLabels, 'Location', 'best');
-box off;
-
-if ~isempty(char(string(opt.SaveFile)))
-    saveas(fig, char(string(opt.SaveFile)));
-end
-
-% Also print a compact numeric summary to the command window
-fprintf('\nReadout overlap diagnostic:\n');
-for i = 1:nOffsets
-    fprintf(['  delta = %6.1f deg:  <a,Delta m> = %9.4f   ' ...
-             'positive = %9.4f   negative = %9.4f'], ...
-        offsetsDeg(i), overlap(i), posPart(i), negPart(i));
-    if ~isnan(predScaleFit(i))
-        fprintf('   S_fit(delta) = %8.4f', predScaleFit(i));
-    end
-    if ~isnan(predScaleFlat(i))
-        fprintf('   S_flat(delta) = %8.4f', predScaleFlat(i));
-    else
-      fprintf('   S_flat(delta) = undefined (flat readout gives zero overlap)');
-    end
-    fprintf('\n');
-end
+  % Print a compact numeric summary to the command window
+  fprintf('\nReadout overlap diagnostic:\n');
+  for i = 1:nOffsets
+      fprintf(['  delta = %6.1f deg:  <a,Delta m> = %9.4f   ' ...
+               'positive = %9.4f   negative = %9.4f'], ...
+          offsetsDeg(i), overlap(i), posPart(i), negPart(i));
+      if ~isnan(predScaleFit(i))
+          fprintf('   S_fit(delta) = %8.4f', predScaleFit(i));
+      end
+      if ~isnan(predScaleFlat(i))
+          fprintf('   S_flat(delta) = %8.4f', predScaleFlat(i));
+      else
+        fprintf('   S_flat(delta) = undefined (flat readout gives zero overlap)');
+      end
+      fprintf('\n');
+  end
 end
 
 % ========================================================================
@@ -1870,33 +1810,18 @@ if hasReadoutFit
     predScale = rm.predictedAtMeasuredOffsets;
     hPred = plot(offsets, predScale, 'k-', 'LineWidth', 2);
     legend([hObs, hPred], {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, 'Location', 'northwest');
-    title('Observed vs predicted scale');
+    title(sprintf('Fit to Scales (%d bootstraps)', opts.NBoot));
 else
-    legend(hObs, {'Observed pooled scale (68% CI)'}, 'Location', 'northwest');
-    title('Observed scale by probe offset');
+    title(sprintf('Scales (no fit over %d bootstraps)', opts.NBoot));
 end
 xlabel('Probe offset (deg)');
 ylabel('Normalized scale');
 box off;
-
-saveas(fig1, fullfile(opts.PlotDir, 'observed_vs_predicted_scale.png'));
+saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
 % ---- Plot 2: fitted readout over MT preferred direction ----
 if hasReadoutFit
-    rm = acrossOffsetSummary.readoutModel;
-
-    fig2 = figure(301); clf; hold on;
-    plot(rm.phiDeg, rm.readoutPhi, 'k-', 'LineWidth', 2);
-
-    xlabel('\phi (deg)');
-    ylabel('a(\phi)');
-    title('Fitted DOG readout over MT preferred direction');
-    box off;
-
-    saveas(fig2, fullfile(opts.PlotDir, 'fitted_readout_phi.png'));
-    plotReadoutOverlapDiagnostic(acrossOffsetSummary, 'OffsetsDeg', [0 45 180], ...
-    'titleStr', 'Readout / MT overlap diagnostic', ...
-    'SaveFile', fullfile(opts.PlotDir, 'readout_overlap_diagnostic.png'));
+  plotReadoutDiagnostics(acrossOffsetSummary, opts);
 end
 
 end

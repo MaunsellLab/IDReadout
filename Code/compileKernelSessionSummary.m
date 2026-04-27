@@ -125,7 +125,6 @@ summary.flags.missingNoiseFile = ~exist(noiseFile, 'file');
 summary.flags.needsRefresh     = false;
 
 if R.doBootstrap && exist(noiseFile, 'file')
-
   if ~isempty(R.rngSeed)
     rng(R.rngSeed);
     summary.bootstrap.rngSeed = R.rngSeed;
@@ -136,7 +135,6 @@ if R.doBootstrap && exist(noiseFile, 'file')
   try
     prefCohNoisePC  = K.header.prefNoiseCohPC.data;
     probeCohNoisePC = K.header.probeNoiseCohPC.data;
-    % [prefCohNoisePC, probeCohNoisePC] = localGetNoiseAmplitudes(K.header);
   catch ME
     warning('compileKernelSessionSummary:noiseAmplitudes', ...
       'Could not extract noise amplitudes from header for %s: %s', ...
