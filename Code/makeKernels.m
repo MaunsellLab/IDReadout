@@ -64,18 +64,15 @@ for k = 1:numel(dataFiles)
   allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
   probeTag = sprintf('probe%d', round(probeDirDeg));
   probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
-
   plotFilePath = fullfile(probePlotFolder, sprintf('%s_%s.pdf', baseName, probeTag));
-  if ~replace && isfile(plotFilePath)
-    numSkipped = numSkipped + 1;
-    continue;
-  end
+
   kernelFilePath = fullfile(kernelFolder, [baseName '.mat']);
   matrixFilePath = fullfile(matrixFolder, [baseName '.mat']);
-  if ~replace && isfile(kernelFilePath) && isfile(matrixFilePath)
+  if ~replace && isfile(plotFilePath) && isfile(kernelFilePath) && isfile(matrixFilePath)
     numSkipped = numSkipped + 1;
     continue;
   end
+
   fprintf('Processing %s [probe %g] ...\n', dataFileName, probeDirDeg);
   S = load(dataFilePath, 'trials');
   trials = S.trials;
@@ -124,8 +121,7 @@ for k = 1:numel(dataFiles)
   fprintf('  Saved kernels:        %s\n', kernelFilePath);
 
   % ---- Plot/export ----
-  plotKernels(1, sprintf('%s (Probe %g%c)', baseName, probeDirDeg, char(176)), ...
-    header, kernels, kVars, compStats, hitStats);
+  plotKernels(1, baseName, header, kernels, kVars, compStats, hitStats, probeDirDeg);
   exportgraphics(gcf, plotFilePath, 'ContentType', 'vector');
   fprintf('  Saved plot:           %s\n', plotFilePath);
 

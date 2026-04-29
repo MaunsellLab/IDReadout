@@ -67,7 +67,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
     for p = staleProbeDirs(:).'
       fprintf('--- Updating average for probe %g\n', p);
       fprintf('---  kernelAverageByProbe start ---\n');
-      kernelAverageByProbe(path, p, doBootstrap, nBoot);
+      kernelAverageByProbe(path, p, true, nBoot);
       fprintf('---  kernelAverageByProbe complete ---\n');
     end
   end

@@ -126,7 +126,6 @@ if doBootstrap
       fprintf('Bootstrap %d of %d\n', b, nBoot);
     end
     bootSessionIdx = randi(nSessions, [1 nSessions]);
-
     bootSessionKernels = cell(1, nSessions);
     bootSessionKVars   = cell(1, nSessions);
 
@@ -167,8 +166,7 @@ if doBootstrap
 end
 
 % ---- Plot/export averaged kernels ----
-plotKernels(2, sprintf('%d Session Average', nSessions), header, avgKernels, avgKVars, ...
-  avgCompStats, avgHitStats);
+plotKernels(2, sprintf('%d Session Average', nSessions), header, avgKernels, avgKVars, avgCompStats, avgHitStats);
 
 pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', '_AverageKernel.pdf');
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');

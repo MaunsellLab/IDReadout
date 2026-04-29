@@ -1,5 +1,4 @@
-function fit = fitEffectiveWeightingToScales( ...
-    offsetsDeg, obsScale, obsVar, mtModel, modelName, varargin)
+function fit = fitEffectiveWeightingToScales(offsetsDeg, obsScale, obsVar, mtModel, modelName, varargin)
 % fitEffectiveWeightingToScales
 %
 % Fit a parameterized effective MT-to-choice weighting function to observed

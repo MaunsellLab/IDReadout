@@ -9,7 +9,7 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % exclusion criteria, performs across-offset bootstrap resampling, fits the readout model, and saves a 
 % single across-offset summary structure.
 %
-% BaselineMode handling allows for early fits when only two probde directions have bee tested.
+% BaselineMode handling allows for early fits when only two probe directions have been tested.
 % BaselineMode = 'auto' uses a fixed readout offset b when fewer than MinOffsetsForFitBaseline (typically 3) 
 % non-anchor offsets are available; otherwise b is fit as a free parameter.
 %
@@ -54,14 +54,6 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 %   acrossOffsetSummary : top-level struct saved to disk and returned
 %
 % -------------------------------------------------------------------------
-% diag = diagnoseReadoutDOGReachability( ...
-%     'TargetS45', 0.206, ...
-%     'TargetS180', 0.584, ...
-%     'MakePlot', true);
-% 
-% diag.bestParams
-% diag.bestPrediction
-% diag.bestDistance
 
 if nargin < 1 || isempty(summaryDir) 
   summaryDir = fullfile(folderPath(), 'Data', 'KernelSummaries');
@@ -101,177 +93,95 @@ acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
-% Legacy symbolic DOGFixedBaseline handling is not applied to the active
-% readout-model fit. In the readout model, a fixed baseline must be an
-% explicit numeric value for readout offset b, not a symbolic mapping from
-% an empirical scale measurement such as 180 deg.
 bootstrap = runHierarchicalBootstrap(offsetData, opts);
 acrossOffsetSummary.bootstrap = bootstrap;
-
-% Legacy descriptive model-fit summaries retained temporarily for backward
-% compatibility, but no longer the primary interpretive fit.
-modelFits = summarizeModelFits(bootstrap, empirical, opts);
-acrossOffsetSummary.modelFits = modelFits;
-acrossOffsetSummary.modelFitsNote = ...
-    ['Legacy offset-space model summaries retained for backward ' ...
-     'compatibility only. Primary interpretation should use ' ...
-     'acrossOffsetSummary.readoutModel.'];
 
 %% ---- Effective MT-to-choice weighting fit ----
 offsetsDegAll   = [empirical.probeOffsetDeg];
 pooledScaleAll  = [empirical.pooledScale];
+% Bootstrap variance of the pooled scale at each measured offset. These are
+% used as inverse-variance weights in fitReadoutDOGToScales.
 bootstrapVarAll = bootstrap.fitBootstrap.offsetFitVar;
-
 assert(numel(bootstrapVarAll) == numel(offsetsDegAll), ...
     'bootstrap offset variances do not match empirical offsets');
 
 % Fixed MT forward model used to map the DOG readout onto predicted scale.
-mtModel = makeMTReadoutForwardModel( ...
-    'sigmaMTDeg', 37.5, ...
-    'phiDeg', -180:1:179);
+mtModel = makeMTReadoutForwardModel('sigmaMTDeg', 37.5, 'phiDeg', -180:1:179);
 
-% Store measured pooled scales by offset for downstream plotting/fits
+% Store measured pooled scales by offset for downstream plotting/fits.
 acrossOffsetSummary.measurements = struct();
 acrossOffsetSummary.measurements.offsetsDeg   = offsetsDegAll(:)';
 acrossOffsetSummary.measurements.pooledScale  = pooledScaleAll(:)';
 acrossOffsetSummary.measurements.bootstrapVar = bootstrapVarAll(:)';
 
-% Fit only non-anchor offsets
-% isAnchor = abs(offsetsDegAll) < 1e-9;
-% fitOffsetsDeg = offsetsDegAll(~isAnchor);
-% fitScales     = pooledScaleAll(~isAnchor);
-% fitVars       = bootstrapVarAll(~isAnchor);
-
-% Resolve baseline mode
-% nNonAnchor = numel(fitOffsetsDeg);
-% baselineModeRequested = lower(char(string(opts.BaselineMode)));
-
-acrossOffsetSummary.readoutModel.activeModelName = 'dog_readout';
-acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
-acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
-acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
-acrossOffsetSummary.readoutModel.mtForwardModelParams = struct( ...
-    'sigmaMTDeg', mtModel.sigmaMTDeg, ...
-    'phiDeg', mtModel.phiDeg);
-acrossOffsetSummary.readoutModel.note = '';
-acrossOffsetSummary.readoutModel = struct();
-acrossOffsetSummary.readoutModel.activeModelName = 'dog_readout';
-acrossOffsetSummary.readoutModel.sourceScaleSideType = opts.ScaleSideType;
-acrossOffsetSummary.readoutModel.sourceScaleStepType = opts.ScaleStepType;
-acrossOffsetSummary.readoutModel.sourceScaleMode     = opts.ScaleMode;
-acrossOffsetSummary.readoutModel.mtForwardModelParams = struct( ...
-    'sigmaMTDeg', mtModel.sigmaMTDeg, ...
-    'phiDeg', mtModel.phiDeg);
-
-% Fit only non-anchor offsets
+% Fit only non-anchor offsets. The 0-deg value is the normalization anchor.
 isAnchor = abs(offsetsDegAll) < 1e-9;
 fitOffsetsDeg = offsetsDegAll(~isAnchor);
 fitScales     = pooledScaleAll(~isAnchor);
 fitVars       = bootstrapVarAll(~isAnchor);
 
-% Resolve BaselineMode for readout offset b only
-nNonAnchor = numel(fitOffsetsDeg);
-baselineModeRequested = lower(char(string(opts.BaselineMode)));
-
-switch baselineModeRequested
-    case 'auto'
-        if nNonAnchor < opts.MinOffsetsForFitBaseline
-            baselineModeResolved = 'fixed';
-        else
-            baselineModeResolved = 'fit';
-        end
-
-    case 'fixed'
-        baselineModeResolved = 'fixed';
-
-    case 'fit'
-        baselineModeResolved = 'fit';
-
-    otherwise
-        error('Unknown BaselineMode: %s', char(string(opts.BaselineMode)));
-end
-
-% Resolve fixed readout baseline b if needed
-fixedReadoutBaseline = [];
-% invalidSymbolicFixedBaseline = false;
-
-if strcmpi(baselineModeResolved, 'fixed')
-    fixedReadoutBaseline = opts.FixedReadoutBaseline;
-
-    if ischar(fixedReadoutBaseline) || isstring(fixedReadoutBaseline)
-        % invalidSymbolicFixedBaseline = true;
-        fixedReadoutBaseline = [];
-    end
-end
-
-% With too few non-anchor offsets, the readout DOG is underconstrained.
-% In that regime we only allow fitting if the user has supplied a numeric
-% fixed baseline for b.
-% insufficientOffsetsForStableReadoutFit = nNonAnchor < opts.MinOffsetsForFitBaseline;
-% hasNumericFixedBaseline = ...
-%     isnumeric(opts.FixedReadoutBaseline) && isscalar(opts.FixedReadoutBaseline) && ...
-%     isfinite(opts.FixedReadoutBaseline);
-% allowSparseFixedBaselineFit = strcmpi(baselineModeResolved, 'fixed') && hasNumericFixedBaseline;
-acrossOffsetSummary.readoutModel.baselineModeRequested = baselineModeRequested;
-
-acrossOffsetSummary.readoutModel.baselineModeResolved  = baselineModeResolved;
-acrossOffsetSummary.readoutModel.fixedBaseline         = fixedReadoutBaseline;
-acrossOffsetSummary.readoutModel.minOffsetsForFitBaseline = ...
-    opts.MinOffsetsForFitBaseline;
-
-acrossOffsetSummary.readoutModel.measurements = struct();
-acrossOffsetSummary.readoutModel.measurements.offsetsDeg  = offsetsDegAll(:)';
-acrossOffsetSummary.readoutModel.measurements.pooledScale = pooledScaleAll(:)';
-acrossOffsetSummary.readoutModel.measurements.bootstrapVar = bootstrapVarAll(:)';
+rm = struct();
+rm.activeModelName = 'dog_readout';
+rm.sourceScaleSideType = opts.ScaleSideType;
+rm.sourceScaleStepType = opts.ScaleStepType;
+rm.sourceScaleMode     = opts.ScaleMode;
+rm.mtForwardModelParams = struct( ...
+    'sigmaMTDeg', mtModel.sigmaMTDeg, ...
+    'phiDeg', mtModel.phiDeg);
+rm.measurements = struct();
+rm.measurements.offsetsDeg   = offsetsDegAll(:)';
+rm.measurements.pooledScale  = pooledScaleAll(:)';
+rm.measurements.bootstrapVar = bootstrapVarAll(:)';
+rm.readoutNormalization = 'a(0)=1';
+rm.note = ['Three-parameter DOG readout fit. No additive baseline is fit, ' ...
+           'because any constant readout component is not identifiable ' ...
+           'against mean-subtracted MT forward templates.'];
 
 if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitScales)) && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
-    readoutFit = fitReadoutDOGToScales(fitOffsetsDeg, fitScales, fitVars, mtModel, 'Bounds', opts.Bounds);
-    acrossOffsetSummary.readoutModel.note = ...
-      ['Fit of a DOG readout over MT preferred direction. ' ...
-     'Predicted normalized psychophysical scale is computed through the ' ...
-     'fixed MT forward model. The readout offset b is not fit because it ' ...
-     'is not identifiable under the mean-subtracted forward model.'];
-    acrossOffsetSummary.readoutModel.fit = readoutFit;
-    acrossOffsetSummary.readoutModel.nFreeParams = readoutFit.nFreeParams;
-    acrossOffsetSummary.readoutModel.phiDeg = mtModel.phiDeg;
-    acrossOffsetSummary.readoutModel.readoutPhiRaw = readoutFit.readoutPhiRaw;
-    acrossOffsetSummary.readoutModel.readoutPhi = readoutFit.readoutPhi;
-    acrossOffsetSummary.readoutModel.readoutNormalization = 'a(0)=1';
-    acrossOffsetSummary.readoutModel.paramNames = readoutFit.paramNames;
-    acrossOffsetSummary.readoutModel.params = readoutFit.params;
-    acrossOffsetSummary.readoutModel.paramStruct = readoutFit.paramStruct;
-    acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = ...
-        predictNormalizedScaleFromReadout( ...
-            offsetsDegAll, mtModel, readoutFit.params);
-    
-    acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
-    acrossOffsetSummary.readoutModel.plotPredictedScale = ...
-        predictNormalizedScaleFromReadout( ...
-            acrossOffsetSummary.readoutModel.plotOffsetsDeg, ...
-            mtModel, readoutFit.params);
+
+    readoutFit = fitReadoutDOGToScales( ...
+        fitOffsetsDeg, fitScales, fitVars, mtModel, ...
+        'Bounds', opts.Bounds);
+
+    rm.fit = readoutFit;
+    rm.nFreeParams = readoutFit.nFreeParams;
+    rm.phiDeg = mtModel.phiDeg;
+    rm.readoutPhiRaw = readoutFit.readoutPhiRaw;
+    rm.readoutPhi = readoutFit.readoutPhi;
+    rm.paramNames = readoutFit.paramNames;
+    rm.params = readoutFit.params;
+    rm.paramStruct = readoutFit.paramStruct;
+    rm.predictedAtMeasuredOffsets = ...
+        predictNormalizedScaleFromReadout(readoutFit.params, offsetsDegAll, mtModel);
+    rm.plotOffsetsDeg = 0:1:180;
+    rm.plotPredictedScale = ...
+        predictNormalizedScaleFromReadout(readoutFit.params, rm.plotOffsetsDeg, mtModel);
+
 else
-    acrossOffsetSummary.readoutModel.fit = [];
-    acrossOffsetSummary.readoutModel.note = ...
-        ['Readout model not fit: insufficient valid non-anchor offsets or ' ...
-         'invalid scale/variance inputs for DOG readout fitting.'];
-    acrossOffsetSummary.readoutModel.nFreeParams = NaN;
-    acrossOffsetSummary.readoutModel.phiDeg = mtModel.phiDeg;
-    acrossOffsetSummary.readoutModel.readoutPhiRaw = nan(size(mtModel.phiDeg));
-    acrossOffsetSummary.readoutModel.readoutPhi = nan(size(mtModel.phiDeg));
-    acrossOffsetSummary.readoutModel.readoutNormalization = 'a(0)=1';
-    acrossOffsetSummary.readoutModel.paramNames = {};
-    acrossOffsetSummary.readoutModel.params = [];
-    acrossOffsetSummary.readoutModel.paramStruct = struct();
-    acrossOffsetSummary.readoutModel.predictedAtMeasuredOffsets = [];
-    acrossOffsetSummary.readoutModel.plotOffsetsDeg = 0:1:180;
-    acrossOffsetSummary.readoutModel.plotPredictedScale = [];
+    rm.fit = [];
+    rm.note = ['Readout model not fit: insufficient valid non-anchor offsets ' ...
+               'or invalid scale/variance inputs for DOG readout fitting.'];
+    rm.nFreeParams = NaN;
+    rm.phiDeg = mtModel.phiDeg;
+    rm.readoutPhiRaw = nan(size(mtModel.phiDeg));
+    rm.readoutPhi = nan(size(mtModel.phiDeg));
+    rm.paramNames = {};
+    rm.params = [];
+    rm.paramStruct = struct();
+    rm.predictedAtMeasuredOffsets = [];
+    rm.plotOffsetsDeg = 0:1:180;
+    rm.plotPredictedScale = [];
 end
+acrossOffsetSummary.readoutModel = rm;
 acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
 
 saveAcrossOffsetSummary(opts, acrossOffsetSummary);
+if opts.Verbose
+    fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
+end
 
 if opts.MakePlots
     try
@@ -280,10 +190,26 @@ if opts.MakePlots
         warning('Plot generation failed: %s', ME.message);
     end
 end
-if opts.Verbose
-    fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
-end
 
+rm = acrossOffsetSummary.readoutModel;
+
+diag = diagnoseReadoutDOGReachabilityN( ...
+    rm.measurements.offsetsDeg, ...
+    rm.measurements.pooledScale, fitVars)
+
+testParams = [
+    10   60  0.2
+    20   90  0.5
+    40  120  0.5
+    60  180  1.0
+    90  240  1.0
+];
+
+for i = 1:size(testParams,1)
+    pred = predictNormalizedScaleFromReadout(testParams(i,:), [45 90 180], mtModel);
+    fprintf('sigmaC=%6.1f sigmaS=%6.1f As=%5.2f:  [%7.3f %7.3f %7.3f]\n', ...
+        testParams(i,1), testParams(i,2), testParams(i,3), pred);
+end
 end
 
 % ========================================================================
@@ -311,34 +237,16 @@ addParameter(p, 'ScaleSideType', 'change', @(x) ischar(x) || isstring(x) || isnu
 addParameter(p, 'ScaleStepType', 'inc', @(x) ischar(x) || isstring(x) || isnumeric(x));
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
-addParameter(p, 'AngleGridDeg', 0:1:180, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
-addParameter(p, 'Model', 'dog', @(x) ischar(x) || isstring(x));
-addParameter(p, 'CandidateModels', {'dog'}, @(x) ischar(x) || isstring(x) || iscellstr(x) || (iscell(x) && all(cellfun(@(c) ischar(c) || isstring(c), x))));
-addParameter(p, 'BaselineMode', 'auto', @(x) ischar(x) || isstring(x));
-addParameter(p, 'FixedReadoutBaseline', [], ...
-    @(x) isempty(x) || ((isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x)));
-addParameter(p, 'DOGFixedBaseline', 'empirical180', ...
-    @(x) (isnumeric(x) && isscalar(x) && isfinite(x)) || ischar(x) || isstring(x));
-addParameter(p, 'MinOffsetsForFitBaseline', 3, ...
-    @(x) isnumeric(x) && isscalar(x) && x >= 1);
 
 parse(p, summaryDir, varargin{:});
 opts = p.Results;
 opts.summaryDir = summaryDir;
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
-opts.Model    = char(opts.Model);
-opts.CandidateModels = normalizeModelList(opts.CandidateModels, opts.Model);
 opts.FilePattern = char(opts.FilePattern);
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
 opts.ScaleMode = char(opts.ScaleMode);
-% Active option for fixed readout baseline b.
-% Prefer FixedReadoutBaseline; fall back to legacy DOGFixedBaseline only if
-% the new option was not supplied.
-if isempty(opts.FixedReadoutBaseline)
-    opts.FixedReadoutBaseline = opts.DOGFixedBaseline;
-end
 if ~exist(fileparts(opts.SaveFile), 'dir')
     mkdir(fileparts(opts.SaveFile));
 end
@@ -566,8 +474,6 @@ acrossOffsetSummary.meta = struct( ...
     'ciLevels', opts.CILevels(:)', ...
     'nBoot', opts.NBoot, ...
     'bootstrapType', 'hierarchical_session_trial', ...
-    'fitModelDefault', opts.Model, ...
-    'candidateModels', {opts.CandidateModels}, ...
     'angleUnits', 'deg', ...
     'normalization', 'scale_anchor_at_0deg', ...
     'offsetKeysDeg', [], ...
@@ -577,9 +483,11 @@ acrossOffsetSummary.meta = struct( ...
 acrossOffsetSummary.offsetData = struct([]);
 acrossOffsetSummary.empirical  = struct([]);
 acrossOffsetSummary.bootstrap  = struct();
-acrossOffsetSummary.modelFits  = struct();
 acrossOffsetSummary.history    = struct([]);
-
+acrossOffsetSummary.modelFits = struct();
+acrossOffsetSummary.modelFitsNote = ...
+    ['Legacy offset-space modelFits removed. Primary interpretation uses ' ...
+     'acrossOffsetSummary.readoutModel.'];
 end
 
 % ========================================================================
@@ -699,31 +607,38 @@ end
 
 % ========================================================================
 function bootstrap = runHierarchicalBootstrap(offsetData, opts)
+% Hierarchical bootstrap over sessions and trials.
+%
+% Purpose:
+%   Estimate uncertainty in the pooled psychophysical scale at each tested
+%   probe offset. These offset variances are then used as weights for the
+%   primary MT-readout DOG fit.
+%
+% This function intentionally does not fit any offset-space descriptive
+% model. The active model fit is performed later by fitReadoutDOGToScales.
 
 nOffsets = numel(offsetData);
 nBoot    = opts.NBoot;
-angleGrid = opts.AngleGridDeg(:)';
 
 bootScaleMat = nan(nBoot, nOffsets);
 
-% First pass: collect bootstrap pooled scales for each offset.
+% Collect bootstrap pooled scales for each offset.
 for b = 1:nBoot
     for k = 1:nOffsets
         bootScaleMat(b, k) = computeOffsetPooledScale(offsetData(k), opts, true);
     end
-    if opts.Verbose && (b == 1 || mod(b, max(1, floor(nBoot/10))) == 0)
+
+    if b == 1 || mod(b, max(1, floor(nBoot/10))) == 0
         fprintf('  Bootstrap %d / %d\n', b, nBoot);
     end
 end
 
-% Fit weights across offsets: inverse bootstrap variance, with 0-degree anchor
-% given effectively fixed weight.
+% Estimate offset-specific variances from the bootstrap distribution.
 offsetFitVar = nan(1, nOffsets);
-fitWeights = nan(1, nOffsets + 1);  % include 0-degree anchor
-fitWeights(1) = 1e9;
 for k = 1:nOffsets
     x = bootScaleMat(:, k);
     x = x(isfinite(x));
+
     if numel(x) >= 2
         offsetFitVar(k) = var(x, 0);
     else
@@ -731,44 +646,29 @@ for k = 1:nOffsets
     end
 end
 
+% Variance floor for stable inverse-variance weighting.
 finiteVars = offsetFitVar(isfinite(offsetFitVar) & offsetFitVar > 0);
 if isempty(finiteVars)
     varFloor = 1e-6;
 else
     varFloor = max(1e-6, 0.01 * median(finiteVars));
 end
+
+% Weights for the measured offsets only.
+% The 0-deg anchor is not part of offsetData and is imposed analytically by
+% the normalized readout prediction S(0)=1.
+offsetFitWeights = nan(1, nOffsets);
 for k = 1:nOffsets
-    if isfinite(offsetFitVar(k))
-        fitWeights(k+1) = 1 ./ max(offsetFitVar(k), varFloor);
+    if isfinite(offsetFitVar(k)) && offsetFitVar(k) > 0
+        offsetFitWeights(k) = 1 ./ max(offsetFitVar(k), varFloor);
     else
-        fitWeights(k+1) = 1;
-    end
-end
-
-bootParams   = nan(nBoot, modelParamCount(opts.Model));
-bootLoss     = nan(nBoot, 1);
-fitSuccess   = false(nBoot, 1);
-curveValues  = nan(nBoot, numel(angleGrid));
-
-% Second pass: fit each bootstrap replicate using fixed empirical weights.
-for b = 1:nBoot
-    if mod(b, 5) == 0
-      fprintf('Bootstrap %4d of %d', b, nBoot);
-    end
-    scaleVec = bootScaleMat(b, :);
-    xFit = [0, [offsetData.probeOffsetDeg]];
-    yFit = [1, scaleVec];
-    [params, loss, ok] = fitAcrossOffsetModel(xFit, yFit, opts, fitWeights);
-    if ok
-        bootParams(b, :) = params;
-        bootLoss(b) = loss;
-        fitSuccess(b) = true;
-        curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, opts.Model, opts);
+        offsetFitWeights(k) = 1;
     end
 end
 
 bootstrap = struct();
 bootstrap.bootScaleMat = bootScaleMat;
+
 bootstrap.offsetBootstrap = repmat(struct( ...
     'probeOffsetDeg', NaN, ...
     'bootScale', [], ...
@@ -779,42 +679,33 @@ bootstrap.offsetBootstrap = repmat(struct( ...
 
 for k = 1:nOffsets
     x = bootScaleMat(:, k);
+
     bootstrap.offsetBootstrap(k).probeOffsetDeg = offsetData(k).probeOffsetDeg;
     bootstrap.offsetBootstrap(k).bootScale  = x;
     bootstrap.offsetBootstrap(k).bootMean   = mean(x, 'omitnan');
     bootstrap.offsetBootstrap(k).bootMedian = median(x, 'omitnan');
     bootstrap.offsetBootstrap(k).boot68     = percentileCI(x, 68);
     bootstrap.offsetBootstrap(k).boot95     = percentileCI(x, 95);
+
     for c = 1:numel(opts.CILevels)
         lvl = opts.CILevels(c);
-        bootstrap.offsetBootstrap(k).(sprintf('boot%d', round(lvl))) = percentileCI(x, lvl);
+        bootstrap.offsetBootstrap(k).(sprintf('boot%d', round(lvl))) = ...
+            percentileCI(x, lvl);
     end
 end
 
+% Keep the name fitBootstrap for minimal downstream disruption, but this is
+% now only the bootstrap-derived weighting information for the readout fit.
 bootstrap.fitBootstrap = struct( ...
-    'angleGridDeg', angleGrid, ...
-    'modelName', opts.Model, ...
-    'params', bootParams, ...
-    'paramNames', {modelParamNames(opts.Model)}, ...
-    'fitSuccess', fitSuccess, ...
-    'loss', bootLoss, ...
-    'curveValues', curveValues, ...
-    'fitWeights', fitWeights, ...
+    'modelName', 'none_offset_variance_only', ...
+    'offsetsDeg', [offsetData.probeOffsetDeg], ...
     'offsetFitVar', offsetFitVar, ...
     'varFloor', varFloor, ...
-    'medianCurve', nanpercentile(curveValues(fitSuccess, :), 50), ...
-    'boot68Curve', [nanpercentile(curveValues(fitSuccess, :), 16); nanpercentile(curveValues(fitSuccess, :), 84)], ...
-    'boot95Curve', [nanpercentile(curveValues(fitSuccess, :), 2.5); nanpercentile(curveValues(fitSuccess, :), 97.5)], ...
-    'medianParams', nanpercentile(bootParams(fitSuccess, :), 50), ...
-    'paramCI68', ciFromMatrix(bootParams(fitSuccess, :), 68), ...
-    'paramCI95', ciFromMatrix(bootParams(fitSuccess, :), 95) );
-
-for c = 1:numel(opts.CILevels)
-    lvl = opts.CILevels(c);
-    bootstrap.fitBootstrap.(sprintf('paramCI%d', round(lvl))) = ciFromMatrix(bootParams(fitSuccess, :), lvl);
-    bootstrap.fitBootstrap.(sprintf('curveCI%d', round(lvl))) = curveCI(curveValues(fitSuccess, :), lvl);
-end
-
+    'offsetFitWeights', offsetFitWeights, ...
+    'fitWeights', offsetFitWeights, ...
+    'note', ['No bootstrap model refits are performed. These fields provide ' ...
+             'bootstrap variance estimates and inverse-variance weights for ' ...
+             'the primary readout DOG fit.'] );
 end
 
 % ========================================================================
@@ -985,29 +876,19 @@ mtModel.note = ['Delta m(phi;delta) is defined as G(phi-delta) minus the ' ...
 end
 
 % ========================================================================
-function diag = diagnoseReadoutDOGReachability(varargin) %#ok<DEFNU>
-% Brute-force diagnostic for the DOG readout model.
-%
-% Maps the reachable (S45, S180) pairs over a parameter grid to determine
-% whether the empirical target lies within the model family's range.
-%
-% Example:
-%   diag = diagnoseReadoutDOGReachability( ...
-%       'TargetS45', 0.206, ...
-%       'TargetS180', 0.584, ...
-%       'MakePlot', true);
+function diag = diagnoseReadoutDOGReachabilityN(offsetsDeg, targetScale, fitVars, varargin)
 
 p = inputParser;
-addParameter(p, 'SigmaCenterDeg', 5:5:120, @(x) isnumeric(x) && isvector(x));
-addParameter(p, 'SigmaSurroundDeg', 10:5:180, @(x) isnumeric(x) && isvector(x));
-addParameter(p, 'SurroundGain', 0:0.05:2.0, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SigmaCenterDeg', [0.001 0.01 0.1 0.3 1 2 5 10 20 40 80 120], @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SigmaSurroundDeg', 1:2:300, @(x) isnumeric(x) && isvector(x));
+addParameter(p, 'SurroundGain', 0:0.01:2.0, @(x) isnumeric(x) && isvector(x));
 addParameter(p, 'SigmaMTDeg', 37.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'PhiDeg', -180:1:179, @(x) isnumeric(x) && isvector(x));
-addParameter(p, 'TargetS45', NaN, @(x) isnumeric(x) && isscalar(x));
-addParameter(p, 'TargetS180', NaN, @(x) isnumeric(x) && isscalar(x));
-addParameter(p, 'MakePlot', true, @(x) islogical(x) && isscalar(x));
 parse(p, varargin{:});
 opts = p.Results;
+
+offsetsDeg = offsetsDeg(:)';
+targetScale = targetScale(:)';
 
 mtModel = makeMTReadoutForwardModel( ...
     'sigmaMTDeg', opts.SigmaMTDeg, ...
@@ -1017,88 +898,89 @@ sC = opts.SigmaCenterDeg(:)';
 sS = opts.SigmaSurroundDeg(:)';
 aS = opts.SurroundGain(:)';
 
-nTotal = numel(sC) * numel(sS) * numel(aS);
+bestLoss = Inf;
+bestParams = [];
+bestPred = [];
 
-S45 = nan(nTotal, 1);
-S180 = nan(nTotal, 1);
-paramsMat = nan(nTotal, 3);
-validMask = false(nTotal, 1);
-
-idx = 0;
 for i = 1:numel(sC)
     for j = 1:numel(sS)
-        if sS(j) <= sC(i)
+        if sS(j) < 1.25 * sC(i)
             continue;
         end
-        for k = 1:numel(aS)
-            idx = idx + 1;
-            params = [sC(i), sS(j), aS(k)];
-            pred = predictNormalizedScaleFromReadout([45 180], mtModel, params);
 
-            paramsMat(idx, :) = params;
-            S45(idx) = pred(1);
-            S180(idx) = pred(2);
-            validMask(idx) = all(isfinite(pred));
+        for k = 1:numel(aS)
+            params = [sC(i), sS(j), aS(k)];
+            pred = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel);
+
+            if ~all(isfinite(pred))
+                continue;
+            end
+
+            loss = sum(((pred - targetScale).^2) ./ fitVars);
+            if loss < bestLoss
+                bestLoss = loss;
+                bestParams = params;
+                bestPred = pred;
+            end
         end
     end
 end
 
-paramsMat = paramsMat(1:idx, :);
-S45 = S45(1:idx);
-S180 = S180(1:idx);
-validMask = validMask(1:idx);
-
-paramsMat = paramsMat(validMask, :);
-S45 = S45(validMask);
-S180 = S180(validMask);
-
 diag = struct();
-diag.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
-diag.params = paramsMat;
-diag.S45 = S45;
-diag.S180 = S180;
-diag.target = [opts.TargetS45, opts.TargetS180];
+diag.offsetsDeg = offsetsDeg;
+diag.targetScale = targetScale;
+diag.bestParams = bestParams;
+diag.bestPrediction = bestPred;
+diag.bestLoss = bestLoss;
+diag.bestRMSE = sqrt(bestLoss / numel(targetScale));
 
-if isfinite(opts.TargetS45) && isfinite(opts.TargetS180) && ~isempty(S45)
-    d2 = (S45 - opts.TargetS45).^2 + (S180 - opts.TargetS180).^2;
-    [bestD2, bestIdx] = min(d2);
-    diag.bestIdx = bestIdx;
-    diag.bestParams = paramsMat(bestIdx, :);
-    diag.bestPrediction = [S45(bestIdx), S180(bestIdx)];
-    diag.bestDistance = sqrt(bestD2);
-else
-    diag.bestIdx = [];
-    diag.bestParams = [];
-    diag.bestPrediction = [];
-    diag.bestDistance = NaN;
-end
-
-if opts.MakePlot && ~isempty(S45)
-    figure; clf; hold on;
-    scatter(S45, S180, 10, 'filled');
-    xlabel('Predicted S(45)');
-    ylabel('Predicted S(180)');
-    title('Reachable (S45, S180) pairs for DOG readout model');
-    box off;
-
-    if isfinite(opts.TargetS45) && isfinite(opts.TargetS180)
-        plot(opts.TargetS45, opts.TargetS180, 'kp', 'MarkerSize', 14, ...
-            'MarkerFaceColor', 'k');
-    end
-end
+fprintf('\nDOG reachability diagnostic:\n');
+disp(table(offsetsDeg(:), targetScale(:), bestPred(:), ...
+    'VariableNames', {'offsetDeg','target','bestDOG'}));
+fprintf('best params: sigmaC %.4g, sigmaS %.4g, As %.4g\n', bestParams);
+fprintf('best RMSE: %.4g\n', diag.bestRMSE);
 end
 
 % ========================================================================
+% function predScale = predictReadoutDOGScale(params, offsetsDeg, mtModel, baselineMode, fixedBaseline)
+% 
+% if nargin < 4 || isempty(baselineMode)
+%     baselineMode = 'fixed';
+% end
+% 
+% if nargin < 5 || isempty(fixedBaseline) || ~isfinite(fixedBaseline)
+%     fixedBaseline = 0;
+% end
+% 
+% baselineMode = lower(char(string(baselineMode)));
+% 
+% dogParams = params(1:3);
+% 
+% if strcmp(baselineMode, 'fit')
+%     baseline = params(4);
+% else
+%     baseline = fixedBaseline;
+% end
+% 
+% predScale = predictNormalizedScaleFromReadout(dogParams, offsetsDeg, mtModel) + baseline;
+% end
+
+% ========================================================================
 function [aPhi, paramStruct] = evaluateReadoutDOG(phiDeg, params)
-% Evaluate DOG readout over MT preferred direction.
+% Evaluate three-parameter DOG readout over MT preferred direction.
 %
 % Readout:
 %   a(phi) = exp(-(phi^2)/(2*sigmaC^2)) ...
-%            - As * exp(-(phi^2)/(2*sigmaS^2))
+%          - As * exp(-(phi^2)/(2*sigmaS^2))
 %
-% Constraints are enforced by the fitter, not here.
+% params:
+%   [sigmaC, sigmaS, As]
 
 phiDeg = phiDeg(:)';
+
+if numel(params) ~= 3
+    error('evaluateReadoutDOG requires params = [sigmaC, sigmaS, As].');
+end
 
 sigmaC = params(1);
 sigmaS = params(2);
@@ -1152,7 +1034,7 @@ deltaM = G - mean(G);
 end
 
 % ========================================================================
-function predScale = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params)
+function predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel)
 % The probe template follows the stimulus construction:
 %   - delta = 0 deg: single-channel template
 %   - 0 < delta < 180 deg: two symmetric probe-noise streams at +delta and
@@ -1217,91 +1099,11 @@ for i = 1:numel(offsetsDeg)
     end
 end
 end
-% ========================================================================
-function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel, varargin)
-% Fit DOG readout parameters to observed non-anchor scale values under the
-% project's probe-to-pref scale convention.
-%
-% Weighted objective:
-%   sum_i (obsScale_i - predScale_i)^2 / obsVar_i
-
-p = inputParser;
-addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
-parse(p, varargin{:});
-opts = p.Results;
-
-offsetsDeg = offsetsDeg(:);
-obsScale   = obsScale(:);
-obsVar     = obsVar(:);
-
-valid = isfinite(offsetsDeg) & isfinite(obsScale) & isfinite(obsVar) & (obsVar > 0);
-offsetsDeg = offsetsDeg(valid);
-obsScale   = obsScale(valid);
-obsVar     = obsVar(valid);
-
-[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, obsScale, opts.Bounds);
-obj = @(p) readoutDOGObjective(p, offsetsDeg, obsScale, obsVar, mtModel);
-
-params = nan(size(p0));
-loss = NaN;
-% fitSuccess = false;
-
-try
-    problem = createOptimProblem('fmincon', ...
-        'objective', obj, ...
-        'x0', p0, ...
-        'lb', lb, ...
-        'ub', ub, ...
-        'options', optimoptions('fmincon', 'Display', 'off', 'Algorithm', 'interior-point'));
-    [params, loss] = fmincon(problem);
-    fitSuccess = all(isfinite(params));
-catch
-    try
-        params = fminsearch(obj, p0, optimset('Display', 'off'));
-        loss = obj(params);
-        fitSuccess = all(isfinite(params));
-    catch
-        fitSuccess = false;
-    end
-end
-
-predMeasured = nan(size(offsetsDeg));
-paramStruct = struct();
-
-if fitSuccess
-    predMeasured = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params).';
-    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
-end
-
-fitResult = struct();
-fitResult.modelName = 'dog_readout';
-fitResult.fitSuccess = fitSuccess;
-fitResult.loss = loss;
-fitResult.params = params;
-fitResult.paramStruct = paramStruct;
-fitResult.paramNames = readoutDOGParamNames();
-fitResult.nFreeParams = numel(params);
-fitResult.offsetsDeg = offsetsDeg(:)';
-fitResult.observedScale = obsScale(:)';
-fitResult.observedVar = obsVar(:)';
-fitResult.predictedScale = predMeasured(:)';
-fitResult.phiDeg = mtModel.phiDeg;
-if fitSuccess
-    fitResult.readoutPhiRaw = evaluateReadoutDOG(mtModel.phiDeg, params);
-    fitResult.readoutPhi = normalizeReadoutAtPreferred(mtModel.phiDeg, fitResult.readoutPhiRaw);
-else
-    fitResult.readoutPhiRaw = nan(size(mtModel.phiDeg));
-    fitResult.readoutPhi = nan(size(mtModel.phiDeg));
-end
-end
 
 % ========================================================================
 function plotReadoutDiagnostics(acrossOffsetSummary, opts)
 % Plot fitted readout, MT templates, and their products to visualize how
 % overlap determines predicted normalized scale.
-%
-% The key diagnostic is that scale is set by: S(delta) = <a, Delta m_delta> / <a, Delta m_0>
-% not by the local value a(delta) alone.
 
   rm = acrossOffsetSummary.readoutModel;
   if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
@@ -1362,14 +1164,19 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   xlabel('\phi (deg)');
   ylabel('a(\phi)');
   title(sprintf('Fitted DOG readout over MT preferred direction (%d bootstraps)', opts.NBoot));
-  legend([hFitReadout, hFlatReadout], [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}], 'Location', 'south');
+  legend([hFitReadout, hFlatReadout], [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}], 'Location', 'northeast');
+  paramText = cell(rm.nFreeParams, 1);
+  for p = 1:rm.nFreeParams
+    paramText{p} = sprintf('%s: %.2f', rm.paramNames{p}, rm.params(p));
+  end
+  text(-120, 0.95, paramText, 'horizontalAlignment', 'right', 'VerticalAlignment', 'top');
   ylimits = ylim();
-  ylim([min(-1, ylimits(1)), max(1, ylimits(2))]);
+  ylim([min(0.2, ylimits(1)), max(1.1, ylimits(2))]);
   box off;
   
   % ---- middle panel: MT populations responses ----
   nexttile; hold on;
-  title('MT Population Responses to Probes');
+  title('MT Population Responses to Probes (Flat Readout)');
   % MT templates, same colors used in the lower panel
   hTemplates = gobjects(1, nOffsets);
   for i = 1:nOffsets
@@ -1378,20 +1185,21 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   yline(0, 'k:');
   xlabel('\phi (deg)');
   ylabel('\Delta m(\phi;\delta)');
-  legend([hTemplates], [arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
+  legend(hTemplates, [arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
        'UniformOutput', false)], 'Location', 'best');
   box off;
   
   % ---- Bottom panel: overlap contribution functions ----
   nexttile; hold on;
-  title('Weighted Population Responses (Fit and Flat)');
+  title('Weighted Population Responses (Fit)');
   legendHandles = gobjects(0);
   legendLabels = {};
   
   for i = 1:nOffsets
       h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 2);
       legendHandles(end+1) = h1; %#ok<AGROW>
-      legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2f', offsetsDeg(i), overlap(i)); %#ok<AGROW>
+      legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2g; S_{fit} %.2f', ...
+        offsetsDeg(i), overlap(i), overlap(i)/overlap(1)); %#ok<AGROW>
   end
   yline(0, 'k:');
   xlabel('\phi (deg)');
@@ -1406,13 +1214,13 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   fprintf('\nReadout overlap diagnostic:\n');
   for i = 1:nOffsets
       fprintf(['  delta = %6.1f deg:  <a,Delta m> = %9.4f   ' ...
-               'positive = %9.4f   negative = %9.4f'], ...
+               'positive = %9.4f   negative = %.2g'], ...
           offsetsDeg(i), overlap(i), posPart(i), negPart(i));
       if ~isnan(predScaleFit(i))
-          fprintf('   S_fit(delta) = %8.4f', predScaleFit(i));
+          fprintf('   S_fit(delta) = %.2g', predScaleFit(i));
       end
       if ~isnan(predScaleFlat(i))
-          fprintf('   S_flat(delta) = %8.4f', predScaleFlat(i));
+          fprintf('   S_flat(delta) = %.2g', predScaleFlat(i));
       else
         fprintf('   S_flat(delta) = undefined (flat readout gives zero overlap)');
       end
@@ -1421,17 +1229,95 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
 end
 
 % ========================================================================
-function names = readoutDOGParamNames()
-names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+function ang = wrapTo180Local(ang)
+% Map angles to [-180, 180).
+
+ang = mod(ang + 180, 360) - 180;
 end
 
 % ========================================================================
-function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, ~, boundsStruct)
+function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel, varargin)
+% Fit three-parameter DOG readout to observed non-anchor scale values.
+%
+% Weighted objective:
+%   sum_i (obsScale_i - predScale_i)^2 / obsVar_i
+
+p = inputParser;
+addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
+parse(p, varargin{:});
+opts = p.Results;
+
+[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, opts.Bounds);
+
+obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel);
+
+p0 = p0(:).';
+lb = lb(:).';
+ub = ub(:).';
+p0 = min(max(p0, lb), ub);
+
+params = nan(size(p0));
+loss = NaN;
+
+try
+    fminconOpts = optimoptions( ...
+        'fmincon', ...
+        'Display', 'off', ...
+        'Algorithm', 'interior-point');
+
+    [params, loss, exitflag] = fmincon( ...
+        obj, ...
+        p0, ...
+        [], [], [], [], ...
+        lb, ub, ...
+        [], ...
+        fminconOpts);
+
+    fitSuccess = exitflag > 0 && all(isfinite(params));
+catch ME
+    warning('fmincon failed in fitReadoutDOGToScales: %s', ME.message);
+    fitSuccess = false;
+end
+
+predMeasured = nan(size(offsetsDeg));
+paramStruct = struct();
+
+if fitSuccess
+    predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel).';
+    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
+end
+
+fitResult = struct();
+fitResult.modelName = 'dog_readout';
+fitResult.fitSuccess = fitSuccess;
+fitResult.loss = loss;
+fitResult.params = params;
+fitResult.paramStruct = paramStruct;
+fitResult.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+fitResult.nFreeParams = 3;
+fitResult.offsetsDeg = offsetsDeg(:)';
+fitResult.observedScale = obsScale(:)';
+fitResult.observedVar = obsVar(:)';
+fitResult.predictedScale = predMeasured(:)';
+fitResult.phiDeg = mtModel.phiDeg;
+
+if fitSuccess
+    fitResult.readoutPhiRaw = evaluateReadoutDOG(mtModel.phiDeg, params);
+    fitResult.readoutPhi = normalizeReadoutAtPreferred(mtModel.phiDeg, fitResult.readoutPhiRaw);
+else
+    fitResult.readoutPhiRaw = nan(size(mtModel.phiDeg));
+    fitResult.readoutPhi = nan(size(mtModel.phiDeg));
+end
+end
+
+% ========================================================================
+function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, bounds)
 
 sigmaC0 = max(10, min(50, median(offsetsDeg(offsetsDeg > 0), 'omitnan')));
 if isempty(sigmaC0) || ~isfinite(sigmaC0)
     sigmaC0 = 25;
 end
+
 sigmaS0 = max(sigmaC0 + 20, 90);
 As0 = 0.5;
 
@@ -1439,321 +1325,331 @@ p0 = [sigmaC0, sigmaS0, As0];
 lb = [1e-3, 1e-3, 0];
 ub = [300, 300, 10];
 
-if isfield(boundsStruct, 'readoutDOG')
-    B = boundsStruct.readoutDOG;
-    if isfield(B, 'lb'), lb = B.lb; end
-    if isfield(B, 'ub'), ub = B.ub; end
-end
-end
-
-% ========================================================================
-function err = readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel)
-
-pred = predictNormalizedScaleFromReadout(offsetsDeg, mtModel, params);
-pred = pred(:);
-
-resid = pred - obsScale(:);
-err = sum((resid.^2) ./ obsVar(:), 'omitnan');
-
-sigmaC = params(1);
-sigmaS = params(2);
-As = params(3);
-
-if ~(sigmaS > sigmaC && sigmaC > 0 && As >= 0)
-    err = err + 1e12;
+if isfield(bounds, 'readoutDOG')
+    B = bounds.readoutDOG;
+elseif isfield(bounds, 'dog_readout')
+    B = bounds.dog_readout;
+elseif isfield(bounds, 'dog')
+    B = bounds.dog;
+else
+    B = struct();
 end
 
-if ~isfinite(err)
-    err = 1e12;
-end
+if isfield(B, 'lb'), lb = B.lb; end
+if isfield(B, 'ub'), ub = B.ub; end
+
+p0 = p0(:);
+lb = lb(:);
+ub = ub(:);
 end
 
 % ========================================================================
-function ang = wrapTo180Local(ang)
-% Map angles to [-180, 180).
+function sse = readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel)
 
-ang = mod(ang + 180, 360) - 180;
-end
-% ========================================================================
-function [params, loss, ok] = fitAcrossOffsetModel(offsetDeg, scaleVec, opts, fitWeights)
+predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel);
+resid = obsScale(:)' - predScale(:)';
 
-params = nan(1, modelParamCount(opts.Model));
-loss   = NaN;
-ok     = false;
+valid = isfinite(resid) & isfinite(obsVar(:)') & obsVar(:)' > 0;
 
-if nargin < 4 || isempty(fitWeights)
-    fitWeights = ones(size(offsetDeg));
-end
-
-x = offsetDeg(:);
-y = scaleVec(:);
-w = fitWeights(:);
-valid = isfinite(x) & isfinite(y) & isfinite(w) & (w > 0);
-x = x(valid);
-y = y(valid);
-w = w(valid);
-
-if numel(x) < modelParamCount(opts.Model)
-    return;
-end
-% NOTE:
-%   Gaussian-offset support is retained only as legacy comparison
-%   scaffolding. The active pathway uses DOG.
-switch lower(opts.Model)
-    case 'gaussian_offset'
-      p0 = initialGuessGaussian(x, y);
-      [lb, ub] = getGaussianBounds(opts.Bounds);
-      obj = @(p) sum(w .* localResidualSquared(evaluateGaussianOffset(p, x), y), 'omitnan');
-    case 'dog'
-      p0 = initialGuessDOG(x, y);
-      [lb, ub] = getDOGBounds(opts.Bounds);
-      obj = @(p) dogObjective(p, x, y, w, opts);
-    otherwise
-      error('Unsupported model: %s', opts.Model);
-end
-try
-    problem = createOptimProblem('fmincon', ...
-        'objective', obj, ...
-        'x0', p0, ...
-        'lb', lb, ...
-        'ub', ub, ...
-        'options', optimoptions('fmincon', 'Display', 'off', 'Algorithm', 'interior-point'));
-    [params, loss] = fmincon(problem);
-    ok = all(isfinite(params));
-catch
-    % If Optimization Toolbox is unavailable or fmincon fails, fall back.
-    try
-        params = fminsearch(obj, p0, optimset('Display', 'off'));
-        params(1) = max(params(1), eps);
-        loss = obj(params);
-        ok = all(isfinite(params));
-    catch
-        ok = false;
-    end
-end
-end
-
-% ========================================================================
-function err = dogObjective(p, x, y, w, opts)
-    yHat = evaluateDOG(p, x, opts.DOGFixedBaseline).';
-    err = sum(w .* (yHat - y).^2, 'omitnan');
-
-    sigmaC = p(1);
-    sigmaS = p(2);
-    minRatio = 1.25;
-    if sigmaS < minRatio * sigmaC
-        err = err + 1e6 + 1e3 * (minRatio * sigmaC - sigmaS);
-    end
-    if ~isfinite(err)
-        err = 1e12;
-    end
-end
-
-% ========================================================================
-function y = evaluateAcrossOffsetModel(params, angleDeg, modelName, opts)
-
-switch lower(modelName)
-    case 'gaussian_offset'
-        y = evaluateGaussianOffset(params, angleDeg);
-    case 'dog'
-      y = evaluateDOG(params, angleDeg, opts.DOGFixedBaseline);
-    otherwise
-        error('Unsupported model: %s', modelName);
-end
-
-end
-
-% ========================================================================
-function y = evaluateGaussianOffset(params, angleDeg)
-
-sigmaDeg = params(1);
-offset   = params(2);
-y = (1 - offset) .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaDeg.^2)) + offset;
-
-end
-
-% ========================================================================
-function y = evaluateDOG(params, angleDeg, fixedOffset)
-
-sigmaC = params(1);
-sigmaS = params(2);
-alpha  = params(3);
-a      = fixedOffset;
-
-hRaw = exp(-(angleDeg(:)'.^2) ./ (2 * sigmaC.^2)) ...
-     - alpha .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaS.^2));
-
-h0 = 1 - alpha;
-if ~isfinite(h0) || abs(h0) < 1e-9
-    y = nan(size(angleDeg(:)'));
+if ~any(valid)
+    sse = Inf;
     return;
 end
 
-h = hRaw ./ h0;
-y = a + (1 - a) .* h;
+sse = sum((resid(valid) .^ 2) ./ obsVar(valid));
+
+% Soft constraint: surround broader than center.
+sigmaC = params(1);
+sigmaS = params(2);
+minRatio = 1.25;
+if sigmaS < minRatio * sigmaC
+    sse = sse + 1e6 + 1e3 * (minRatio * sigmaC - sigmaS);
 end
+
+if ~isfinite(sse)
+    sse = Inf;
+end
+end
+% ========================================================================
+% function [params, loss, ok] = fitAcrossOffsetModel(offsetDeg, scaleVec, opts, fitWeights)
+% 
+% params = nan(1, modelParamCount(opts.Model));
+% loss   = NaN;
+% ok     = false;
+% 
+% if nargin < 4 || isempty(fitWeights)
+%     fitWeights = ones(size(offsetDeg));
+% end
+% 
+% x = offsetDeg(:);
+% y = scaleVec(:);
+% w = fitWeights(:);
+% valid = isfinite(x) & isfinite(y) & isfinite(w) & (w > 0);
+% x = x(valid);
+% y = y(valid);
+% w = w(valid);
+% 
+% if numel(x) < modelParamCount(opts.Model)
+%     return;
+% end
+% % NOTE:
+% %   Gaussian-offset support is retained only as legacy comparison
+% %   scaffolding. The active pathway uses DOG.
+% switch lower(opts.Model)
+%     case 'gaussian_offset'
+%       p0 = initialGuessGaussian(x, y);
+%       [lb, ub] = getGaussianBounds(opts.Bounds);
+%       obj = @(p) sum(w .* localResidualSquared(evaluateGaussianOffset(p, x), y), 'omitnan');
+%     case 'dog'
+%       p0 = initialGuessDOG(x, y);
+%       [lb, ub] = getDOGBounds(opts.Bounds);
+%       obj = @(p) dogObjective(p, x, y, w, opts);
+%     otherwise
+%       error('Unsupported model: %s', opts.Model);
+% end
+% try
+%     problem = createOptimProblem('fmincon', ...
+%         'objective', obj, ...
+%         'x0', p0, ...
+%         'lb', lb, ...
+%         'ub', ub, ...
+%         'options', optimoptions('fmincon', 'Display', 'off', 'Algorithm', 'interior-point'));
+%     [params, loss] = fmincon(problem);
+%     ok = all(isfinite(params));
+% catch
+%     % If Optimization Toolbox is unavailable or fmincon fails, fall back.
+%     try
+%         params = fminsearch(obj, p0, optimset('Display', 'off'));
+%         params(1) = max(params(1), eps);
+%         loss = obj(params);
+%         ok = all(isfinite(params));
+%     catch
+%         ok = false;
+%     end
+% end
+% end
+% 
+% % ========================================================================
+% function err = dogObjective(p, x, y, w, opts)
+%     yHat = evaluateDOG(p, x, opts.DOGFixedBaseline).';
+%     err = sum(w .* (yHat - y).^2, 'omitnan');
+% 
+%     sigmaC = p(1);
+%     sigmaS = p(2);
+%     minRatio = 1.25;
+%     if sigmaS < minRatio * sigmaC
+%         err = err + 1e6 + 1e3 * (minRatio * sigmaC - sigmaS);
+%     end
+%     if ~isfinite(err)
+%         err = 1e12;
+%     end
+% end
+% 
+% % ========================================================================
+% function y = evaluateAcrossOffsetModel(params, angleDeg, modelName, opts)
+% 
+% switch lower(modelName)
+%     case 'gaussian_offset'
+%         y = evaluateGaussianOffset(params, angleDeg);
+%     case 'dog'
+%       y = evaluateDOG(params, angleDeg, opts.DOGFixedBaseline);
+%     otherwise
+%         error('Unsupported model: %s', modelName);
+% end
+% 
+% end
+% 
+% % ========================================================================
+% function y = evaluateGaussianOffset(params, angleDeg)
+% 
+% sigmaDeg = params(1);
+% offset   = params(2);
+% y = (1 - offset) .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaDeg.^2)) + offset;
+% 
+% end
+% 
+% % ========================================================================
+% function y = evaluateDOG(params, angleDeg, fixedOffset)
+% 
+% sigmaC = params(1);
+% sigmaS = params(2);
+% alpha  = params(3);
+% a      = fixedOffset;
+% 
+% hRaw = exp(-(angleDeg(:)'.^2) ./ (2 * sigmaC.^2)) ...
+%      - alpha .* exp(-(angleDeg(:)'.^2) ./ (2 * sigmaS.^2));
+% 
+% h0 = 1 - alpha;
+% if ~isfinite(h0) || abs(h0) < 1e-9
+%     y = nan(size(angleDeg(:)'));
+%     return;
+% end
+% 
+% h = hRaw ./ h0;
+% y = a + (1 - a) .* h;
+% end
+% 
+% % ========================================================================
+% function p0 = initialGuessDOG(x, ~)
+% 
+% sigmaC0 = max(10, min(60, median(x(x > 0), 'omitnan')));
+% if isempty(sigmaC0) || ~isfinite(sigmaC0)
+%     sigmaC0 = 25;
+% end
+% 
+% sigmaS0 = max(sigmaC0 + 10, 90);
+% alpha0  = 0.5;
+% 
+% p0 = [sigmaC0, sigmaS0, alpha0];
+% end
+% 
+% % ========================================================================
+% function [lb, ub] = getDOGBounds(boundsStruct)
+% 
+% lb = [1e-3, 1e-3, 0];
+% ub = [300, 300, 5];
+% 
+% if isfield(boundsStruct, 'dog')
+%     B = boundsStruct.dog;
+%     if isfield(B, 'lb'), lb = B.lb; end
+%     if isfield(B, 'ub'), ub = B.ub; end
+% end
+% end
 
 % ========================================================================
-function p0 = initialGuessDOG(x, ~)
-
-sigmaC0 = max(10, min(60, median(x(x > 0), 'omitnan')));
-if isempty(sigmaC0) || ~isfinite(sigmaC0)
-    sigmaC0 = 25;
-end
-
-sigmaS0 = max(sigmaC0 + 10, 90);
-alpha0  = 0.5;
-
-p0 = [sigmaC0, sigmaS0, alpha0];
-end
-
-% ========================================================================
-function [lb, ub] = getDOGBounds(boundsStruct)
-
-lb = [1e-3, 1e-3, 0];
-ub = [300, 300, 5];
-
-if isfield(boundsStruct, 'dog')
-    B = boundsStruct.dog;
-    if isfield(B, 'lb'), lb = B.lb; end
-    if isfield(B, 'ub'), ub = B.ub; end
-end
-end
-
-% ========================================================================
-function r2 = localResidualSquared(yhat, y)
-
-yhat = yhat(:);
-y = y(:);
-
-bad = ~isfinite(yhat) | ~isfinite(y);
-r2 = (yhat - y).^2;
-r2(bad) = 1e12;
-
-end
-
-% ========================================================================
-function p0 = initialGuessGaussian(x, y)
-
-% Crude but usually stable.
-sigma0 = max(10, min(90, median(x(x > 0), 'omitnan')));
-if isempty(sigma0) || ~isfinite(sigma0)
-    sigma0 = 45;
-end
-offset0 = min(y);
-if ~isfinite(offset0)
-    offset0 = 0;
-end
-p0 = [sigma0, offset0];
-
-end
+% function r2 = localResidualSquared(yhat, y)
+% 
+% yhat = yhat(:);
+% y = y(:);
+% 
+% bad = ~isfinite(yhat) | ~isfinite(y);
+% r2 = (yhat - y).^2;
+% r2(bad) = 1e12;
+% 
+% end
+% 
+% % ========================================================================
+% function p0 = initialGuessGaussian(x, y)
+% 
+% % Crude but usually stable.
+% sigma0 = max(10, min(90, median(x(x > 0), 'omitnan')));
+% if isempty(sigma0) || ~isfinite(sigma0)
+%     sigma0 = 45;
+% end
+% offset0 = min(y);
+% if ~isfinite(offset0)
+%     offset0 = 0;
+% end
+% p0 = [sigma0, offset0];
+% 
+% end
+% 
+% % ========================================================================
+% function [lb, ub] = getGaussianBounds(boundsStruct)
+% 
+% lb = [1e-3, -2];
+% ub = [300, 1];
+% 
+% if isfield(boundsStruct, 'gaussian_offset')
+%     B = boundsStruct.gaussian_offset;
+%     if isfield(B, 'lb'), lb = B.lb; end
+%     if isfield(B, 'ub'), ub = B.ub; end
+% end
+% 
+% end
 
 % ========================================================================
-function [lb, ub] = getGaussianBounds(boundsStruct)
-
-lb = [1e-3, -2];
-ub = [300, 1];
-
-if isfield(boundsStruct, 'gaussian_offset')
-    B = boundsStruct.gaussian_offset;
-    if isfield(B, 'lb'), lb = B.lb; end
-    if isfield(B, 'ub'), ub = B.ub; end
-end
-
-end
-
-% ========================================================================
-function modelFits = summarizeModelFits(bootstrap, empirical, opts)
-
-angleGrid = bootstrap.fitBootstrap.angleGridDeg;
-bootScaleMat = bootstrap.bootScaleMat;
-fitWeights = [];
-if isfield(bootstrap, 'fitBootstrap') && isfield(bootstrap.fitBootstrap, 'fitWeights')
-    fitWeights = bootstrap.fitBootstrap.fitWeights;
-end
-
-xMeasured = [empirical.probeOffsetDeg];
-xFitPoint  = [0, xMeasured];
-yFitPoint  = [1, [empirical.meanScale]];
-
-modelFits = struct();
-modelFits.note = ['Legacy offset-space model summaries retained for backward ' ...
-                  'compatibility only. Use acrossOffsetSummary.readoutModel ' ...
-                  'for the primary DOG readout fit.'];
-for iModel = 1:numel(opts.CandidateModels)
-    modelName = char(opts.CandidateModels{iModel});
-    modelOpts = opts;
-    modelOpts.Model = modelName;
-
-    nParams = modelParamCount(modelName);
-    bootParams = nan(opts.NBoot, nParams);
-    bootLoss   = nan(opts.NBoot, 1);
-    fitSuccess = false(opts.NBoot, 1);
-    curveValues = nan(opts.NBoot, numel(angleGrid));
-
-    for b = 1:opts.NBoot
-        scaleVec = bootScaleMat(b, :);
-        yFitBoot = [1, scaleVec];
-        [params, loss, ok] = fitAcrossOffsetModel(xFitPoint, yFitBoot, modelOpts, fitWeights);
-        if ok
-            bootParams(b, :) = params;
-            bootLoss(b) = loss;
-            fitSuccess(b) = true;
-            curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, modelName, opts);
-        end
-    end
-
-    good = fitSuccess;
-    paramsGood = bootParams(good, :);
-    curvesGood = curveValues(good, :);
-
-    [pointEstimateParams, pointEstimateLoss, pointEstimateOK] = ...
-        fitAcrossOffsetModel(xFitPoint, yFitPoint, modelOpts, fitWeights);
-    if ~pointEstimateOK
-        pointEstimateParams = nan(1, nParams);
-        pointEstimateLoss = NaN;
-    end
-
-    entry = struct( ...
-        'isFit', any(good), ...
-        'paramNames', {modelParamNames(modelName)}, ...
-        'pointEstimate', pointEstimateParams, ...
-        'ci68', ciFromMatrix(paramsGood, 68), ...
-        'ci95', ciFromMatrix(paramsGood, 95), ...
-        'angleGridDeg', angleGrid, ...
-        'curvePointEstimate', evaluateAcrossOffsetModel(pointEstimateParams, angleGrid, modelName, opts), ...
-        'curveMedianBootstrap', nanpercentile(curvesGood, 50), ...
-        'curve68', curveCI(curvesGood, 68), ...
-        'curve95', curveCI(curvesGood, 95), ...
-        'fitMethod', 'bootstrap_refit', ...
-        'objective', 'legacy_offset_space_least_squares', ...
-        'bounds', opts.Bounds, ...
-        'startPointRule', 'data-driven crude initializer', ...
-        'lossPointEstimate', pointEstimateLoss, ...
-        'fitNotes', ['Legacy offset-space fit retained for backward compatibility; ' ...
-             'not the primary DOG readout fit over MT preferred direction.'], ... 
-        'bootstrapParams', bootParams, ...
-        'bootstrapLoss', bootLoss, ...
-        'bootstrapFitSuccess', fitSuccess );
-
-    for c = 1:numel(opts.CILevels)
-        lvl = opts.CILevels(c);
-        entry.(sprintf('ci%d', round(lvl))) = ciFromMatrix(paramsGood, lvl);
-        entry.(sprintf('curve%d', round(lvl))) = curveCI(curvesGood, lvl);
-    end
-
-    if size(paramsGood, 2) >= 2 && size(paramsGood, 1) >= 2
-        entry.bootstrapParamCov = cov(paramsGood, 'omitrows');
-        entry.bootstrapParamCorr = corrcoef(paramsGood, 'Rows', 'pairwise');
-    else
-        entry.bootstrapParamCov = NaN;
-        entry.bootstrapParamCorr = NaN;
-    end
-
-    modelFits.(modelName) = entry;
-end
-
-end
+% function modelFits = summarizeModelFits(bootstrap, empirical, opts)
+% 
+% angleGrid = bootstrap.fitBootstrap.angleGridDeg;
+% bootScaleMat = bootstrap.bootScaleMat;
+% fitWeights = [];
+% if isfield(bootstrap, 'fitBootstrap') && isfield(bootstrap.fitBootstrap, 'fitWeights')
+%     fitWeights = bootstrap.fitBootstrap.fitWeights;
+% end
+% 
+% xMeasured = [empirical.probeOffsetDeg];
+% xFitPoint  = [0, xMeasured];
+% yFitPoint  = [1, [empirical.meanScale]];
+% 
+% acrossOffsetSummary.modelFits = struct();
+% acrossOffsetSummary.modelFitsNote = ...
+%     ['Legacy offset-space modelFits removed. Primary interpretation uses ' ...
+%      'acrossOffsetSummary.readoutModel.'];
+% for iModel = 1:numel(opts.CandidateModels)
+%     modelName = char(opts.CandidateModels{iModel});
+%     modelOpts = opts;
+%     modelOpts.Model = modelName;
+% 
+%     nParams = modelParamCount(modelName);
+%     bootParams = nan(opts.NBoot, nParams);
+%     bootLoss   = nan(opts.NBoot, 1);
+%     fitSuccess = false(opts.NBoot, 1);
+%     curveValues = nan(opts.NBoot, numel(angleGrid));
+% 
+%     for b = 1:opts.NBoot
+%         scaleVec = bootScaleMat(b, :);
+%         yFitBoot = [1, scaleVec];
+%         [params, loss, ok] = fitAcrossOffsetModel(xFitPoint, yFitBoot, modelOpts, fitWeights);modelParamCount
+%         if ok
+%             bootParams(b, :) = params;
+%             bootLoss(b) = loss;
+%             fitSuccess(b) = true;
+%             curveValues(b, :) = evaluateAcrossOffsetModel(params, angleGrid, modelName, opts);
+%         end
+%     end
+% 
+%     good = fitSuccess;
+%     paramsGood = bootParams(good, :);
+%     curvesGood = curveValues(good, :);
+% 
+%     [pointEstimateParams, pointEstimateLoss, pointEstimateOK] = ...
+%         fitAcrossOffsetModel(xFitPoint, yFitPoint, modelOpts, fitWeights);
+%     if ~pointEstimateOK
+%         pointEstimateParams = nan(1, nParams);
+%         pointEstimateLoss = NaN;
+%     end
+% 
+%     entry = struct( ...
+%         'isFit', any(good), ...
+%         'paramNames', {modelParamNames(modelName)}, ...
+%         'pointEstimate', pointEstimateParams, ...
+%         'ci68', ciFromMatrix(paramsGood, 68), ...
+%         'ci95', ciFromMatrix(paramsGood, 95), ...
+%         'angleGridDeg', angleGrid, ...
+%         'curvePointEstimate', evaluateAcrossOffsetModel(pointEstimateParams, angleGrid, modelName, opts), ...
+%         'curveMedianBootstrap', nanpercentile(curvesGood, 50), ...
+%         'curve68', curveCI(curvesGood, 68), ...
+%         'curve95', curveCI(curvesGood, 95), ...
+%         'fitMethod', 'bootstrap_refit', ...
+%         'objective', 'legacy_offset_space_least_squares', ...
+%         'bounds', opts.Bounds, ...
+%         'startPointRule', 'data-driven crude initializer', ...
+%         'lossPointEstimate', pointEstimateLoss, ...
+%         'fitNotes', ['Legacy offset-space fit retained for backward compatibility; ' ...
+%              'not the primary DOG readout fit over MT preferred direction.'], ... 
+%         'bootstrapParams', bootParams, ...
+%         'bootstrapLoss', bootLoss, ...
+%         'bootstrapFitSuccess', fitSuccess );
+% 
+%     for c = 1:numel(opts.CILevels)
+%         lvl = opts.CILevels(c);
+%         entry.(sprintf('ci%d', round(lvl))) = ciFromMatrix(paramsGood, lvl);
+%         entry.(sprintf('curve%d', round(lvl))) = curveCI(curvesGood, lvl);
+%     end
+% 
+%     if size(paramsGood, 2) >= 2 && size(paramsGood, 1) >= 2
+%         entry.bootstrapParamCov = cov(paramsGood, 'omitrows');
+%         entry.bootstrapParamCorr = corrcoef(paramsGood, 'Rows', 'pairwise');
+%     else
+%         entry.bootstrapParamCov = NaN;
+%         entry.bootstrapParamCorr = NaN;
+%     end
+% 
+%     modelFits.(modelName) = entry;
+% end
+% 
+% end
 
 % ========================================================================
 function history = updateHistory(acrossOffsetSummary, opts)
@@ -1763,13 +1659,10 @@ history = struct( ...
     'nOffsets', numel(acrossOffsetSummary.empirical), ...
     'offsetsDeg', [acrossOffsetSummary.empirical.probeOffsetDeg], ...
     'nSessionsByOffset', [acrossOffsetSummary.empirical.nSessions], ...
-    'modelName', opts.Model, ...
     'primaryFitObject', 'DOG readout over MT preferred direction', ...
-    'baselineMode', acrossOffsetSummary.readoutModel.baselineModeResolved, ...
     'nFreeParams', acrossOffsetSummary.readoutModel.nFreeParams, ...
     'medianParams', nan, ...
     'saveFile', opts.SaveFile );
-
 end
 
 % ========================================================================
@@ -1819,57 +1712,59 @@ ylabel('Normalized scale');
 box off;
 saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
+%acrossOffsetSummary.readoutModel.paramst = trial
+
 % ---- Plot 2: fitted readout over MT preferred direction ----
 if hasReadoutFit
   plotReadoutDiagnostics(acrossOffsetSummary, opts);
 end
 
 end
+% 
+% % ========================================================================
+% function n = modelParamCount(modelName)
+% 
+% switch lower(modelName)
+%     case 'gaussian_offset'
+%         n = 2;
+%     case 'dog'
+%         n = 3;
+%     otherwise
+%         error('Unsupported model: %s', modelName);
+% end
+% 
+% end
+% 
+% % ========================================================================
+% function names = modelParamNames(modelName)
+% 
+% switch lower(modelName)
+%     case 'gaussian_offset'
+%         names = {'sigmaDeg', 'offset'};
+%     case 'dog'
+%       names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+%     otherwise
+%         error('Unsupported model: %s', modelName);
+% end
+% 
+% end
 
 % ========================================================================
-function n = modelParamCount(modelName)
-
-switch lower(modelName)
-    case 'gaussian_offset'
-        n = 2;
-    case 'dog'
-        n = 3;
-    otherwise
-        error('Unsupported model: %s', modelName);
-end
-
-end
-
-% ========================================================================
-function names = modelParamNames(modelName)
-
-switch lower(modelName)
-    case 'gaussian_offset'
-        names = {'sigmaDeg', 'offset'};
-    case 'dog'
-      names = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
-    otherwise
-        error('Unsupported model: %s', modelName);
-end
-
-end
-
-% ========================================================================
-function models = normalizeModelList(candidateModels, activeModel)
-
-if ischar(candidateModels) || isstring(candidateModels)
-    models = {char(candidateModels)};
-else
-    models = cellfun(@(c) char(string(c)), candidateModels, 'UniformOutput', false);
-end
-
-models = unique(models, 'stable');
-activeModel = char(string(activeModel));
-if ~any(strcmpi(models, activeModel))
-    models = [{activeModel}, models];
-end
-
-end
+% function models = normalizeModelList(candidateModels, activeModel)
+% 
+% if ischar(candidateModels) || isstring(candidateModels)
+%     models = {char(candidateModels)};
+% else
+%     models = cellfun(@(c) char(string(c)), candidateModels, 'UniformOutput', false);
+% end
+% 
+% models = unique(models, 'stable');
+% activeModel = char(string(activeModel));
+% if ~any(strcmpi(models, activeModel))
+%     models = [{activeModel}, models];
+% end
+% 
+% end
 
 % ========================================================================
 function val = getFieldOrDefault(S, fieldName, defaultVal)
@@ -2202,39 +2097,39 @@ ci = prctile(x, [alpha, 100 - alpha]);
 end
 
 % ========================================================================
-function out = nanpercentile(x, p)
-
-if isempty(x)
-    out = NaN;
-    return;
-end
-out = prctile(x, p, 1);
-
-end
-
-% ========================================================================
-function ci = ciFromMatrix(x, level)
-
-if isempty(x)
-    ci = NaN(0,2);
-    return;
-end
-alpha = (100 - level) / 2;
-ci = [prctile(x, alpha, 1); prctile(x, 100 - alpha, 1)]';
-
-end
-
-% ========================================================================
-function ci = curveCI(curves, level)
-
-if isempty(curves)
-    ci = NaN(2,0);
-    return;
-end
-alpha = (100 - level) / 2;
-ci = [prctile(curves, alpha, 1); prctile(curves, 100 - alpha, 1)];
-
-end
+% function out = nanpercentile(x, p)
+% 
+% if isempty(x)
+%     out = NaN;
+%     return;
+% end
+% out = prctile(x, p, 1);
+% 
+% end
+% 
+% % ========================================================================
+% function ci = ciFromMatrix(x, level)
+% 
+% if isempty(x)
+%     ci = NaN(0,2);
+%     return;
+% end
+% alpha = (100 - level) / 2;
+% ci = [prctile(x, alpha, 1); prctile(x, 100 - alpha, 1)]';
+% 
+% end
+% 
+% % ========================================================================
+% function ci = curveCI(curves, level)
+% 
+% if isempty(curves)
+%     ci = NaN(2,0);
+%     return;
+% end
+% alpha = (100 - level) / 2;
+% ci = [prctile(curves, alpha, 1); prctile(curves, 100 - alpha, 1)];
+% 
+% end
 
 % ========================================================================
 function [avgKernels, avgKVars] = poolSessionKernels(sessionKernels, sessionKVars, nFrames)

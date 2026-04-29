@@ -20,6 +20,18 @@ end
 %   compStats.scale is the ordinary point estimate.
 %   compStats.scaleCI, when present, provides bootstrap percentile intervals.
 %
+
+if nargin < 1 || isempty(fig)
+    fig = 1;        % default legacy figure number
+end
+if isnumeric(fig)   % Normalize fig to a figure handle
+    figH = figure(fig);  % legacy behavior
+elseif isgraphics(fig, 'figure')
+    figH = fig;
+else
+    error('plotKernels:BadFigure: fig must be empty, a figure number, or a valid figure handle.');
+end
+
 frameRateHz = header.frameRateHz.data;
 stepMS = header.stepMS.data(1);
 msPerVFrame = 1000.0 / frameRateHz;
@@ -36,9 +48,8 @@ nSideTypes = 5;   % don't plot the RF/Opp kernels
 typeTitles = { ...
   '(Change RDK - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', 'RF RDK', 'Opp RDK'};
 
-figure(fig);
-clf;
-t = tiledlayout(nSideTypes, 2);
+clf(figH);
+t = tiledlayout(figH, nSideTypes, 2);
 ax = nan(nSideTypes, 2);
 overallYMax = 0;
 overallYMin = 0;

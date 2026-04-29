@@ -108,9 +108,7 @@ for f = 1:length(matFiles)
 
   % Plot this session's kernels
   [~, sessBaseName, ~] = fileparts(header.fileName);
-  plotKernels(1, sprintf('%s (Probe %d%c)', sessBaseName, probeDirDeg, char(176)), ...
-      header, kernels, kVars, compStats, hitStats);
-
+  plotKernels(1, sessBaseName, header, kernels, kVars, compStats, hitStats, probeDirDeg);
   nSessions = nSessions + 1;
 end
 
@@ -185,8 +183,8 @@ if doBootstrap
 end
 
 % ---- Plot/export averaged kernels ----
-plotKernels(2, sprintf('%d Session Average (Probe %d%c)', ...
-  nSessions, probeDirDeg, char(176)), header, avgKernels, avgKVars, avgCompStats, avgHitStats);
+plotKernels(2, sprintf('%d Session Average', nSessions), ...
+       header, avgKernels, avgKVars, avgCompStats, avgHitStats, probeDirDeg);
 plotRoot = fullfile(baseFolder, 'Plots', 'Kernels');
 if ~exist(plotRoot, 'dir')
   mkdir(plotRoot);
@@ -195,7 +193,7 @@ plotDir = fullfile(plotRoot, tag);
 if ~exist(plotDir, 'dir')
   mkdir(plotDir);
 end
-pdfFile = fullfile(plotDir, sprintf('Latest Session Average Kernel_%s.pdf', tag));
+pdfFile = fullfile(plotDir, sprintf(' Latest Average Kernel_%s.pdf', tag));
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 fprintf(' Saved session average kernel: %s\n', pdfFile);
 
