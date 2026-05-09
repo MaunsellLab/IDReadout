@@ -1,4 +1,4 @@
-function dailyUpdate(replace, doBootstrap, nBoot, path)
+function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
 % dailyUpdate  Run the daily MT-kernel analysis update pipeline.
 %
 %   dailyUpdate()
@@ -8,25 +8,12 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
 %         nBoot       = 100
 %         path        = folderPath()
 %
-%   dailyUpdate(replace, doBootstrap, nBoot, path)
-%       replace:
-%         If true, recompute all eligible session outputs.
-%         If false, only compute missing session outputs.
-%
-%       doBootstrap:
-%         If true, run hierarchical bootstrap in kernelAverageByProbe.
-%
-%       nBoot:
-%         Number of bootstrap repetitions.
-%
-%       path:
-%         Base project folder.
-%
 %   Pipeline:
-%     1) build any missing/stale session kernel, matrix, and plot outputs
-%     2) collect probe directions affected by those updates
-%     3) refresh per-probe averages only for affected probe directions
-%     4) refresh across-offset summaries/plots
+%     1) convert any unconverted raw dat files
+%     2) build missing/stale probe-specific kernel, noise-matrix, and plot outputs
+%     3) build missing/stale probe-specific kernel-session summaries
+%     4) refresh average-kernel plots for affected probe directions
+%     5) refresh across-offset summaries/plots
 
   % ---- Handle inputs ----
   if nargin < 1 || isempty(replace)
@@ -36,45 +23,84 @@ function dailyUpdate(replace, doBootstrap, nBoot, path)
     doBootstrap = false;
   end
   if nargin < 3 || isempty(nBoot)
-    nBoot = 100;
+    nBoot = 10;
   end
   if nargin < 4 || isempty(path)
     path = folderPath();
   end
+  if nargin < 5 || isempty(forceAcrossOffset)
+    forceAcrossOffset = false;
+  end
   path = char(path);
 
-  fprintf('--- Daily update start ---\n');
-  fprintf('---  convertIDRData start ---\n');
+  fprintf('>>> Daily update start ---\n');
+
+  % ---- Convert raw files ----
+  fprintf('  >> convertIDRData start ---\n');
   convertIDRData;
-  fprintf('---  convertIDRData complete ---\n');
+  fprintf('  << convertIDRData complete ---\n');
 
-  % ---- Session-level update ----
-  fprintf('---  makeKernels start ---\n');
+  % ---- Session-level probe-specific kernels/noise matrices ----
+  fprintf('  >> makeKernels start ---\n');
   [allProbeDirs, staleProbeDirs] = makeKernels(replace, path);
-  fprintf('---  makeKernels complete ---\n');
+  anythingChanged = replace || ~isempty(staleProbeDirs);
+  fprintf('  << makeKernels complete ---\n');
 
-  % ---- Save kernel summary ----
-  fprintf('---  makeKernelSessionSummaries start ---\n');
-  makeKernelSessionSummaries();
-  fprintf('---  makeKernelSessionSummaries complete ---\n');
+  allProbeDirs = unique(allProbeDirs);
+  staleProbeDirs = unique(staleProbeDirs);
 
-  if isempty(staleProbeDirs) && ~doBootstrap
-    fprintf('--- No session-level updates detected; skipping per-probe averages.\n');
+  % If replace is requested, refresh all known probe dirs.
+  if replace
+    refreshProbeDirs = allProbeDirs;
   else
-    if doBootstrap
-      staleProbeDirs = allProbeDirs;
+    refreshProbeDirs = staleProbeDirs;
+  end
+
+  % ---- Per-session summaries ----
+  if isempty(refreshProbeDirs)
+    fprintf('    no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
+  else
+    sessionsDirs = probeDirsToSessionDirs(refreshProbeDirs);
+
+    fprintf(' >>  makeKernelSessionSummaries start ---\n');
+    makeKernelSessionSummaries('path', path, 'sessionsDirs', sessionsDirs, 'replace', replace, 'doBootstrap', false);
+    fprintf(' <<  makeKernelSessionSummaries complete ---\n');
+
+    % ---- Average-kernel plots ----
+    fprintf('  >> kernelAverage start ---\n');
+    for p = refreshProbeDirs(:).'
+      probeTag = sprintf('probe%d', round(p));
+      fprintf('--- Updating average for %s\n', probeTag);
+      kernelAverage(doBootstrap, nBoot, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
+        'plotFolder', fullfile(path, 'Plots', 'AverageKernels'), 'probeDirDeg', p);
     end
-    for p = staleProbeDirs(:).'
-      fprintf('--- Updating average for probe %g\n', p);
-      fprintf('---  kernelAverageByProbe start ---\n');
-      kernelAverageByProbe(path, p, true, nBoot);
-      fprintf('---  kernelAverageByProbe complete ---\n');
-    end
+    fprintf('  << kernelAverage complete ---\n');
   end
 
   % ---- Across-offset summary update ----
-  fprintf('---  updateAcrossOffsetSummaries start ---\n');
-  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1); %#ok<NASGU>
-  fprintf('---  updateAcrossOffsetSummaries complete ---\n');
-  fprintf('--- Daily update complete ---\n');
+  % This should run even when no single-session files were stale, because it
+  % is cheap relative to the pipeline and keeps summary/plots synchronized
+  % with any manual changes to summaries or exclusion rules.
+% ---- Across-offset summary update ----
+if anythingChanged || doBootstrap || forceAcrossOffset
+  fprintf(' >>  updateAcrossOffsetSummaries start ---\n');
+  acrossOffsetSummary = updateAcrossOffsetSummaries(fullfile(path, 'Data'), ...
+    'SaveFile', fullfile(path, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat'), ...
+    'PlotDir', fullfile(path, 'Plots', 'ReadoutFits'),'NBoot', nBoot, 'RandomSeed', 1, ...
+    'MakePlots', true); %#ok<NASGU>
+  fprintf(' <<  updateAcrossOffsetSummaries complete ---\n');
+else
+  fprintf('    no session-level updates detected; skipping across-offset bootstrap/fits.\n');
+end
+  fprintf('<<< Daily update complete ---\n');
+end
+
+%% probeDirsToSessionDirs()
+function sessionsDirs = probeDirsToSessionDirs(probeDirs)
+
+sessionsDirs = cell(1, numel(probeDirs));
+for i = 1:numel(probeDirs)
+  sessionsDirs{i} = sprintf('probe%d', round(probeDirs(i)));
+end
+
 end

@@ -41,23 +41,31 @@ intStopVF = intStartVF + round(intDurMS / msPerVFrame);
 trialDurMS = preStepMS + stepMS;
 m = round(trialDurMS / msPerVFrame);
 preStepVF = preStepMS / msPerVFrame;
-plotTitles = {"Decrements", "Increments"};
+plotTitles = {"Decrement", "Increment"};
 
 % nSideTypes = size(kernels, 1);
 nSideTypes = 5;   % don't plot the RF/Opp kernels
 typeTitles = { ...
-  '(Change RDK - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', 'RF RDK', 'Opp RDK'};
+  '(Change - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', 'RF RDK', 'Opp RDK'};
 
+set(figH, 'WindowStyle', 'docked');
 clf(figH);
+% figH.Units = 'inches';
+% figH.Position = [1 1 7.5 10];    % portrait figure
 t = tiledlayout(figH, nSideTypes, 2);
 ax = nan(nSideTypes, 2);
 overallYMax = 0;
 overallYMin = 0;
 prefLine = zeros(1, 2);
 probeLine = zeros(1, 2);
+strElement = {"Dec", "Inc"};
 
 for sideType = 1:nSideTypes
   for s = 1:2
+    colTitle = sprintf('%s: %d trials, %.0f%% correct (%d Left trials (%.1f%%), %.0f%% correct)', ...
+      strElement{s}, hitStats.nTrials(3 - s), hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
+      hitStats.nLeftTrials(3 - s), hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
+      hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s));
     ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
     xValues = 1:size(kernels, 4);
     hold on;
@@ -70,7 +78,11 @@ for sideType = 1:nSideTypes
     xticklabels({"0", "250", "500", sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)});
     xlabel("Time (ms)");
     ylabel("Coherence (%)");
-    title(sprintf("Coherence %s: %s Kernels", plotTitles{s}, typeTitles{sideType}));
+    if sideType == 1
+      title(sprintf("%s\n\n%s %s Kernels", colTitle, plotTitles{s}, typeTitles{sideType}));     
+    else
+      title(sprintf("%s %s Kernels", plotTitles{s}, typeTitles{sideType}));
+    end
 
     if isfield(compStats, 'scaleCI')
       textStr = sprintf(['Integrals: 0°: %.2f%%, ±%d°: %.2f%%\n' ...
@@ -108,23 +120,24 @@ for sideType = 1:nSideTypes
   end
 end
 axes(ax(1, 2));
-legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("±%d°", probeDirDeg)}, 'location', 'southwest');
-strElement = {"Decrements", "Increments"};
-for s = 1:2
-  subTitleStr{s} = sprintf('\\fontsize{8}%s: %d trials, %.0f%% correct, %d Left trials (%.1f%%), %.0f%% correct', ...
-    strElement{3 - s}, hitStats.nTrials(3 - s), ...
-    hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
-    hitStats.nLeftTrials(3 - s), ...
-    hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
-    hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s)); %#ok<AGROW>
+if probeDirDeg < 180
+  signChar = "±";
+else
+  signChar = "";
 end
+legend([prefLine(1), probeLine(1)], {"0° ±SEM", sprintf("%s%d°", signChar, probeDirDeg)}, 'location', 'southwest');
+% for s = 1:2
+%   subTitleStr{s} = sprintf('\\fontsize{8}%s: %d trials, %.0f%% correct (%d Left trials (%.1f%%), %.0f%% correct)', ...
+%     strElement{3 - s}, hitStats.nTrials(3 - s), hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
+%     hitStats.nLeftTrials(3 - s), hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
+%     hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s)); %#ok<AGROW>
+% end
 if ~isempty(probeDirDeg)
-  probeStr = sprintf(' (Probe %d°)', probeDirDeg);
+  probeStr = sprintf('%d° Probe', probeDirDeg);
 else
   probeStr = '';
 end
-title(t, sprintf('\\bf\\DeltaMean Kernels %s%s\\rm\n%s;         %s', ...
-  underscoreToDash(titleStr), probeStr, subTitleStr{1}, subTitleStr{2}));
+title(t, sprintf('\\bf%s Kernels %s', probeStr, underscoreToDash(titleStr)));
 end
 
 %-- plotWithConstSEM() --

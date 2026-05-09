@@ -21,14 +21,13 @@ if nargin < 1 || isempty(baseFolder)
   baseFolder = folderPath();
 end
 if nargin < 2 || isempty(probeDirDeg)
-  error('kernelAverageByProbe:MissingProbeDir', ...
-        'probeDirDeg must be specified.');
+  error('kernelAverageByProbe:MissingProbeDir', 'probeDirDeg must be specified.');
 end
 if nargin < 3 || isempty(doBootstrap)
-  doBootstrap = false;
+  doBootstrap = true;
 end
 if nargin < 4 || isempty(nBoot)
-  nBoot = 1000;
+  nBoot = 100;
 end
 
 tag = sprintf('probe%d', round(probeDirDeg));
@@ -69,7 +68,8 @@ for f = 1:length(matFiles)
   end
 
   % Probe-direction filter
-  thisProbeDirDeg = header.probeDirDeg.data;
+  % thisProbeDirDeg = header.probeDirDeg.data;
+  thisProbeDirDeg = trial{1}.trial.data.probeDirDeg;
   if thisProbeDirDeg ~= probeDirDeg
     continue;
   end
@@ -261,7 +261,6 @@ end
 
 function avgHitStats = poolHitStats(sessionHitStats)
 % Sum hit/trial statistics across sessions.
-
 avgHitStats = struct;
 avgHitStats.nTrials     = [0 0];
 avgHitStats.nHits       = [0 0];

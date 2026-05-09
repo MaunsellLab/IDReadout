@@ -64,6 +64,7 @@ ip.addParameter('stepType', 2, @isscalar);               % 2 = INC
 ip.addParameter('winMS', [0 125], @(x) isnumeric(x) && numel(x)==2);
 ip.addParameter('nBinsChange', 7, @isscalar);
 ip.addParameter('nBinsNoChange', 7, @isscalar);
+ip.addParameter('nBinsDiff', 7, @isscalar);
 ip.addParameter('nGroupsNoChange', 3, @isscalar);
 ip.addParameter('restrictMidChangeForPlot3', true, @islogical);
 ip.addParameter('midFrac', 0.5, @(x) isscalar(x) && x>0 && x<=1);
@@ -91,9 +92,7 @@ header            = S.header;
 
 [nPatches, nFrames, nTrials] = size(prefNoiseByPatch);
 assert(nPatches == 2, 'Expected 2 patches.');
-assert(all(size(probeNoiseByPatch) == [2 nFrames nTrials]), ...
-    'probeNoiseByPatch size mismatch.');
-
+assert(all(size(probeNoiseByPatch) == [2 nFrames nTrials]), 'probeNoiseByPatch size mismatch.');
 assert(numel(changeSidesAll)   == nTrials, 'changeSidesAll length mismatch.');
 assert(numel(changeIndicesAll) == nTrials, 'changeIndicesAll length mismatch.');
 assert(numel(trialOutcomesAll) == nTrials, 'trialOutcomesAll length mismatch.');
@@ -110,7 +109,6 @@ assert(any(winMask), 'Integration window selects no frames.');
 % ---------------- Trial selection ----------------
 isDesiredStep = (changeIndicesAll == P.stepType);
 isValidOutcome = ismember(trialOutcomesAll, [0 1]);  % 0=correct, 1=wrong
-
 keep = isDesiredStep & isValidOutcome;
 
 trialIdx = find(keep);
@@ -118,6 +116,7 @@ nKeep = numel(trialIdx);
 
 Echange   = nan(nKeep,1);
 EnoChange = nan(nKeep,1);
+EDiff    = nan(nKeep,1);
 isCorrect = nan(nKeep,1);
 
 prefChangeInt    = nan(nKeep,1);
@@ -162,7 +161,7 @@ for k = 1:nKeep
     % the place to do it.
     Echange(k)   = pC + P.alpha * qC;
     EnoChange(k) = pN + P.alpha * qN;
-
+    EDiff(k) = Echange(k) - EnoChange(k);
     isCorrect(k) = (trialOutcomesAll(tr) == 0);
 end
 
@@ -193,8 +192,11 @@ if P.restrictMidChangeForPlot3
     usePlot3 = Echange >= lo & Echange <= hi;
 end
 
-[binCtrNoChange, pErrByNoChange, nByNoChange, edgesNoChange, binIdxNoChange] = ...
+[binCtrNoChange, pErrByNoChange, nByNoChange, edgesNoChange, ~] = ...
     quantileBinnedMean(EnoChange(usePlot3), ~isCorrect(usePlot3), P.nBinsNoChange);
+
+[binCtrDiff, pErrByDiff, nByDiff, edgesDiff, ~] = ...
+    quantileBinnedMean(EDiff(usePlot3), isCorrect(usePlot3), P.nBinsDiff);
 
 % ---------------- Output struct ----------------
 out = struct();
@@ -204,6 +206,7 @@ out.params = P;
 out.trialIdx = trialIdx;
 out.Echange = Echange;
 out.EnoChange = EnoChange;
+out.EDiff = EDiff;
 out.isCorrect = isCorrect;
 
 out.prefChangeInt    = prefChangeInt;
@@ -231,6 +234,10 @@ out.plot3.binCtrNoChange = binCtrNoChange;
 out.plot3.pErrByNoChange = pErrByNoChange;
 out.plot3.nByNoChange = nByNoChange;
 out.plot3.edgesNoChange = edgesNoChange;
+out.plot3.binCtrDiff = binCtrDiff;
+out.plot3.pErrByDiff = pErrByDiff;
+out.plot3.nByDiff = nByDiff;
+out.plot3.edgesDiff = edgesDiff;
 
 % ---------------- Plotting ----------------
 if P.doPlot

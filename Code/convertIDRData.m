@@ -7,9 +7,13 @@ function convertIDRData()
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
 
-convertedFolder = fullfile(folderPath(), 'Data', 'Converted');
-dataFolder   = fullfile(folderPath(), 'Data', 'DatFiles');
+[dataFolder, existed] = validFolder(fullfile(folderPath(), 'Data', 'DatFiles'));
+if ~existed 
+  fprintf('  convertIDRData -- failed to find data to convert in %s', dataFolder);
+  return;
+end
 [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
+convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'Converted'));
 
 % Convert any unconverted .dat files
 numSkipped = 0;
@@ -18,8 +22,8 @@ for fi = 1:numel(paths)
   datName = string(names(fi));
   [~, baseName] = fileparts(datPath);
   tempInfoFileName = sprintf('%s/%s_fileInfo.mat', dataFolder, baseName);
-  infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % Expected .mat headerfile name for this .dat file
-  outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % Expected .mat data file name for this .dat file
+  infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % .mat headerfile name for .dat file
+  outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % .mat data file name for .dat file
   if isfile(infoFileName) && isfile(outFileName)                    % Skip if *_fileInfo.mat already exists
     numSkipped = numSkipped + 1;
     continue;
@@ -47,9 +51,9 @@ for fi = 1:numel(paths)
   fprintf('Saving %s', outFileName);
   save(outFileName, 'trials', 'header');
 end
-if numSkipped > 0
-  fprintf(' convertIDRData: Skipped %d previously converted files\n', numSkipped);
-end
+% if numSkipped > 0
+%   fprintf('     convertIDRData: Skipped %d previously converted files\n', numSkipped);
+% end
 end
 
 % Several events were mislabeled as "change..." and "noChange..." when they

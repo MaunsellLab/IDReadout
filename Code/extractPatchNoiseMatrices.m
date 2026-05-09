@@ -33,10 +33,14 @@ for k = 1:nTrials
     continue;
   end
 
-  hasAnyNoise = ...
-    ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)) && ...
-    isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
-  if ~hasAnyNoise
+  % hasAnyNoise = ...
+  %   ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)) && ...
+  %   isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
+  % if ~hasAnyNoise
+  %   continue;
+  % end
+  if ~tr.trial.data.cohNoise
+    fprintf('skipping trial %d, cohNoise %d, probeDirDeg %d\n', k, tr.trial.data.cohNoise, tr.trial.data.probeDirDeg);
     continue;
   end
 
@@ -118,6 +122,6 @@ for tIndex = 1:nTimes
 end
 end
 
-function tf = isNoNoise(x)
-tf = isscalar(x) && isequal(x, 0);
-end
+% function tf = isNoNoise(x)
+% tf = isscalar(x) && isequal(x, 0);
+% end

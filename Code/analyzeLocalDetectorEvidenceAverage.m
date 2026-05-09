@@ -5,7 +5,7 @@ function out = analyzeLocalDetectorEvidenceAverage(baseFolder, alpha, winMS)
 % using the same scan/exclusion logic as kernelAverage.
 %
 % For each valid NoiseMatrices session:
-%   - compute per-trial Echange, EnoChange, isCorrect
+%   - compute per-trial Echange, EnoChange, EDiff, isCorrect
 % Then:
 %   - concatenate trials across sessions
 %   - generate pooled plots
@@ -23,10 +23,10 @@ if nargin < 1 || isempty(baseFolder)
     baseFolder = folderPath();
 end
 if nargin < 2 || isempty(alpha)
-    alpha = 0.19;
+    alpha = 0.25;
 end
 if nargin < 3 || isempty(winMS)
-    winMS = [0 125];
+    winMS = [0, 250];
 end
 
 dataFolder = baseFolder + "/Data/NoiseMatrices/";
@@ -40,6 +40,7 @@ matFiles = dir(fullfile(dataFolder, '*.mat'));
 % Storage
 allEchange   = [];
 allEnoChange = [];
+allEDiff    = [];
 allCorrect   = [];
 allSessionID = [];
 allFileNames = {};
@@ -72,10 +73,7 @@ for f = 1:length(matFiles)
     fprintf("Processing %s (%d of %d)\n", fileName, f, length(matFiles));
 
     try
-        tmp = analyzeLocalDetectorEvidence(fileName, ...
-            'alpha', alpha, ...
-            'winMS', winMS, ...
-            'doPlot', false);
+        tmp = analyzeLocalDetectorEvidence(fileName, 'alpha', alpha, 'winMS', winMS, 'doPlot', false);
     catch ME
         fprintf(2, 'FAILED on %s: %s\n', fileName, ME.message);
         continue;
@@ -83,26 +81,26 @@ for f = 1:length(matFiles)
 
     nSessions = nSessions + 1;
 
-    sessionOut{nSessions} = tmp;
+    sessionOut{nSessions} = tmp; %#ok<*AGROW>
     sessionHeaders{nSessions} = header;
 
     nTr = numel(tmp.Echange);
-
     allEchange   = [allEchange;   tmp.Echange(:)];
     allEnoChange = [allEnoChange; tmp.EnoChange(:)];
+    allEDiff    = [allEDiff; tmp.EDiff(:)];
     allCorrect   = [allCorrect;   tmp.isCorrect(:)];
     allSessionID = [allSessionID; nSessions * ones(nTr,1)];
     allFileNames{nSessions,1} = fileName;
 end
 
 if nSessions == 0
-    error('analyzeLocalDetectorEvidenceAverage:NoSessions', ...
-        'No valid sessions found.');
+    error('analyzeLocalDetectorEvidenceAverage:NoSessions', 'No valid sessions found.');
 end
 
 % ---- Pooled summaries ----
 nBinsChange   = 7;
 nBinsNoChange = 7;
+nBinsDiff    = 7;
 nGroupsNoChange = 3;
 midFrac = 0.5;
 
@@ -124,12 +122,15 @@ for g = 1:nGroupsNoChange
     end
 end
 
-lo = quantile(allEchange, (1-midFrac)/2);
-hi = quantile(allEchange, 1-(1-midFrac)/2);
-usePlot3 = allEchange >= lo & allEchange <= hi;
+% lo = quantile(allEchange, (1-midFrac)/2);
+% hi = quantile(allEchange, 1-(1-midFrac)/2);
+% usePlot3 = allEchange >= lo & allEchange <= hi;
+usePlot3 = true(size(allEchange));
 
 [binCtrNoChange, pErrByNoChange, nByNoChange, edgesNoChange] = ...
     quantileBinnedMean(allEnoChange(usePlot3), ~allCorrect(usePlot3), nBinsNoChange);
+[binCtrDiff, pErrByDiff, nByDiff, edgesDiff] = ...
+    quantileBinnedMean(allEDiff(usePlot3), allCorrect(usePlot3), nBinsDiff);
 
 % ---- Plots ----
 figBase = 60;
@@ -139,7 +140,9 @@ plot(binCtrChange, pCorrByChange, 'ko-', 'LineWidth', 1.5, 'MarkerFaceColor', 'k
 xlabel('Changed-side evidence, Echange');
 ylabel('P(correct)');
 title(sprintf('Pooled accuracy vs changed-side evidence (%d sessions)', nSessions));
-axis tight; box off;
+ylim([0.50, 1]);
+% axis tight;
+box off;
 
 figure(figBase+1); clf; hold on;
 mk = {'o-','s-','d-'};
@@ -151,30 +154,36 @@ xlabel('Changed-side evidence, Echange');
 ylabel('P(correct)');
 title(sprintf('Pooled accuracy vs Echange, split by EnoChange (%d sessions)', nSessions));
 legend(makeNoChangeLabels(noChangeCuts), 'Location', 'best');
-axis tight; box off;
+ylim([0.50, 1]);
+% axis tight;
+% axis tight;
+box off;
 
-figure(figBase+2); clf;
+figure(figBase + 2); clf;
 plot(binCtrNoChange, pErrByNoChange, 'ko-', 'LineWidth', 1.5, 'MarkerFaceColor', 'k');
 xlabel('Unchanged-side evidence, EnoChange');
 ylabel('P(error)');
+ylim([0, 0.25]);
 title(sprintf('Pooled error vs EnoChange, middle %.0f%% of Echange', 100*midFrac));
-axis tight; box off;
+% axis tight;
+box off;
 
 figure(figBase+3); clf; hold on;
 
 % Change side: P(correct)
-plot(binCtrChange, pCorrByChange, 'ko-', ...
-    'LineWidth', 1.5, 'MarkerFaceColor', 'k');
+plot(binCtrChange, pCorrByChange, 'ko-', 'LineWidth', 1.5, 'MarkerFaceColor', 'k');
 
 % NoChange side: P(error)
-plot(binCtrNoChange, pErrByNoChange, 'ro-', ...
-    'LineWidth', 1.5, 'MarkerFaceColor', 'r');
+plot(binCtrNoChange, pErrByNoChange, 'ro-', 'LineWidth', 1.5, 'MarkerFaceColor', 'r');
 
-xlabel('Evidence (Echange or EnoChange)');
+% Diff Evidence: P(correct)
+plot(binCtrDiff, pErrByDiff, 'bo-', 'LineWidth', 1.5, 'MarkerFaceColor', 'b');
+
+xlabel('Evidence (Echange, EnoChange, EDiff)');
 ylabel('Probability');
 title(sprintf('Change vs NoChange evidence effects (%d sessions)', nSessions));
 
-legend({'P(correct) vs Echange', 'P(error) vs EnoChange'}, ...
+legend({'P(correct) vs Echange', 'P(error) vs EnoChange', 'P(correct) vs EDiff (C - nC)'}, ...
     'Location', 'best');
 
 ylim([0 1]);
@@ -196,6 +205,7 @@ out.sessionHeaders = sessionHeaders;
 
 out.Echange = allEchange;
 out.EnoChange = allEnoChange;
+out.EDiff = allEDiff;
 out.isCorrect = allCorrect;
 out.sessionID = allSessionID;
 
@@ -212,6 +222,12 @@ out.plot3.binCtrNoChange = binCtrNoChange;
 out.plot3.pErrByNoChange = pErrByNoChange;
 out.plot3.nByNoChange = nByNoChange;
 out.plot3.edgesNoChange = edgesNoChange;
+
+out.plot3.binCtrDiff = binCtrDiff;
+out.plot3.pErrByDiff = pErrByDiff;
+out.plot3.nByDiff = nByDiff;
+out.plot3.edgesDiff = edgesDiff;
+
 out.plot3.usePlot3 = usePlot3;
 
 end

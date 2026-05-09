@@ -1,33 +1,50 @@
-function kernelAverage(baseFolder, doBootstrap, nBoot)
+function kernelAverage(doBootstrap, nBoot, varargin)
 % kernelAverage
 %
 % Compute session-averaged kernels from saved session noise matrices.
 % Each session is reprocessed through computeSessionKernels(), then pooled
 % across sessions using inverse-variance weighting.
 %
-% Optional hierarchical bootstrap:
-%   1) resample sessions with replacement
-%   2) resample trials within each selected session with replacement
-%   3) recompute session kernels
-%   4) recompute pooled kernels
-%   5) recompute scale estimates
+% Old flat-folder use:
+%   kernelAverage(baseFolder, doBootstrap, nBoot)
 %
-% The plotted kernel traces and SEM bands are the ordinary pooled estimates.
-% The plotted scale CIs, when requested, are bootstrap percentile intervals.
+% Probe-folder use:
+%   kernelAverage(folderPath, false, 1000, ...
+%       'dataFolder', fullfile(folderPath, 'Data', 'probe45', 'NoiseMatrices'), ...
+%       'plotFolder', fullfile(folderPath, 'Plots', 'AverageKernels'));
 
-if nargin < 1 || isempty(baseFolder)
-  baseFolder = folderPath();
-end
-if nargin < 2 || isempty(doBootstrap)
+if nargin < 1 || isempty(doBootstrap)
   doBootstrap = false;
 end
-if nargin < 3 || isempty(nBoot)
+if nargin < 2 || isempty(nBoot)
   nBoot = 1000;
 end
 
-dataFolder = baseFolder + "/Data/NoiseMatrices/";
+baseFolder = folderPath();
+P = inputParser;
+addParameter(P, 'dataFolder', '', @(x) ischar(x) || isstring(x));
+addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));
+addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+parse(P, varargin{:});
+R = P.Results;
+
+if isempty(R.dataFolder)
+  dataFolder = fullfile(baseFolder, 'Data', 'NoiseMatrices');
+else
+  dataFolder = char(R.dataFolder);
+end
+
+if isempty(R.plotFolder)
+  plotFolder = fullfile(baseFolder, 'Plots', 'Kernels');
+else
+  plotFolder = char(R.plotFolder);
+end
+
 if ~exist(dataFolder, 'dir')
   error('kernelAverage:MissingFolder', 'Data folder not found: %s', dataFolder);
+end
+if ~exist(plotFolder, 'dir')
+  mkdir(plotFolder);
 end
 
 matFiles = dir(fullfile(dataFolder, '*.mat'));
@@ -56,14 +73,6 @@ for f = 1:length(matFiles)
     continue
   end
 
-  % Skip sessions with 5% pref noise
-  if header.prefNoiseCohPC.data ~= 10
-    fprintf("Skipping   %s (%d of %d) -- prefNoiseCohPC is %.0f\n", ...
-            fileName, f, length(matFiles), header.prefNoiseCohPC.data);
-    continue;
-  end
-
-  fprintf("Processing %s (%d of %d)\n", fileName, f, length(matFiles));
   [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
 
   if ~initialized
@@ -165,13 +174,30 @@ if doBootstrap
   avgCompStats.kIntegralBootSD = std(bootKIntegrals, 0, 4);
 end
 
+% ---- Determine probe direction for naming ----
+if isempty(R.probeDirDeg)
+  if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+    probeDirDeg = header.probeDirDeg.data;
+  else
+    probeDirDeg = [];
+  end
+else
+  probeDirDeg = R.probeDirDeg;
+end
+
+if isempty(probeDirDeg)
+  plotName = '_AverageKernel.pdf';
+  plotTitle = sprintf('%d Session Average', nSessions);
+else
+  probeTag = sprintf('probe%d', round(probeDirDeg));
+  plotName = sprintf('AverageKernel_%s.pdf', probeTag);
+  plotTitle = sprintf('%d Session Average', nSessions);
+end
+
 % ---- Plot/export averaged kernels ----
-plotKernels(2, sprintf('%d Session Average', nSessions), header, avgKernels, avgKVars, avgCompStats, avgHitStats);
-
-pdfFile = fullfile(baseFolder, 'Plots', 'Kernels', '_AverageKernel.pdf');
+plotKernels(2, plotTitle, header, avgKernels, avgKVars, avgCompStats, avgHitStats, probeDirDeg);
+pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
-fprintf(' Saved session average kernel: %s\n', pdfFile);
-
 end
 
 

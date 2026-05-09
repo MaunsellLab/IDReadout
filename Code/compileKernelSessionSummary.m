@@ -78,6 +78,8 @@ summary.date = localDateFromHeaderOrFile(K.header, baseName);
 summary.kernelFile = kernelFile;
 summary.noiseFile = noiseFile;
 
+summary.header = K.header;
+
 summary.track = struct;
 summary.track.sideType = R.trackSideType;
 summary.track.stepType = R.trackStepType;
