@@ -40,7 +40,7 @@ for k = 1:nTrials
   %   continue;
   % end
   if ~tr.trial.data.cohNoise
-    fprintf('skipping trial %d, cohNoise %d, probeDirDeg %d\n', k, tr.trial.data.cohNoise, tr.trial.data.probeDirDeg);
+    % fprintf('skipping trial %d, cohNoise %d, probeDirDeg %d\n', k, tr.trial.data.cohNoise, tr.trial.data.probeDirDeg);
     continue;
   end
 

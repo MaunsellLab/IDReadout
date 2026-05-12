@@ -48,7 +48,7 @@ for fi = 1:numel(paths)
   trials = correctIndices(header, trials);
 
   % Save header and trials; use -v7.3 if these can get large
-  fprintf('Saving %s', outFileName);
+  fprintf('Saving %s\n', outFileName);
   save(outFileName, 'trials', 'header');
 end
 % if numSkipped > 0

@@ -96,8 +96,59 @@ summary.metrics.nRFTrials     = K.hitStats.nRFTrials;
 summary.metrics.nRFHits       = K.hitStats.nRFHits;
 
 summary.scale = struct;
-summary.scale.estimate   = K.compStats.scale(R.trackSideType, R.trackStepType);
-summary.scale.sem        = K.compStats.scaleSEM(R.trackSideType, R.trackStepType);
+% Raw scale: direct probe/pref fit using the measured kernel amplitudes.
+if isfield(K.compStats, 'rawScale')
+  summary.scale.rawEstimate = K.compStats.rawScale(R.trackSideType, R.trackStepType);
+  summary.scale.rawSEM      = K.compStats.rawScaleSEM(R.trackSideType, R.trackStepType);
+else
+  % Backward compatibility for older kernel files.
+  summary.scale.rawEstimate = K.compStats.scale(R.trackSideType, R.trackStepType);
+  summary.scale.rawSEM      = K.compStats.scaleSEM(R.trackSideType, R.trackStepType);
+end
+
+% Normalized scale: probe kernel rescaled to the pref-noise amplitude
+% convention before fitting. This is the primary tracked value.
+if isfield(K.compStats, 'normScale')
+  summary.scale.normEstimate = K.compStats.normScale(R.trackSideType, R.trackStepType);
+  summary.scale.normSEM      = K.compStats.normScaleSEM(R.trackSideType, R.trackStepType);
+else
+  % Older kernel files did not store normalized values. Fall back loudly but
+  % retain compatibility so historical files can still be inspected.
+  warning('compileKernelSessionSummary:MissingNormScale', ...
+    'Kernel file %s lacks compStats.normScale; using raw scale as normalized fallback.', baseName);
+  summary.scale.normEstimate = summary.scale.rawEstimate;
+  summary.scale.normSEM      = summary.scale.rawSEM;
+end
+
+summary.integral = struct;
+summary.ratio = struct;
+
+if isfield(K.compStats, 'rawIntegrals')
+  summary.integral.raw = squeeze(K.compStats.rawIntegrals(R.trackSideType, R.trackStepType, :))';
+  summary.ratio.raw    = K.compStats.rawR(R.trackSideType, R.trackStepType);
+else
+  summary.integral.raw = squeeze(K.compStats.kIntegrals(R.trackSideType, R.trackStepType, :))';
+  summary.ratio.raw    = K.compStats.R(R.trackSideType, R.trackStepType);
+end
+
+if isfield(K.compStats, 'normIntegrals')
+  summary.integral.norm = squeeze(K.compStats.normIntegrals(R.trackSideType, R.trackStepType, :))';
+  summary.ratio.norm    = K.compStats.normR(R.trackSideType, R.trackStepType);
+else
+  summary.integral.norm = summary.integral.raw;
+  summary.ratio.norm    = summary.ratio.raw;
+end
+
+if isfield(K.compStats, 'normInfo')
+  summary.normInfo = K.compStats.normInfo;
+else
+  summary.normInfo = struct();
+end
+
+% Primary aliases used by downstream code.
+summary.scale.estimate = summary.scale.normEstimate;
+summary.scale.sem      = summary.scale.normSEM;
+
 summary.scale.ci68       = [NaN NaN];
 summary.scale.ci95       = [NaN NaN];
 summary.scale.ci68Width  = NaN;
@@ -106,6 +157,14 @@ summary.scale.bootMedian = NaN;
 summary.scale.bootSD     = NaN;
 summary.scale.valid      = false;
 
+summary.scale.rawCI68       = [NaN NaN];
+summary.scale.rawCI95       = [NaN NaN];
+summary.scale.rawBootMedian = NaN;
+summary.scale.rawBootSD     = NaN;
+summary.scale.normCI68       = [NaN NaN];
+summary.scale.normCI95       = [NaN NaN];
+summary.scale.normBootMedian = NaN;
+summary.scale.normBootSD     = NaN;
 kPref = squeeze(K.kernels(R.trackSideType, R.trackStepType, 1, iIndices));
 summary.pref = struct;
 summary.pref.energy   = sum(kPref(:).^2);
@@ -133,53 +192,57 @@ if R.doBootstrap && exist(noiseFile, 'file')
   end
 
   N = load(noiseFile);
-
-  try
-    prefCohNoisePC  = K.header.prefNoiseCohPC.data;
-    probeCohNoisePC = K.header.probeNoiseCohPC.data;
-  catch ME
-    warning('compileKernelSessionSummary:noiseAmplitudes', ...
-      'Could not extract noise amplitudes from header for %s: %s', ...
-      baseName, ME.message);
-    prefCohNoisePC = NaN;
-    probeCohNoisePC = NaN;
-  end
-
   nTrials = size(N.prefNoiseByPatch, 3);
-  bootScale = nan(R.nBoot, 1);
+  bootRawScale  = nan(R.nBoot, 1);
+  bootNormScale = nan(R.nBoot, 1);
 
   for b = 1:R.nBoot
     idx = randi(nTrials, nTrials, 1);
 
     try
-      [kernelsBoot, ~, ~] = computeSessionKernelsFromNoiseMatrices( ...
-        N.prefNoiseByPatch(:,:,idx), ...
-        N.probeNoiseByPatch(:,:,idx), ...
-        N.trialOutcomesAll(idx), ...
-        N.changeSidesAll(idx), ...
-        N.changeIndicesAll(idx), ...
-        prefCohNoisePC, probeCohNoisePC);
+      [~, ~, ~, ~, compStatsBoot] = computeSessionKernels(N, idx);
+      if isfield(compStatsBoot, 'rawScale')
+        bootRawScale(b) = compStatsBoot.rawScale(R.trackSideType, R.trackStepType);
+      else
+        bootRawScale(b) = compStatsBoot.scale(R.trackSideType, R.trackStepType);
+      end
 
-      [scaleBoot, ~, ~, ~] = kernelScaleFit(kernelsBoot, msPerVFrame);
-      bootScale(b) = scaleBoot(R.trackSideType, R.trackStepType);
-
+      if isfield(compStatsBoot, 'normScale')
+        bootNormScale(b) = compStatsBoot.normScale(R.trackSideType, R.trackStepType);
+      else
+        bootNormScale(b) = bootRawScale(b);
+      end
     catch
-      bootScale(b) = NaN;
+      bootRawScale(b)  = NaN;
+      bootNormScale(b) = NaN;
     end
   end
+  bootRawScale  = bootRawScale(isfinite(bootRawScale));
+  bootNormScale = bootNormScale(isfinite(bootNormScale));
 
-  bootScale = bootScale(isfinite(bootScale));
-
-  if ~isempty(bootScale)
-    summary.scale.ci68       = prctile(bootScale, [16 84]);
-    summary.scale.ci95       = prctile(bootScale, [2.5 97.5]);
+  if ~isempty(bootNormScale)
+    % Primary bootstrap fields are normalized.
+    summary.scale.ci68       = prctile(bootNormScale, [16 84]);
+    summary.scale.ci95       = prctile(bootNormScale, [2.5 97.5]);
     summary.scale.ci68Width  = diff(summary.scale.ci68);
     summary.scale.ci95Width  = diff(summary.scale.ci95);
-    summary.scale.bootMedian = median(bootScale);
-    summary.scale.bootSD     = std(bootScale, 0);
+    summary.scale.bootMedian = median(bootNormScale);
+    summary.scale.bootSD     = std(bootNormScale, 0);
+
+    summary.scale.normCI68       = summary.scale.ci68;
+    summary.scale.normCI95       = summary.scale.ci95;
+    summary.scale.normBootMedian = summary.scale.bootMedian;
+    summary.scale.normBootSD     = summary.scale.bootSD;
+
+    if ~isempty(bootRawScale)
+      summary.scale.rawCI68       = prctile(bootRawScale, [16 84]);
+      summary.scale.rawCI95       = prctile(bootRawScale, [2.5 97.5]);
+      summary.scale.rawBootMedian = median(bootRawScale);
+      summary.scale.rawBootSD     = std(bootRawScale, 0);
+    end
 
     summary.bootstrap.done  = true;
-    summary.bootstrap.nReps = numel(bootScale);
+    summary.bootstrap.nReps = numel(bootNormScale);
   else
     summary.flags.unstableScale = true;
   end

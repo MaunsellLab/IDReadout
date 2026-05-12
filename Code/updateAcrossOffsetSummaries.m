@@ -206,13 +206,14 @@ end
 p = inputParser;
 p.FunctionName = mfilename;
 
+
 addRequired(p, 'summaryDir', @(x) ischar(x) || isstring(x) || iscell(x));
 defaultSaveFile = fullfile(folderPath(), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'ReadoutFits'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'ExcludeFcn', [], @(x) isempty(x) || isa(x, 'function_handle'));
+addParameter(p, 'ExcludeFcn', @excludeFile, @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
@@ -226,6 +227,8 @@ addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x
 
 parse(p, summaryDir, varargin{:});
 opts = p.Results;
+% By default, apply the project-standard exclusion rules.
+% Users may pass 'ExcludeFcn', [] to disable exclusion explicitly.
 opts.summaryDir = normalizeSummaryDirs(summaryDir);
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
@@ -468,7 +471,7 @@ acrossOffsetSummary.meta = struct( ...
     'nBoot', opts.NBoot, ...
     'bootstrapType', 'hierarchical_session_trial', ...
     'angleUnits', 'deg', ...
-    'normalization', 'scale_anchor_at_0deg', ...
+    'normalization', 'probe_kernel_amplitude_normalized_to_pref_noise_convention', ...
     'offsetKeysDeg', [], ...
     'readoutBaselineOption', 'inactive_not_identifiable', ...
     'notes', '' );
@@ -723,8 +726,15 @@ else
 end
 
 [~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, []);
-scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
 
+if isfield(compStats, 'normScale')
+    scaleVal = selectCompStatsEntry(compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
+else
+    warning('updateAcrossOffsetSummaries:MissingNormScale', ...
+        'compStats.normScale missing for session %s; falling back to raw scale.', ...
+        sessionStruct.sessionName);
+    scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
+end
 end
 
 % ========================================================================
@@ -822,8 +832,9 @@ end
 
 % ========================================================================
 function pooledScale = computeOffsetPooledScale(offsetStruct, opts, doBootstrap)
-% Mirror kernelAverage: recompute session kernels, pool with inverse-variance
-% weighting, then compute scale from the pooled kernels.
+% Mirror kernelAverage: recompute session kernels, normalize the probe
+% stream to the pref-noise amplitude convention, pool with inverse-variance
+% weighting, then compute scale from the normalized pooled kernels.
 
 sessions = offsetStruct.sessionStructs;
 nSess = numel(sessions);
@@ -838,16 +849,19 @@ else
     sessIdx = 1:nSess;
 end
 
-sessionKernels = cell(1, numel(sessIdx));
-sessionKVars   = cell(1, numel(sessIdx));
+sessionKernelsNorm = cell(1, numel(sessIdx));
+sessionKVarsNorm   = cell(1, numel(sessIdx));
 refFrameRateHz = NaN;
 refNFrames = NaN;
 
 for j = 1:numel(sessIdx)
     src = sessions(sessIdx(j));
     [kernels, kVars, ~, ~] = recomputeSessionKernelStruct(src, opts, doBootstrap);
-    sessionKernels{j} = kernels;
-    sessionKVars{j}   = kVars;
+
+    [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, src.header);
+
+    sessionKernelsNorm{j} = kernelsNorm;
+    sessionKVarsNorm{j}   = kVarsNorm;
 
     thisFrameRateHz = src.header.frameRateHz.data(1);
     thisNFrames = size(kernels, 4);
@@ -861,9 +875,9 @@ for j = 1:numel(sessIdx)
     end
 end
 
-[avgKernels, ~] = poolSessionKernels(sessionKernels, sessionKVars, refNFrames);
+[avgKernelsNorm, ~] = poolSessionKernels(sessionKernelsNorm, sessionKVarsNorm, refNFrames);
 msPerVFrame = 1000.0 / refFrameRateHz;
-[scaleMat, ~, ~, ~] = kernelScaleFit(avgKernels, msPerVFrame);
+[scaleMat, ~, ~, ~] = kernelScaleFit(avgKernelsNorm, msPerVFrame);
 pooledScale = selectCompStatsEntry(scaleMat, opts.ScaleSideType, opts.ScaleStepType);
 
 end
@@ -1517,23 +1531,31 @@ if isfield(inStruct, 'scalePointEstimate') && isfinite(inStruct.scalePointEstima
     scaleVal = inStruct.scalePointEstimate;
     return;
 end
-
 if isfield(inStruct, 'scale') && isstruct(inStruct.scale)
+    if isfield(inStruct.scale, 'normEstimate') && isfinite(inStruct.scale.normEstimate)
+        scaleVal = inStruct.scale.normEstimate;
+        return;
+    end
     if isfield(inStruct.scale, 'estimate') && isfinite(inStruct.scale.estimate)
         scaleVal = inStruct.scale.estimate;
         return;
     end
 end
-
 if isfield(inStruct, 'summary') && isstruct(inStruct.summary)
     if isfield(inStruct.summary, 'scalePointEstimate') && isfinite(inStruct.summary.scalePointEstimate)
         scaleVal = inStruct.summary.scalePointEstimate;
         return;
     end
 end
-
 if isfield(inStruct, 'compStats') && isstruct(inStruct.compStats)
     cs = inStruct.compStats;
+    if isfield(cs, 'normScale') && isnumeric(cs.normScale)
+        try
+            scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
+            return;
+        catch
+        end
+    end
     if isfield(cs, 'scale') && isnumeric(cs.scale)
         try
             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
@@ -1542,9 +1564,15 @@ if isfield(inStruct, 'compStats') && isstruct(inStruct.compStats)
         end
     end
 end
-
 if isfield(inStruct, 'avgCompStats') && isstruct(inStruct.avgCompStats)
     cs = inStruct.avgCompStats;
+    if isfield(cs, 'normScale') && isnumeric(cs.normScale)
+        try
+            scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
+            return;
+        catch
+        end
+    end
     if isfield(cs, 'scale') && isnumeric(cs.scale)
         try
             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
@@ -1553,7 +1581,6 @@ if isfield(inStruct, 'avgCompStats') && isstruct(inStruct.avgCompStats)
         end
     end
 end
-
 end
 
 % ========================================================================
@@ -1824,4 +1851,72 @@ for sideType = 1:nSideTypes
     end
 end
 
+end
+% ========================================================================
+function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, header)
+% Normalize probe-stream kernels to the pref-noise amplitude convention.
+%
+% For paired probe offsets, the probe-noise variable drives two yoked
+% streams. The combined probe amplitude is therefore:
+%
+%   nYokedProbeStreams * probeCohNoisePC
+%
+% Under the small-signal assumption, kernel amplitude scales with noise
+% variance, so the probe kernel is multiplied by:
+%
+%   (prefCohNoisePC / combinedProbeCohNoisePC)^2
+
+normInfo = normalizationInfoFromHeader(header);
+probeNormFactor = normInfo.probeNormFactor;
+
+kernelsNorm = kernels;
+kVarsNorm   = kVars;
+
+kernelsNorm(:, :, 2, :) = kernelsNorm(:, :, 2, :) * probeNormFactor;
+kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
+end
+
+% ========================================================================
+function normInfo = normalizationInfoFromHeader(header)
+
+prefCohNoisePC  = header.blockStatus.data.prefCohNoisePC;
+probeCohNoisePC = header.blockStatus.data.probeCohNoisePC;
+
+if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
+    error('updateAcrossOffsetSummaries:BadNoiseAmplitude', ...
+        'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
+        prefCohNoisePC, probeCohNoisePC);
+end
+
+nYokedProbeStreams = probeStreamCountFromHeader(header);
+combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
+
+normInfo = struct();
+normInfo.prefCohNoisePC = prefCohNoisePC;
+normInfo.probeCohNoisePC = probeCohNoisePC;
+normInfo.nYokedProbeStreams = nYokedProbeStreams;
+normInfo.combinedProbeCohNoisePC = combinedProbeCohNoisePC;
+normInfo.probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
+normInfo.method = ...
+    'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
+end
+
+% ========================================================================
+function n = probeStreamCountFromHeader(header)
+
+if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+    probeDirDeg = abs(double(header.probeDirDeg.data));
+else
+    error('updateAcrossOffsetSummaries:MissingProbeDir', ...
+        'Cannot determine probe stream count because header.probeDirDeg.data is missing.');
+end
+
+if probeDirDeg > 0 && probeDirDeg < 180
+    n = 2;
+elseif abs(probeDirDeg - 180) < 1e-9
+    n = 1;
+else
+    error('updateAcrossOffsetSummaries:UnsupportedProbeDir', ...
+        'Unsupported probeDirDeg for probe normalization: %g.', probeDirDeg);
+end
 end

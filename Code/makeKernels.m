@@ -1,4 +1,4 @@
-function [allProbeDirs, staleProbeDirs] = makeKernels(replace, path)
+  function [allProbeDirs, staleProbeDirs] = makeKernels(replace, path)
 % makeKernels  Generate kernel, noise-matrix, and plot files for converted session files.
 %
 %   staleProbeDirs = makeKernels(replace)
@@ -107,7 +107,7 @@ for k = 1:numel(dataFiles)
     matrixFilePath = fullfile(matrixFolder, [analysisBaseName '.mat']);
     plotFilePath = fullfile(probePlotFolder, sprintf('%s.pdf', analysisBaseName));
 
-    fprintf('Processing %s [%s] ...\n', dataFileName, probeTag);
+    fprintf('     Processing %s [%s] ...\n', dataFileName, probeTag);
     [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, changeIndicesAll] = ...
       extractPatchNoiseMatrices(probeHeader, probeTrials, [1 2]);
 
@@ -132,7 +132,9 @@ for k = 1:numel(dataFiles)
     save(kernelFilePath, 'header', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', 'trialOutcomesAll', ...
       'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
 
-    plotKernels(1, analysisBaseName, header, kernels, kVars, compStats, hitStats, probeDirDeg);
+    titleStr = sprintf('\\bf%d° Probe Kernels %s', probeDirDeg, analysisBaseName);
+    plotKernels(1, titleStr, header, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats,...
+      probeDirDeg);
     exportgraphics(gcf, plotFilePath, 'ContentType', 'vector');
   end
 end

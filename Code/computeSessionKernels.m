@@ -124,8 +124,96 @@ end
 
 msPerVFrame = 1000.0 / sessionData.header.frameRateHz.data(1);
 
-compStats = struct;
-[compStats.kIntegrals, compStats.R, compStats.RVar] = kernelIntegral(kernels, kVars, msPerVFrame);
-[compStats.scale, compStats.scaleSEM, compStats.fitR2, compStats.sse] = kernelScaleFit(kernels, msPerVFrame);
+% ---- Comparison statistics ----
+%
+% Raw statistics use the kernels exactly as measured, with pref and probe
+% kernels expressed using their actual session noise amplitudes.
+%
+% Normalized statistics rescale the probe kernels to the pref-noise
+% amplitude convention. This is the appropriate comparison for probe/pref
+% ratios and scales when pref and probe noise amplitudes differ.
+%
+% If the measured probe kernel amplitude scales with noise variance, then
+% converting a probe kernel measured at probeCohNoisePC to the equivalent
+% prefCohNoisePC convention requires:
+%
+%   K_probe_norm = K_probe_raw * (prefCohNoisePC / probeCohNoisePC)^2
+%
+% The returned raw kernels are not modified.
 
+compStats = struct;
+
+% Raw compStats
+[compStats.rawIntegrals, compStats.rawR, compStats.rawRVar] = ...
+  kernelIntegral(kernels, kVars, msPerVFrame);
+[compStats.rawScale, compStats.rawScaleSEM, compStats.rawFitR2, compStats.rawSSE] = ...
+  kernelScaleFit(kernels, msPerVFrame);
+
+% Normalized compStats
+if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
+  error('computeSessionKernels:BadNoiseAmplitude', ...
+    'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
+    prefCohNoisePC, probeCohNoisePC);
+end
+
+nYokedProbeStreams = probeStreamCountFromHeader(sessionData.header);
+combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
+
+probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
+kernelsNorm = kernels;
+kVarsNorm   = kVars;
+
+kernelsNorm(:, :, 2, :) = kernelsNorm(:, :, 2, :) * probeNormFactor;
+kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
+
+[compStats.normIntegrals, compStats.normR, compStats.normRVar] = ...
+  kernelIntegral(kernelsNorm, kVarsNorm, msPerVFrame);
+[compStats.normScale, compStats.normScaleSEM, compStats.normFitR2, compStats.normSSE] = ...
+  kernelScaleFit(kernelsNorm, msPerVFrame);
+
+compStats.normInfo = struct();
+compStats.normInfo.prefCohNoisePC = prefCohNoisePC;
+compStats.normInfo.probeCohNoisePC = probeCohNoisePC;
+compStats.normInfo.probeNormFactor = probeNormFactor;
+compStats.normInfo.nYokedProbeStreams = nYokedProbeStreams;
+compStats.normInfo.combinedProbeCohNoisePC = combinedProbeCohNoisePC;
+compStats.normInfo.method = ...
+  'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
+
+% Legacy aliases: preserve old downstream behavior for now.
+compStats.kIntegrals = compStats.rawIntegrals;
+compStats.R          = compStats.rawR;
+compStats.RVar       = compStats.rawRVar;
+compStats.scale      = compStats.rawScale;
+compStats.scaleSEM   = compStats.rawScaleSEM;
+compStats.fitR2      = compStats.rawFitR2;
+compStats.sse        = compStats.rawSSE;
+
+end
+
+%%
+function n = probeStreamCountFromHeader(header)
+% Number of yoked probe streams represented by the probe-noise variable.
+% Current convention:
+%   0 < probeDirDeg < 180 : paired yoked streams at +/- probeDirDeg
+%   probeDirDeg == 180   : legacy single opposite-direction stream
+%
+% The legacy 180 condition should be excluded from the main normalized
+% paired-probe analysis, but this helper reports it correctly if encountered.
+
+if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+  probeDirDeg = abs(double(header.probeDirDeg.data));
+else
+  error('computeSessionKernels:MissingProbeDir', ...
+    'Cannot determine probe stream count because header.probeDirDeg.data is missing.');
+end
+
+if probeDirDeg > 0 && probeDirDeg < 180
+  n = 2;
+elseif abs(probeDirDeg - 180) < 1e-9
+  n = 1;
+else
+  error('computeSessionKernels:UnsupportedProbeDir', ...
+    'Unsupported probeDirDeg for probe normalization: %g.', probeDirDeg);
+end
 end
