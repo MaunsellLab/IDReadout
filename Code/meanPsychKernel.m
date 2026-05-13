@@ -40,11 +40,7 @@ function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, chan
   idxWrong   = (trialOutcome == 1);
   nCorrect = sum(idxCorrect);
   nWrong   = sum(idxWrong);
-
-  if nCorrect == 0 || nWrong == 0
-    warning('meanPsychKernel:Unbalanced', ...
-      'One of the outcome classes (correct/wrong) is empty.');
-  end
+  emptyOutcomeClass = (nCorrect == 0 || nWrong == 0);
 
   % ---- Sufficient statistics and means ----
   sumCorrect = sum(cohMat(:, idxCorrect), 2);
@@ -72,12 +68,12 @@ function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, chan
     stats = struct();
     idxRF   = (changeSide == 0);
     stats.nRFCorrect  = sum(trialOutcome(idxRF) == 0);
-    stats.nRFWrong    = sum(trialOutcome(idxRF) ~= 0);
+    stats.nRFWrong = sum(trialOutcome(idxRF) == 1);
     stats.nCorrect    = nCorrect;
     stats.nWrong      = nWrong;
     stats.sumCorrect  = sumCorrect;
     stats.sumWrong    = sumWrong;
     stats.sigma2      = sigma2;
-
+    stats.emptyOutcomeClass = emptyOutcomeClass;
   end
 end

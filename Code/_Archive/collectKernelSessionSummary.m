@@ -16,7 +16,7 @@ function summary = collectKernelSessionSummary(baseFolder)
 %
 % Assumptions:
 %   - Saved session files are in Data/NoiseMatrices/*.mat
-%   - sessionKernelFromSaved(sessionData) returns:
+%   - collectKernelSessionSummary(sessionData) returns:
 %       [kernels, kVars, kStats, hitStats, compStats]
 %   - kernels has shape: 5 x 2 x 2 x nFrames
 %       sideType: 1=diff, 2=change, 3=noChange, 4=RF, 5=Opp

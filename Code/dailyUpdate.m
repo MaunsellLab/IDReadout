@@ -33,7 +33,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
   end
   path = char(path);
 
-  fprintf('>>> Daily update start ---\n');
+  fprintf('>>> dailyUpdate start ---\n');
 
   % ---- Convert raw files ----
   fprintf('  >> convertIDRData start ---\n');
@@ -56,6 +56,8 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     refreshProbeDirs = staleProbeDirs;
   end
 
+  refreshProbeDirs = allProbeDirs;
+
   % ---- Per-session summaries ----
   if isempty(refreshProbeDirs)
     fprintf('    no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
@@ -70,31 +72,28 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     fprintf('  >> kernelAverage start ---\n');
     for p = refreshProbeDirs(:).'
       probeTag = sprintf('probe%d', round(p));
-      fprintf('--- Updating average for %s\n', probeTag);
-
-      kernelAverage(doBootstrap, nBoot, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
+      fprintf('      Updating average for %s\n', probeTag);
+      kernelAverage(true, 50, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
           'plotFolder', fullfile(path, 'Plots', 'AverageKernels'), 'probeDirDeg', p);
-      % kernelAverage(doBootstrap, nBoot, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
-      %   'plotFolder', fullfile(path, 'Plots', 'AverageKernels'), 'probeDirDeg', p);
     end
     fprintf('  << kernelAverage complete ---\n');
   end
 
-  fprintf(' >>  plotSideTypeKernelAverage start ---\n');
+  fprintf('  >> plotSideTypeKernelAverage start ---\n');
   plotSideTypeKernelAverage();
-  fprintf(' <<  plotSideTypeKernelAverage complete ---\n');
+  fprintf('  << plotSideTypeKernelAverage complete ---\n');
   % ---- Across-offset summary update ----
   % This should run even when no single-session files were stale, because it
   % is cheap relative to the pipeline and keeps summary/plots synchronized
   % with any manual changes to summaries or exclusion rules.
   % ---- Across-offset summary update ----
   if anythingChanged || doBootstrap || forceAcrossOffset
-    fprintf(' >>  updateAcrossOffsetSummaries start ---\n');
+    fprintf('  >> updateAcrossOffsetSummaries start ---\n');
     acrossOffsetSummary = updateAcrossOffsetSummaries(fullfile(path, 'Data'), ...
       'SaveFile', fullfile(path, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat'), ...
       'PlotDir', fullfile(path, 'Plots', 'ReadoutFits'),'NBoot', nBoot, 'RandomSeed', 1, ...
       'MakePlots', true); %#ok<NASGU>
-    fprintf(' <<  updateAcrossOffsetSummaries complete ---\n');
+    fprintf('  << updateAcrossOffsetSummaries complete ---\n');
   else
     fprintf('    no session-level updates detected; skipping across-offset bootstrap/fits.\n');
   end

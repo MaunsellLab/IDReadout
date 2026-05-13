@@ -4,10 +4,12 @@ function [exclude, reason] = excludeFile(header)
 % Exclusion rules:
 %   1. Explicitly excluded source files
 %   2. prefCohNoisePC must equal 10
-%   3. probeCohNoisePC must equal 10/sqrt(2)
-%   4. probeDirDeg must be a paired-probe offset: 0 < probeDirDeg < 180
+%   3. probeCohNoisePC must be present and positive
 %
-% Rule 4 intentionally excludes the legacy single-stream 180 deg condition.
+% This function is used during preprocessing/averaging. It should not exclude
+% sessions merely because a probe offset or probe amplitude is not eligible
+% for a later paired-probe readout fit. Those rules belong in
+% updateAcrossOffsetSummaries.
 %
 % Input:
 %   header   session header struct
@@ -22,9 +24,8 @@ excludedFiles = { ...
   'IDReadout_Meetz_20260114_3.dat'};
 
 targetPrefNoisePC  = 10;
-targetProbeNoisePCs = [7, 10 / sqrt(2)];  % historical stored value and exact intended value
-tol = 1e-4;tol = 1e-6;
-
+% targetProbeNoisePCs = [7, 10 / sqrt(2)];  % historical stored value and exact intended value
+tol = 1e-6;
 exclude = false;
 reason = '';
 
@@ -54,34 +55,20 @@ if abs(prefNoise - targetPrefNoisePC) > tol
   return
 end
 
-%   3. probeCohNoisePC must equal the paired-probe convention:
-%      either historical stored value 7 or exact intended value 10/sqrt(2)
+% Rule 3: probe noise amplitude must be present and positive.
+% Do not enforce the paired-probe 10/sqrt(2) convention here: 180 deg
+% single-stream sessions legitimately use probeCohNoisePC = 10 and should
+% still be processed through kernel generation and averaging.  Paired-probe
+% amplitude rules belong in updateAcrossOffsetSummaries.
 [probeNoise, ok] = localGetNoisePC(header, 'probe');
 if ~ok || ~isfinite(probeNoise)
   exclude = true;
   reason = 'missing probe noise amplitude';
   return
 end
-if all(abs(probeNoise - targetProbeNoisePCs) > tol)
+if probeNoise <= 0
   exclude = true;
-  reason = sprintf('probeCohNoisePC %.6g not in accepted values [%s]', ...
-    probeNoise, sprintf('%.6g ', targetProbeNoisePCs));
-  return
-end
-
-% Rule 4: require paired-probe offsets only.
-% Current paired convention is 0 < probeDirDeg < 180. The legacy 180 deg
-% condition used a single stream and is excluded from the cleaned analysis.
-if ~isfield(header, 'probeDirDeg')
-  exclude = true;
-  reason = 'missing probeDirDeg';
-  return
-end
-
-probeDirDeg = abs(double(localExtractHeaderValue(header.probeDirDeg)));
-if ~(isfinite(probeDirDeg) && probeDirDeg > 0 && probeDirDeg < 180)
-  exclude = true;
-  reason = sprintf('probeDirDeg %.6g is not a paired-probe offset', probeDirDeg);
+  reason = sprintf('probeCohNoisePC %.6g is not positive', probeNoise);
   return
 end
 
@@ -112,6 +99,12 @@ if isfield(header, 'blockStatus') && ...
     isfield(header.blockStatus, 'data') && ...
     isfield(header.blockStatus.data, blockField)
   noisePC = header.blockStatus.data.(blockField);
+  ok = true;
+  return
+end
+
+if isfield(header, blockField)
+  noisePC = localExtractHeaderValue(header.(blockField));
   ok = true;
   return
 end

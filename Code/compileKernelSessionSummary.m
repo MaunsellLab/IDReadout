@@ -5,7 +5,7 @@ function summary = compileKernelSessionSummary(kernelFile, varargin)
 % one selected kernel scale across sessions.
 %
 % Uses:
-%   - Kernels file for observed metrics
+%   - Kernels file for observed metrics and sessionProbeHeader
 %   - NoiseMatrices file for within-session trial bootstrap
 %
 % Default tracked entry:
@@ -52,8 +52,13 @@ if exist(summaryFile, 'file') && ~R.replace
 end
 
 K = load(kernelFile);
+assert(isfield(K, 'sessionProbeHeader'), ...
+  'compileKernelSessionSummary:MissingSessionProbeHeader', ...
+  'Expected sessionProbeHeader in kernel file %s.', kernelFile);
 
-frameRateHz = K.header.frameRateHz.data;
+sessionProbeHeader = K.sessionProbeHeader;
+
+frameRateHz = sessionProbeHeader.frameRateHz.data;
 msPerVFrame = 1000 / frameRateHz;
 
 [preStepMS, intStartMS, intDurMS] = integralWindowMS();
@@ -72,13 +77,14 @@ else
 end
 
 summary = struct;
-summary.version = 1;
+summary.version = 2;
 summary.sessionID = baseName;
-summary.date = localDateFromHeaderOrFile(K.header, baseName);
+summary.date = localDateFromHeaderOrFile(sessionProbeHeader, baseName);
 summary.kernelFile = kernelFile;
 summary.noiseFile = noiseFile;
 
-summary.header = K.header;
+summary.sessionProbeHeader = sessionProbeHeader;
+summary.probeOffsetDeg = sessionProbeHeader.probeDirDeg;
 
 summary.track = struct;
 summary.track.sideType = R.trackSideType;
@@ -178,7 +184,7 @@ summary.bootstrap.method  = 'trial';
 summary.bootstrap.rngSeed = NaN;
 
 summary.flags = struct;
-summary.flags.excluded         = excludeFile(K.header);
+summary.flags.excluded = excludeFile(sessionProbeHeader);
 summary.flags.lowTrialCount    = summary.metrics.nTrials < R.minTrials;
 summary.flags.lowPrefEnergy    = summary.pref.energy < R.minPrefEnergy;
 summary.flags.unstableScale    = false;

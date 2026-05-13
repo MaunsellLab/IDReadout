@@ -237,9 +237,6 @@ validFolder(outFolder);
 
 outFile = fullfile(outFolder, sprintf('SideTypeKernelAverage_%s.pdf', sideType));
 exportgraphics(fig, outFile, 'ContentType', 'vector');
-
-fprintf('    Saved %s\n', outFile);
-
 end
 
 %% Find probe directions with saved average-kernel data for requested side type.

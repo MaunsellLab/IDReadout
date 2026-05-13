@@ -36,11 +36,11 @@ for fi = 1:numel(paths)
   movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
   nTrials = header.numberOfTrials;
   trials  = cell(1, nTrials);
-  fprintf('Converting %s\n', datName);
+  fprintf('       converting %s\n', datName);
   for t = 1:nTrials
     trials{t} = readLLFile('t', t);
     if t == nTrials || mod(t, 500) == 0                            % Occasionally update the waitbar text
-      fprintf('Reading %s: trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
+      fprintf('       reading %s: trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
     end
   end
 

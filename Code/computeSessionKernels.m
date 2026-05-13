@@ -12,7 +12,7 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 %   sessionData.trialOutcomesAll : 1 x nTrials
 %   sessionData.changeSidesAll   : 1 x nTrials
 %   sessionData.changeIndicesAll : 1 x nTrials   (1=decrement, 2=increment)
-%   sessionData.header           : header struct
+%   sessionData.sessionProbeHeader : metadata struct for this derived probe session
 %   sessionData.lr               : optional session L/R mapping struct
 %   sessionData.sideTypeNames    : optional cell array of side-type names
 %
@@ -28,6 +28,11 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 if nargin < 2 || isempty(trialIdx)
   trialIdx = 1:size(sessionData.prefNoiseByPatch, 3);
 end
+assert(isfield(sessionData, 'sessionProbeHeader') && ~isempty(sessionData.sessionProbeHeader), ...
+  'computeSessionKernels:MissingSessionProbeHeader', ...
+  'sessionData.sessionProbeHeader is required.');
+
+sessionProbeHeader = sessionData.sessionProbeHeader;
 
 prefNoiseAll     = sessionData.prefNoiseByPatch(:, :, trialIdx);
 probeNoiseAll    = sessionData.probeNoiseByPatch(:, :, trialIdx);
@@ -35,9 +40,9 @@ trialOutcomesAll = sessionData.trialOutcomesAll(trialIdx);
 changeSidesAll   = sessionData.changeSidesAll(trialIdx);
 changeIndicesAll = sessionData.changeIndicesAll(trialIdx);
 
-% pull amplitudes from header
-prefCohNoisePC  = sessionData.header.blockStatus.data.prefCohNoisePC;
-probeCohNoisePC = sessionData.header.blockStatus.data.probeCohNoisePC;
+% Pull amplitudes from the authoritative per-probe session metadata.
+prefCohNoisePC  = sessionProbeHeader.prefCohNoisePC.data(1);
+probeCohNoisePC = sessionProbeHeader.probeCohNoisePC.data(1);
 
 % side types
 if isfield(sessionData, 'sideTypeNames') && ~isempty(sessionData.sideTypeNames)
@@ -55,18 +60,20 @@ else
   if isfield(sessionData, 'trials') && ~isempty(sessionData.trials)
     lr = sessionLRMap(sessionData.trials);
   else
-    error('sessionKernelFromSaved:MissingLRMap', ...
+    error('computeSessionKernels:MissingLRMap', ...
       ['sessionData.lr is missing, and no trials field is available to ' ...
        'reconstruct the L/R mapping.']);
   end
 end
 
 m = size(prefNoiseAll, 2);
+prefNoiseAll  = forcePatchNoise3D(prefNoiseAll, m);
+probeNoiseAll = forcePatchNoise3D(probeNoiseAll, m);
 
 kernels = nan(nSideTypes, 2, 2, m);
 kVars   = nan(nSideTypes, 2, 2);
 kStats  = repmat(struct('nRFCorrect', 0, 'nRFWrong', 0, 'nCorrect', 0, 'nWrong', 0, ...
-  'sumCorrect', [], 'sumWrong', [], 'sigma2', nan), nSideTypes, 2, 2);
+  'sumCorrect', [], 'sumWrong', [], 'sigma2', nan, 'emptyOutcomeClass', nan), nSideTypes, 2, 2);
 
 trialOutcomesByCond = cell(nSideTypes, 2);
 changeSidesByCond   = cell(nSideTypes, 2);
@@ -84,6 +91,9 @@ for sideType = 1:nSideTypes
 
     prefNoiseStep  = prefNoiseAll(:, :, useTrials);
     probeNoiseStep = probeNoiseAll(:, :, useTrials);
+
+    prefNoiseStep  = forcePatchNoise3D(prefNoiseStep, m);
+    probeNoiseStep = forcePatchNoise3D(probeNoiseStep, m);
 
     trialOutcomesByCond{sideType, s} = trialOutcomesAll(useTrials);
     changeSidesByCond{sideType, s}   = changeSidesAll(useTrials);
@@ -121,8 +131,7 @@ for s = 1:2
   hitStats.nLeftTrials(s) = sum(idxLeft);
   hitStats.nLeftHits(s)   = sum(trialOutcomesByCond{1, s} == 0 & idxLeft);
 end
-
-msPerVFrame = 1000.0 / sessionData.header.frameRateHz.data(1);
+msPerVFrame = 1000.0 / sessionProbeHeader.frameRateHz.data(1);
 
 % ---- Comparison statistics ----
 %
@@ -156,7 +165,7 @@ if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <=
     prefCohNoisePC, probeCohNoisePC);
 end
 
-nYokedProbeStreams = probeStreamCountFromHeader(sessionData.header);
+nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
 combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
 
 probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
@@ -192,21 +201,17 @@ compStats.sse        = compStats.rawSSE;
 end
 
 %%
-function n = probeStreamCountFromHeader(header)
+function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
 % Number of yoked probe streams represented by the probe-noise variable.
 % Current convention:
 %   0 < probeDirDeg < 180 : paired yoked streams at +/- probeDirDeg
 %   probeDirDeg == 180   : legacy single opposite-direction stream
-%
-% The legacy 180 condition should be excluded from the main normalized
-% paired-probe analysis, but this helper reports it correctly if encountered.
 
-if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
-  probeDirDeg = abs(double(header.probeDirDeg.data));
-else
-  error('computeSessionKernels:MissingProbeDir', ...
-    'Cannot determine probe stream count because header.probeDirDeg.data is missing.');
-end
+assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
+  'computeSessionKernels:MissingProbeDir', ...
+  'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
+
+probeDirDeg = abs(double(sessionProbeHeader.probeDirDeg));
 
 if probeDirDeg > 0 && probeDirDeg < 180
   n = 2;
@@ -215,5 +220,28 @@ elseif abs(probeDirDeg - 180) < 1e-9
 else
   error('computeSessionKernels:UnsupportedProbeDir', ...
     'Unsupported probeDirDeg for probe normalization: %g.', probeDirDeg);
+end
+end
+
+function X = forcePatchNoise3D(X, nFrames)
+% forcePatchNoise3D  Preserve 2 x m x nTrials shape when nTrials == 1.
+%
+% MATLAB drops trailing singleton dimensions in many indexing operations.
+% Patchwise noise matrices should always be treated as:
+%
+%   2 x nFrames x nTrials
+
+if isempty(X)
+  X = nan(2, nFrames, 0);
+  return;
+end
+
+if ndims(X) == 2
+  assert(size(X,1) == 2 && size(X,2) == nFrames, ...
+    'computeSessionKernels:BadPatchNoiseShape', ...
+    'Expected patch noise matrix to be 2 x %d or 2 x %d x nTrials.', ...
+    nFrames, nFrames);
+
+  X = reshape(X, 2, nFrames, 1);
 end
 end

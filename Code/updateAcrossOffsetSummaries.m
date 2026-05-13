@@ -1,58 +1,48 @@
 function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
-% updateAcrossOffsetSummaries
-%  MT readout fit:
-%   Fits a parameterized DOG readout over MT preferred direction using a fixed MT forward model to map
-%   the readout onto experimentally measured normalized psychophysical weights (scales) at probed directions.
-%   The fit is the weighting (readout) across direction of MT activity that yields the psychophysical scales  
-%   measured. 
-% This function loads previously saved per-session summary files, groups them by probe offset, applies 
-% exclusion criteria, performs across-offset bootstrap resampling, fits the readout model, and saves a 
+% REQUIRED SESSION-LEVEL CONTRACT
+%   This function operates on per-session kernel summary files produced by
+%   compileKernelSessionSummary.
+%
+%   Each summary should contain:
+%       sessionProbeHeader       authoritative metadata for this derived
+%                                probe-offset session
+%       probeOffsetDeg           numeric scalar probe direction / offset
+%       sessionID/sessionName    session identifier
+%       compStats                kernel comparison statistics
+%       hitStats                 trial/hit counts
+%       kernelFile               path to kernel file
+%       noiseFile                path to noise-matrix file
+%
+%   The noiseFile should contain the resampling-ready fields accepted by
+%   computeSessionKernels:
+%       sessionProbeHeader
+%       prefNoiseByPatch
+%       probeNoiseByPatch
+%       trialOutcomesAll
+%       changeSidesAll
+%       changeIndicesAll
+%       lr
+%       sideTypeNames
+%
+%   The original parent file header is not part of the downstream contract.
+%   Any remaining support for header/blockStatus access is transitional
+%   compatibility only and should not be used by newly generated derived
+%   files.
+%
+% READOUT-FIT ELIGIBILITY
+%   Kernel generation and averaging include all sessions not excluded by
+%   excludeFile.m. This function applies additional readout-fit exclusions
+%   internally, currently requiring paired-probe offsets:
+%       0 < probeOffsetDeg < 180
+%   and paired-probe noise amplitudes:
+%       probeCohNoisePC == 7 or 10/sqrt(2), within tolerance.
+%
+%   Thus legacy 180 deg single-stream sessions may be processed and averaged
+%   upstream, but are excluded here from the paired-probe readout fit.
+% This function loads previously saved per-session summary files, groups them
+% by probe offset, applies readout-fit eligibility criteria, performs
+% across-offset bootstrap resampling, fits the readout model, and saves a
 % single across-offset summary structure.
-%
-% BaselineMode handling allows for early fits when only two probe directions have been tested.
-% BaselineMode = 'auto' uses a fixed readout offset b when fewer than MinOffsetsForFitBaseline (typically 3) 
-% non-anchor offsets are available; otherwise b is fit as a free parameter.
-%
-% NAME-VALUE OPTIONS
-%   'SaveFile'        : full path to output .mat file
-%   'PlotDir'         : directory for output plots
-%   'NBoot'           : number of hierarchical bootstrap replicates (default 1000)
-%   'CILevels'        : e.g. [68 95]
-%   'Model'           : active effective-weighting model (default 'dog')
-%   'AngleGridDeg'    : dense angle grid for fitted curves (default 0:1:180)
-%   'ExcludeFcn'      : function handle, [tf, reason] = f(sessionStruct)
-%   'Verbose'         : logical, default false
-%   'MakePlots'       : logical, default true
-%   'FilePattern'     : file pattern in summaryDir (default '*.mat')
-%   'OffsetField'     : field name carrying probe offset in session summary
-%   'SessionNameField': field name carrying session identifier
-%   'ScaleMode'       : session scale metric to use (default 'scaleFit')
-%   'ScaleSideType'   : side type key/index for scale extraction (default 'change')
-%   'ScaleStepType'   : step type key/index for scale extraction (default 'inc')
-%   'Bounds'          : struct of optional model parameter bounds
-%   'RandomSeed'      : [] or scalar seed for reproducibility
-%
-% REQUIRED SESSION-LEVEL CONTRACT (minimum)
-%   Each per-session summary file should contain a variable/struct with:
-%       header.probeDirDeg.data     (numeric scalar probe direction / offset)
-%       sessionName                 (char/string)  [or inferable from filename]
-%       header                      (struct)
-%       compStats                   (struct)
-%       hitStats                    (struct)
-%       bootstrapSource            (struct)  % resampling-ready sessionData for computeSessionKernels()
-%
-%   The bootstrapSource should preferably contain either:
-%       sessionData  (struct accepted by computeSessionKernels)
-%   or the equivalent fields directly:
-%       prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll,
-%       changeSidesAll, changeIndicesAll, header, lr
-%
-%   The session-level scale estimate is then recomputed under trial
-%   resampling via computeSessionKernels(sessionData, trialIdx).
-%
-% OUTPUT
-%   acrossOffsetSummary : top-level struct saved to disk and returned
-%
 % -------------------------------------------------------------------------
     
 if nargin < 1 || isempty(summaryDir)
@@ -213,7 +203,6 @@ addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'ReadoutFits'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'ExcludeFcn', @excludeFile, @(x) isempty(x) || isa(x, 'function_handle'));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
@@ -227,8 +216,6 @@ addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x
 
 parse(p, summaryDir, varargin{:});
 opts = p.Results;
-% By default, apply the project-standard exclusion rules.
-% Users may pass 'ExcludeFcn', [] to disable exclusion explicitly.
 opts.summaryDir = normalizeSummaryDirs(summaryDir);
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
@@ -274,12 +261,9 @@ for iFile = 1:numel(files)
     if isempty(sessionStruct)
         continue;
     end
-
-    [tfExclude, reasonStr] = applyExcludeFcn(sessionStruct, opts.ExcludeFcn);
+    [tfExclude, reasonStr] = excludeFromReadoutFit(sessionStruct);
     sessionStruct.isExcluded = tfExclude;
     sessionStruct.excludeReason = reasonStr;
-    sessionStruct.sourceFile = thisFile;
-
     sessionList(end+1,1) = sessionStruct; %#ok<AGROW>
 end
 
@@ -349,14 +333,18 @@ sessionStruct = emptySessionStruct();
 sessionStruct.probeOffsetDeg = extractProbeOffsetDeg(inStruct, opts.OffsetField);
 sessionStruct.sessionName    = extractSessionName(inStruct, sourceFile, opts.SessionNameField);
 sessionStruct.sessionDate    = extractSessionDate(inStruct, sourceFile);
-sessionStruct.header = getFieldOrDefault(inStruct, 'header', struct());
+sessionStruct.header = getFieldOrDefault(inStruct, 'sessionProbeHeader', struct());
+
+if isempty(fieldnames(sessionStruct.header))
+    sessionStruct.header = getFieldOrDefault(inStruct, 'header', struct());
+end
 if isempty(fieldnames(sessionStruct.header)) && ...
         isfield(inStruct, 'kernelFile') && ...
         (ischar(inStruct.kernelFile) || isstring(inStruct.kernelFile))
     try
-        K = load(char(inStruct.kernelFile), 'header');
-        if isfield(K, 'header') && isstruct(K.header)
-            sessionStruct.header = K.header;
+        K = load(char(inStruct.kernelFile), 'sessionProbeHeader');
+        if isfield(K, 'sessionProbeHeader') && isstruct(K.sessionProbeHeader)
+            sessionStruct.header = K.sessionProbeHeader;
         end
     catch
     end
@@ -402,58 +390,70 @@ s = struct( ...
 end
 
 % ========================================================================
-function [tfExclude, reasonStr] = applyExcludeFcn(sessionStruct, excludeFcn)
+function [exclude, reason] = excludeFromReadoutFit(sessionStruct)
+% excludeFromReadoutFit  Exclude sessions not eligible for paired-probe readout fitting.
+%
+% These exclusions are specific to the across-offset readout model. They do
+% not imply that the session should be excluded from kernel generation,
+% kernel averaging, or other preprocessing summaries.
 
-tfExclude = sessionStruct.isExcluded;
-reasonStr = sessionStruct.excludeReason;
+exclude = false;
+reason = '';
 
-if isempty(excludeFcn)
+H = sessionStruct.header;
+
+% Prefer the standardized offset field, because standardizeSessionStruct()
+% has already extracted it from the summary metadata.
+probeDirDeg = sessionStruct.probeOffsetDeg;
+
+if ~(isfinite(probeDirDeg) && probeDirDeg > 0 && probeDirDeg < 180)
+    exclude = true;
+    reason = sprintf('probeDirDeg %.6g is not a paired-probe offset', probeDirDeg);
     return;
 end
 
-% If the summary already excludes the file, respect that.
-if tfExclude
+[probeCohNoisePC, ok] = localGetHeaderValue(H, 'probeCohNoisePC');
+if ~ok || ~isfinite(probeCohNoisePC)
+    exclude = true;
+    reason = 'missing/non-finite probeCohNoisePC';
     return;
 end
 
-try
-    % Preferred compatibility path for existing excludeFile(header) logic.
-    out = cell(1,2);
-    [out{:}] = excludeFcn(sessionStruct.header);
-    tfExclude = logical(out{1});
-    if numel(out) >= 2 && ~isempty(out{2})
-        reasonStr = char(string(out{2}));
-    elseif tfExclude
-        reasonStr = 'excluded by ExcludeFcn(header)';
-    end
+targetProbeNoisePCs = [7, 10 / sqrt(2)];
+tol = 1e-4;
+
+if all(abs(probeCohNoisePC - targetProbeNoisePCs) > tol)
+    exclude = true;
+    reason = sprintf('probeCohNoisePC %.6g is not paired-probe amplitude', probeCohNoisePC);
     return;
-catch
+end
 end
 
-try
-    % Backward/forward compatibility with excludeFcn(sessionStruct).
-    out = cell(1,2);
-    [out{:}] = excludeFcn(sessionStruct);
-    tfExclude = logical(out{1});
-    if numel(out) >= 2 && ~isempty(out{2})
-        reasonStr = char(string(out{2}));
-    elseif tfExclude
-        reasonStr = 'excluded by ExcludeFcn(sessionStruct)';
+% ========================================================================
+function [v, ok] = localGetHeaderValue(S, fieldName)
+
+ok = false;
+v = NaN;
+
+if isfield(S, fieldName)
+    x = S.(fieldName);
+    if isstruct(x) && isfield(x, 'data')
+        v = double(x.data(1));
+    else
+        v = double(x(1));
     end
-catch
-    try
-        tfExclude = logical(excludeFcn(sessionStruct.header));
-        if tfExclude
-            reasonStr = 'excluded by ExcludeFcn(header)';
-        end
-    catch
-        tfExclude = logical(excludeFcn(sessionStruct));
-        if tfExclude
-            reasonStr = 'excluded by ExcludeFcn(sessionStruct)';
-        end
-    end
+    ok = true;
+    return;
 end
 
+if isfield(S, 'blockStatus') && isfield(S.blockStatus, 'data') && ...
+        isfield(S.blockStatus.data, fieldName)
+
+    x = S.blockStatus.data(1).(fieldName);
+    v = double(localExtractValue(x));
+    ok = true;
+    return;
+end
 end
 
 % ========================================================================
@@ -625,7 +625,7 @@ for b = 1:nBoot
     end
 
     if b == 1 || mod(b, max(1, floor(nBoot/10))) == 0
-        fprintf('  Bootstrap %d / %d\n', b, nBoot);
+        fprintf('      bootstrap %d / %d\n', b, nBoot);
     end
 end
 
@@ -886,9 +886,8 @@ end
 function tf = hasComputeSessionKernelFields(S)
 
 req = {'prefNoiseByPatch','probeNoiseByPatch','trialOutcomesAll', ...
-       'changeSidesAll','changeIndicesAll','header'};
+       'changeSidesAll','changeIndicesAll','sessionProbeHeader'};
 tf = all(isfield(S, req));
-
 end
 
 % ========================================================================
@@ -1182,14 +1181,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
   if isempty(idx0)
       warning('plotReadoutDiagnostics: OffsetsDeg does not include 0. Ratios will not be shown.');
-      % predScale = nan(size(overlap));
-  % else
-      % refOverlap = overlap(idx0);
-      % predScale = overlap ./ refOverlap;
   end
-  % aPhiFlat = ones(size(aPhi));
-  % predScaleFlat = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhiFlat);
-  % predScaleFit  = predScale;
   
   % ---- Build fit-vs-flat comparison figure ----
   prodTermFit  = cell(1, nOffsets);
@@ -1457,26 +1449,28 @@ obsScale = [emp.pooledScale];
 ci68 = vertcat(emp.boot68);
 
 hasReadoutFit = isfield(acrossOffsetSummary, 'readoutModel') && ...
-    isfield(acrossOffsetSummary.readoutModel, 'fit') && ...
-    ~isempty(acrossOffsetSummary.readoutModel.fit) && ...
-    isfield(acrossOffsetSummary.readoutModel.fit, 'fitSuccess') && ...
-    acrossOffsetSummary.readoutModel.fit.fitSuccess;
+    isfield(acrossOffsetSummary.readoutModel, 'fit') && ~isempty(acrossOffsetSummary.readoutModel.fit) && ...
+    isfield(acrossOffsetSummary.readoutModel.fit, 'fitSuccess') && acrossOffsetSummary.readoutModel.fit.fitSuccess;
 
 % ---- Plot 1: observed scale by offset; overlay prediction if available ----
 fig1 = figure(300); clf; hold on;
-hObs = errorbar(offsets, obsScale, obsScale - ci68(:,1)', ci68(:,2)' - obsScale, ...
-    'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
+hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci68(:,1)'], [0, ci68(:,2)' - obsScale], ...
+    'bo-', 'LineWidth', 1.2, 'MarkerFaceColor', 'b');
+% plot(0, 1, 'ko', 'MarkerFaceColor', 'k');
+plot([0, 180], [0,0], 'k:');
 if hasReadoutFit
     rm = acrossOffsetSummary.readoutModel;
     predScale = rm.predictedAtMeasuredOffsets;
     hPred = plot(offsets, predScale, 'k-', 'LineWidth', 2);
-    legend([hObs, hPred], {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, 'Location', 'northwest');
-    title(sprintf('Fit to Scales (%d bootstraps)', opts.NBoot));
+    legend([hObs, hPred], {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, 'Location', 'northeast');
+    title(sprintf('Fit to Normalized Scales (%d bootstraps)', opts.NBoot));
 else
-    title(sprintf('Scales (no fit over %d bootstraps)', opts.NBoot));
+    legend(hObs, {'Observed Pooled Normalized Scale (68% CI)'}, 'Location', 'northeast');
+    title(sprintf('Normalized Scales (No Fit Over %d bootstraps)', opts.NBoot));
 end
-xlabel('Probe offset (deg)');
-ylabel('Normalized scale');
+xlabel('Probe Offset (deg)');
+ylabel('Normalized Scale');
+xlim([0, 180])
 box off;
 saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
@@ -1486,7 +1480,6 @@ if hasReadoutFit
 end
 
 end
-
 
 % ========================================================================
 function val = getFieldOrDefault(S, fieldName, defaultVal)
@@ -1668,26 +1661,52 @@ end
 % ========================================================================
 function probeOffsetDeg = extractProbeOffsetDeg(inStruct, offsetField)
 
-probeOffsetDeg = NaN; %#ok<NASGU>
+probeOffsetDeg = NaN;
 
-if isfield(inStruct, 'header') && isstruct(inStruct.header) && ...
-        isfield(inStruct.header, 'probeDirDeg') && ...
-        isfield(inStruct.header.probeDirDeg, 'data')
-    probeOffsetDeg = double(inStruct.header.probeDirDeg.data);
+% New preferred contract: summary.sessionProbeHeader.probeDirDeg
+if isfield(inStruct, 'sessionProbeHeader') && isstruct(inStruct.sessionProbeHeader) && ...
+        isfield(inStruct.sessionProbeHeader, 'probeDirDeg')
+    probeOffsetDeg = double(localExtractValue(inStruct.sessionProbeHeader.probeDirDeg));
     assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
-        'header.probeDirDeg.data must be a finite scalar.');
+        'sessionProbeHeader.probeDirDeg must be a finite scalar.');
     return;
 end
 
+% New explicit summary-level field, if present.
 if isfield(inStruct, offsetField)
-    probeOffsetDeg = double(inStruct.(offsetField));
+    probeOffsetDeg = double(localExtractValue(inStruct.(offsetField)));
     assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
         '%s must be a finite scalar.', offsetField);
     return;
 end
 
+% Transitional compatibility: summary.header may now actually be a
+% sessionProbeHeader-like struct.
+if isfield(inStruct, 'header') && isstruct(inStruct.header) && ...
+        isfield(inStruct.header, 'probeDirDeg')
+    probeOffsetDeg = double(localExtractValue(inStruct.header.probeDirDeg));
+    assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
+        'header.probeDirDeg must be a finite scalar.');
+    return;
+end
+
 error('extractProbeOffsetDeg:MissingProbeOffset', ...
-    'No authoritative probe offset found in summary header or %s.', offsetField);
+    'No authoritative probe offset found in summary sessionProbeHeader, header, or %s.', offsetField);
+end
+
+% ========================================================================
+function val = localExtractValue(x)
+% localExtractValue  Pull scalar/string value from either scalar or .data field.
+
+if isstruct(x) && isfield(x, 'data')
+    val = x.data;
+else
+    val = x;
+end
+
+if isnumeric(val) && ~isscalar(val)
+    val = val(1);
+end
 end
 
 % ========================================================================
@@ -1853,20 +1872,9 @@ end
 
 end
 % ========================================================================
-function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, header)
-% Normalize probe-stream kernels to the pref-noise amplitude convention.
-%
-% For paired probe offsets, the probe-noise variable drives two yoked
-% streams. The combined probe amplitude is therefore:
-%
-%   nYokedProbeStreams * probeCohNoisePC
-%
-% Under the small-signal assumption, kernel amplitude scales with noise
-% variance, so the probe kernel is multiplied by:
-%
-%   (prefCohNoisePC / combinedProbeCohNoisePC)^2
+function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionProbeHeader)
 
-normInfo = normalizationInfoFromHeader(header);
+normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader);
 probeNormFactor = normInfo.probeNormFactor;
 
 kernelsNorm = kernels;
@@ -1877,18 +1885,19 @@ kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
 end
 
 % ========================================================================
-function normInfo = normalizationInfoFromHeader(header)
+function normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader)
 
-prefCohNoisePC  = header.blockStatus.data.prefCohNoisePC;
-probeCohNoisePC = header.blockStatus.data.probeCohNoisePC;
+[prefCohNoisePC, okPref] = localGetHeaderValue(sessionProbeHeader, 'prefCohNoisePC');
+[probeCohNoisePC, okProbe] = localGetHeaderValue(sessionProbeHeader, 'probeCohNoisePC');
 
-if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
+if ~okPref || ~okProbe || ...
+        ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
     error('updateAcrossOffsetSummaries:BadNoiseAmplitude', ...
         'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
         prefCohNoisePC, probeCohNoisePC);
 end
 
-nYokedProbeStreams = probeStreamCountFromHeader(header);
+nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
 combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
 
 normInfo = struct();
@@ -1900,16 +1909,14 @@ normInfo.probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
 normInfo.method = ...
     'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
 end
-
 % ========================================================================
-function n = probeStreamCountFromHeader(header)
+function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
 
-if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
-    probeDirDeg = abs(double(header.probeDirDeg.data));
-else
-    error('updateAcrossOffsetSummaries:MissingProbeDir', ...
-        'Cannot determine probe stream count because header.probeDirDeg.data is missing.');
-end
+assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
+    'updateAcrossOffsetSummaries:MissingProbeDir', ...
+    'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
+
+probeDirDeg = abs(double(localExtractValue(sessionProbeHeader.probeDirDeg)));
 
 if probeDirDeg > 0 && probeDirDeg < 180
     n = 2;

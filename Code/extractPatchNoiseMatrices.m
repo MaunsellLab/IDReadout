@@ -1,5 +1,5 @@
 function [prefNoise, probeNoise, trialOutcomes, changeSides, changeIndices] = ...
-  extractPatchNoiseMatrices(header, trials, stepTypes)
+  extractPatchNoiseMatrices(sessionProbeHeader, trials, stepTypes)
 % extractPatchNoiseMatrices
 % Return patchwise noise matrices for all valid trials.
 %
@@ -55,8 +55,8 @@ if nValid == 0
   error('extractPatchNoiseMatrices:NoValidTrials', 'No valid matching trials were found.');
 end
 
-msPerVFrame = 1000.0 / header.frameRateHz.data(1);
-m = round((header.preStepMS.data(1) + header.stepMS.data(1)) / msPerVFrame);
+msPerVFrame = 1000.0 / sessionProbeHeader.frameRateHz.data(1);
+m = round((sessionProbeHeader.preStepMS.data(1) + sessionProbeHeader.stepMS.data(1)) / msPerVFrame);
 
 prefNoise  = nan(2, m, nValid);
 probeNoise = nan(2, m, nValid);
