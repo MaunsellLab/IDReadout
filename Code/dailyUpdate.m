@@ -56,8 +56,6 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     refreshProbeDirs = staleProbeDirs;
   end
 
-  refreshProbeDirs = allProbeDirs;
-
   % ---- Per-session summaries ----
   if isempty(refreshProbeDirs)
     fprintf('    no stale probe-specific session outputs detected; skipping session summaries and averages.\n');

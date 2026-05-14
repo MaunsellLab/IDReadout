@@ -88,10 +88,22 @@ acrossOffsetSummary.bootstrap = bootstrap;
 %% ---- Effective MT-to-choice weighting fit ----
 offsetsDegAll   = [empirical.probeOffsetDeg];
 pooledScaleAll  = [empirical.pooledScale];
-% Bootstrap variance of the pooled scale at each measured offset. These are
-% used as inverse-variance weights in fitReadoutDOGToScales.
 bootstrapVarAll = bootstrap.fitBootstrap.offsetFitVar;
+nSessionsAll    = [empirical.nSessions];
 assert(numel(bootstrapVarAll) == numel(offsetsDegAll), 'bootstrap offset variances do not match empirical offsets');
+
+isAnchor = abs(offsetsDegAll) < 1e-9;
+
+validFitOffset = ~isAnchor & ...
+    nSessionsAll > 0 & ...
+    isfinite(offsetsDegAll) & ...
+    isfinite(pooledScaleAll) & ...
+    isfinite(bootstrapVarAll) & ...
+    bootstrapVarAll > 0;
+% Fit only non-anchor offsets. The 0-deg value is the normalization anchor. Excllude 180° for now.
+fitOffsetsDeg = offsetsDegAll(validFitOffset);
+fitScales     = pooledScaleAll(validFitOffset);
+fitVars       = bootstrapVarAll(validFitOffset);
 
 % Fixed MT forward model used to map the DOG readout onto predicted scale.
 mtModel = makeMTReadoutForwardModel('sigmaMTDeg', 37.5, 'phiDeg', -180:1:179);
@@ -102,14 +114,50 @@ acrossOffsetSummary.measurements.offsetsDeg   = offsetsDegAll(:)';
 acrossOffsetSummary.measurements.pooledScale  = pooledScaleAll(:)';
 acrossOffsetSummary.measurements.bootstrapVar = bootstrapVarAll(:)';
 
-% Fit only non-anchor offsets. The 0-deg value is the normalization anchor.
-isAnchor = abs(offsetsDegAll) < 1e-9;
-fitOffsetsDeg = offsetsDegAll(~isAnchor);
-fitScales     = pooledScaleAll(~isAnchor);
-fitVars       = bootstrapVarAll(~isAnchor);
+
+readoutModels = struct();
+readoutModels.signedDOG = buildReadoutDOGModelSummary( ...
+    'signedDOG', 'signed', ...
+    fitOffsetsDeg, fitScales, fitVars, ...
+    offsetsDegAll, pooledScaleAll, bootstrapVarAll, mtModel, opts);
+readoutModels.rectifiedDOG = buildReadoutDOGModelSummary( ...
+    'rectifiedDOG', 'rectified', ...
+    fitOffsetsDeg, fitScales, fitVars, ...
+    offsetsDegAll, pooledScaleAll, bootstrapVarAll, mtModel, opts);
+
+acrossOffsetSummary.readoutModels = readoutModels;
+acrossOffsetSummary.readoutModelComparison = compareReadoutDOGModels(readoutModels);
+
+% Backward compatibility: keep the historical top-level readoutModel field
+% as the standard signed-template DOG fit.
+acrossOffsetSummary.readoutModel = readoutModels.signedDOG;
+acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
+
+saveAcrossOffsetSummary(opts, acrossOffsetSummary);
+if opts.Verbose
+    fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
+end
+
+if opts.MakePlots
+    try
+        makeAcrossOffsetPlots(acrossOffsetSummary, opts);
+    catch ME
+        warning('Plot generation failed: %s', ME.message);
+    end
+end
+
+end
+
+
+% ========================================================================
+function rm = buildReadoutDOGModelSummary(modelName, templateMode, ...
+    fitOffsetsDeg, fitScales, fitVars, offsetsDegAll, pooledScaleAll, ...
+    bootstrapVarAll, mtModel, opts)
+% Build one DOG readout model summary for a specified MT template mode.
 
 rm = struct();
-rm.activeModelName = 'dog_readout';
+rm.activeModelName = modelName;
+rm.templateMode = templateMode;
 rm.sourceScaleSideType = opts.ScaleSideType;
 rm.sourceScaleStepType = opts.ScaleStepType;
 rm.sourceScaleMode     = opts.ScaleMode;
@@ -125,28 +173,47 @@ rm.note = ['Three-parameter DOG readout fit. No additive baseline is fit, ' ...
            'because any constant readout component is not identifiable ' ...
            'against mean-subtracted MT forward templates.'];
 
+if strcmp(templateMode, 'rectified')
+    rm.note = ['Three-parameter DOG readout fit using rectified MT increment ' ...
+               'templates. For paired probes, each signed component is ' ...
+               'rectified relative to the 0% coherence baseline before the ' ...
+               'two components are summed.'];
+end
 if numel(fitOffsetsDeg) >= 1 && ...
         all(isfinite(fitScales)) && ...
         all(isfinite(fitVars)) && ...
         all(fitVars > 0)
-
     readoutFit = fitReadoutDOGToScales( ...
         fitOffsetsDeg, fitScales, fitVars, mtModel, ...
-        'Bounds', opts.Bounds);
-
+        'Bounds', opts.Bounds, ...
+        'TemplateMode', templateMode);
     rm.fit = readoutFit;
     rm.nFreeParams = readoutFit.nFreeParams;
     rm.phiDeg = mtModel.phiDeg;
-    rm.readoutPhiRaw = readoutFit.readoutPhiRaw;
-    rm.readoutPhi = readoutFit.readoutPhi;
     rm.paramNames = readoutFit.paramNames;
     rm.params = readoutFit.params;
     rm.paramStruct = readoutFit.paramStruct;
-    rm.predictedAtMeasuredOffsets = ...
-        predictNormalizedScaleFromReadout(readoutFit.params, offsetsDegAll, mtModel);
     rm.plotOffsetsDeg = 0:1:180;
-    rm.plotPredictedScale = ...
-        predictNormalizedScaleFromReadout(readoutFit.params, rm.plotOffsetsDeg, mtModel);
+
+    hasUsableFit = isfield(readoutFit, 'fitUsable') && readoutFit.fitUsable;
+
+    if hasUsableFit
+        rm.readoutPhiRaw = readoutFit.readoutPhiRaw;
+        rm.readoutPhi = readoutFit.readoutPhi;
+
+        rm.predictedAtMeasuredOffsets = ...
+            predictNormalizedScaleFromReadout(readoutFit.params, offsetsDegAll, mtModel, ...
+            'TemplateMode', templateMode);
+
+        rm.plotPredictedScale = ...
+            predictNormalizedScaleFromReadout(readoutFit.params, rm.plotOffsetsDeg, mtModel, ...
+            'TemplateMode', templateMode);
+    else
+        rm.readoutPhiRaw = nan(size(mtModel.phiDeg));
+        rm.readoutPhi = nan(size(mtModel.phiDeg));
+        rm.predictedAtMeasuredOffsets = [];
+        rm.plotPredictedScale = [];
+    end
 
 else
     rm.fit = [];
@@ -163,22 +230,70 @@ else
     rm.plotOffsetsDeg = 0:1:180;
     rm.plotPredictedScale = [];
 end
-acrossOffsetSummary.readoutModel = rm;
-acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
 
-saveAcrossOffsetSummary(opts, acrossOffsetSummary);
-if opts.Verbose
-    fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
+
 end
 
-if opts.MakePlots
-    try
-        makeAcrossOffsetPlots(acrossOffsetSummary, opts);
-    catch ME
-        warning('Plot generation failed: %s', ME.message);
+% ========================================================================
+function comparison = compareReadoutDOGModels(readoutModels)
+% Compact comparison of the signed and rectified DOG fits.
+
+comparison = struct();
+comparison.modelNames = {'signedDOG', 'rectifiedDOG'};
+comparison.loss = [NaN NaN];
+comparison.aic = [NaN NaN];
+comparison.aicc = [NaN NaN];
+comparison.bic = [NaN NaN];
+comparison.reducedChiSq = [NaN NaN];
+comparison.pValue = [NaN NaN];
+comparison.deltaLoss_signedMinusRectified = NaN;
+comparison.deltaAIC_signedMinusRectified = NaN;
+comparison.deltaAICc_signedMinusRectified = NaN;
+comparison.deltaBIC_signedMinusRectified = NaN;
+comparison.preferredByLoss = '';
+comparison.preferredByAICc = '';
+
+if isfield(readoutModels, 'signedDOG') && isfield(readoutModels.signedDOG, 'fit') && ...
+        ~isempty(readoutModels.signedDOG.fit) && isfield(readoutModels.signedDOG.fit, 'goodnessOfFit')
+    g = readoutModels.signedDOG.fit.goodnessOfFit;
+    comparison.loss(1) = g.weightedLoss;
+    comparison.aic(1) = g.aic;
+    comparison.aicc(1) = g.aicc;
+    comparison.bic(1) = g.bic;
+    comparison.reducedChiSq(1) = g.reducedChiSq;
+    comparison.pValue(1) = g.pValue;
+end
+
+if isfield(readoutModels, 'rectifiedDOG') && isfield(readoutModels.rectifiedDOG, 'fit') && ...
+        ~isempty(readoutModels.rectifiedDOG.fit) && isfield(readoutModels.rectifiedDOG.fit, 'goodnessOfFit')
+    g = readoutModels.rectifiedDOG.fit.goodnessOfFit;
+    comparison.loss(2) = g.weightedLoss;
+    comparison.aic(2) = g.aic;
+    comparison.aicc(2) = g.aicc;
+    comparison.bic(2) = g.bic;
+    comparison.reducedChiSq(2) = g.reducedChiSq;
+    comparison.pValue(2) = g.pValue;
+end
+
+comparison.deltaLoss_signedMinusRectified = comparison.loss(1) - comparison.loss(2);
+comparison.deltaAIC_signedMinusRectified  = comparison.aic(1)  - comparison.aic(2);
+comparison.deltaAICc_signedMinusRectified = comparison.aicc(1) - comparison.aicc(2);
+comparison.deltaBIC_signedMinusRectified  = comparison.bic(1)  - comparison.bic(2);
+
+if all(isfinite(comparison.loss))
+    if comparison.loss(1) <= comparison.loss(2)
+        comparison.preferredByLoss = 'signedDOG';
+    else
+        comparison.preferredByLoss = 'rectifiedDOG';
     end
 end
-
+if all(isfinite(comparison.aicc))
+    if comparison.aicc(1) <= comparison.aicc(2)
+        comparison.preferredByAICc = 'signedDOG';
+    else
+        comparison.preferredByAICc = 'rectifiedDOG';
+    end
+end
 end
 
 % ========================================================================
@@ -785,7 +900,47 @@ if abs(deltaDeg) < 1e-9 || abs(deltaDeg - 180) < 1e-9
 else
     deltaMPlus  = computeMTDeltaM(phiDeg, +deltaDeg, mtModel);
     deltaMMinus = computeMTDeltaM(phiDeg, -deltaDeg, mtModel);
-    deltaM = (1 / sqrt(2)) .* (deltaMPlus + deltaMMinus);
+    deltaM = 0.5 .* (deltaMPlus + deltaMMinus);
+end
+end
+
+% ========================================================================
+function deltaM = computeMTSymmetrizedTemplate(phiDeg, deltaDeg, mtModel, templateMode)
+% Return the effective MT template for the requested forward-model mode.
+%
+% signed:
+%   Use the historical signed, mean-subtracted MT perturbation.
+% rectified:
+%   Half-wave rectify each single-stream signed perturbation relative to the
+%   0% coherence baseline before summing paired +delta/-delta components.
+
+if nargin < 4 || isempty(templateMode)
+    templateMode = 'signed';
+end
+templateMode = lower(char(string(templateMode)));
+
+phiDeg = phiDeg(:)';
+if numel(phiDeg) ~= numel(mtModel.phiDeg) || any(phiDeg ~= mtModel.phiDeg)
+    error('computeMTSymmetrizedTemplate requires the shared phi-grid from mtModel.phiDeg.');
+end
+
+deltaDeg = abs(deltaDeg);
+
+switch templateMode
+    case 'signed'
+        deltaM = computeMTSymmetrizedDeltaM(phiDeg, deltaDeg, mtModel);
+
+    case 'rectified'
+        if abs(deltaDeg) < 1e-9 || abs(deltaDeg - 180) < 1e-9
+            deltaM = max(computeMTDeltaM(phiDeg, deltaDeg, mtModel), 0);
+        else
+            deltaMPlus  = max(computeMTDeltaM(phiDeg, +deltaDeg, mtModel), 0);
+            deltaMMinus = max(computeMTDeltaM(phiDeg, -deltaDeg, mtModel), 0);
+            deltaM = 0.5 .* (deltaMPlus + deltaMMinus);
+        end
+
+    otherwise
+        error('Unknown MT template mode: %s', templateMode);
 end
 end
 
@@ -1081,30 +1236,33 @@ deltaM = G - mean(G);
 end
 
 % ========================================================================
-function predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel)
-% The probe template follows the stimulus construction:
-%   - delta = 0 deg: single-channel template
-%   - 0 < delta < 180 deg: two symmetric probe-noise streams at +delta and
-%     -delta, each with amplitude 1/sqrt(2) relative to the single-stream
-%     probe amplitude
-%   - delta = 180 deg: single-channel template
+function predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, varargin)
+% Predict normalized scale from a DOG readout and selected MT template mode.
 %
-% For 0 < delta < 180:
+% TemplateMode = 'signed' reproduces the historical model:
 %   Delta m_eff(phi;delta) = (1/sqrt(2)) * [Delta m(phi;+delta) + Delta m(phi;-delta)]
+%
+% TemplateMode = 'rectified' rectifies each single-stream signed perturbation
+% relative to the 0% coherence baseline before summing paired probes:
+%   Delta m_eff(phi;delta) = (1/sqrt(2)) * [max(Delta m(phi;+delta),0) + max(Delta m(phi;-delta),0)]
 %
 % S_pred(delta) = sum_phi a(phi) Delta m_eff(phi;delta) / ...
 %                 sum_phi a(phi) Delta m_eff(phi;0)
 
+p = inputParser;
+addParameter(p, 'TemplateMode', 'signed', @(x) ischar(x) || isstring(x));
+parse(p, varargin{:});
+templateMode = lower(char(string(p.Results.TemplateMode)));
+
 phiDeg = mtModel.phiDeg;
 [aPhi, ~] = evaluateReadoutDOG(phiDeg, params);
 
-
-refVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel));
+refVal = sum(aPhi .* computeMTSymmetrizedTemplate(phiDeg, 0, mtModel, templateMode));
 
 offsetsDeg = offsetsDeg(:)';
 predScale = nan(size(offsetsDeg));
 for i = 1:numel(offsetsDeg)
-    probeVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel));
+    probeVal = sum(aPhi .* computeMTSymmetrizedTemplate(phiDeg, offsetsDeg(i), mtModel, templateMode));
     if isfinite(refVal) && abs(refVal) > 0
         predScale(i) = probeVal / refVal;
     else
@@ -1153,6 +1311,11 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
 % overlap determines predicted normalized scale.
 
   rm = acrossOffsetSummary.readoutModel;
+  if isfield(rm, 'templateMode')
+      templateMode = rm.templateMode;
+  else
+      templateMode = 'signed';
+  end
   if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
       return;
   end
@@ -1161,7 +1324,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
   mtp = rm.mtForwardModelParams;
   mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
-  offsetsDeg = [0, [acrossOffsetSummary.offsetData.probeOffsetDeg]];
+  offsetsDeg = [0, rm.fit.offsetsDeg];  
   nOffsets = numel(offsetsDeg);
   
   deltaM   = cell(1, nOffsets);
@@ -1171,7 +1334,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   negPart  = nan(1, nOffsets);
 
   for i = 1:nOffsets
-      deltaM{i} = computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel);
+      deltaM{i} = computeMTSymmetrizedTemplate(phiDeg, offsetsDeg(i), mtModel, templateMode);
       prodTerm{i} = aPhi .* deltaM{i};
       overlap(i) = sum(prodTerm{i});
       posPart(i) = sum(max(prodTerm{i}, 0));
@@ -1203,7 +1366,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   plot(phiDeg, zeros(size(phiDeg)), 'k:', 'LineWidth', 1);
   xlabel('\phi (deg)');
   ylabel('a(\phi)');
-  title(sprintf('Fitted DOG readout over MT preferred direction (%d bootstraps)', opts.NBoot));
+  title(sprintf('Fitted DOG readout (%s template, %d bootstraps)', templateMode, opts.NBoot));
   legend([hFitReadout, hFlatReadout], [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}], 'Location', 'northeast');
   paramText = cell(rm.nFreeParams, 1);
   for p = 1:rm.nFreeParams
@@ -1216,7 +1379,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   
   % ---- middle panel: MT populations responses ----
   nexttile; hold on;
-  title('MT Population Responses to Probes (Flat Readout)');
+  title(sprintf('MT Population Responses to Probes (%s template; Flat Readout)', templateMode));
   % MT templates, same colors used in the lower panel
   hTemplates = gobjects(1, nOffsets);
   for i = 1:nOffsets
@@ -1247,7 +1410,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   legend(legendHandles, legendLabels, 'Location', 'best');
   box off;
   if ~isempty(char(string(opts.SaveFile)))
-      saveas(fig, fullfile(opts.PlotDir, 'ReadoutFunctions.pdf'));
+      saveas(fig, fullfile(opts.PlotDir, sprintf('ReadoutFunctions_%s.pdf', templateMode)));
   end
 
   % Print a compact numeric summary to the command window
@@ -1284,12 +1447,14 @@ function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel
 
 p = inputParser;
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
+addParameter(p, 'TemplateMode', 'signed', @(x) ischar(x) || isstring(x));
 parse(p, varargin{:});
 opts = p.Results;
+templateMode = lower(char(string(opts.TemplateMode)));
 
 [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, opts.Bounds);
 
-obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel);
+obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel, templateMode);
 
 p0 = p0(:).';
 lb = lb(:).';
@@ -1298,6 +1463,7 @@ p0 = min(max(p0, lb), ub);
 
 params = nan(size(p0));
 loss = NaN;
+exitflag = NaN;
 
 try
     fminconOpts = optimoptions( ...
@@ -1319,18 +1485,43 @@ catch ME
     fitSuccess = false;
 end
 
+fitConverged = fitSuccess;
+fitUsable = all(isfinite(params));
+
+if fitUsable
+    predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, ...
+        'TemplateMode', templateMode).';
+    fitUsable = all(isfinite(predMeasured));
+end
+
+if fitUsable
+    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
+    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
+    fitUsable = isfinite(gof.weightedLoss);
+else
+    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
+end
+
 predMeasured = nan(size(offsetsDeg));
 paramStruct = struct();
+gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
 
 if fitSuccess
-    predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel).';
+    predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, ...
+        'TemplateMode', templateMode).';
     [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
+    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
 end
 
 fitResult = struct();
 fitResult.modelName = 'dog_readout';
+fitResult.templateMode = templateMode;
 fitResult.fitSuccess = fitSuccess;
 fitResult.loss = loss;
+fitResult.exitflag = exitflag;
+fitResult.fitConverged = fitConverged;
+fitResult.fitSuccess = fitConverged;   % backward compatibility
+fitResult.fitUsable = fitUsable;
 fitResult.params = params;
 fitResult.paramStruct = paramStruct;
 fitResult.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
@@ -1339,6 +1530,9 @@ fitResult.offsetsDeg = offsetsDeg(:)';
 fitResult.observedScale = obsScale(:)';
 fitResult.observedVar = obsVar(:)';
 fitResult.predictedScale = predMeasured(:)';
+fitResult.residuals = gof.residuals;
+fitResult.standardizedResiduals = gof.standardizedResiduals;
+fitResult.goodnessOfFit = gof;
 fitResult.phiDeg = mtModel.phiDeg;
 
 if fitSuccess
@@ -1384,9 +1578,10 @@ ub = ub(:);
 end
 
 % ========================================================================
-function sse = readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel)
+function sse = readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel, templateMode)
 
-predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel);
+predScale = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, ...
+    'TemplateMode', templateMode);
 resid = obsScale(:)' - predScale(:)';
 
 valid = isfinite(resid) & isfinite(obsVar(:)') & obsVar(:)' > 0;
@@ -1409,6 +1604,73 @@ end
 if ~isfinite(sse)
     sse = Inf;
 end
+end
+
+% ========================================================================
+function gof = computeReadoutGoodnessOfFit(obsScale, predScale, obsVar, nFreeParams)
+% Goodness-of-fit diagnostics for weighted DOG scale fits.
+
+obsScale = obsScale(:)';
+predScale = predScale(:)';
+obsVar = obsVar(:)';
+
+resid = obsScale - predScale;
+valid = isfinite(resid) & isfinite(obsVar) & obsVar > 0;
+
+weightedTerms = nan(size(resid));
+standardizedResiduals = nan(size(resid));
+if any(valid)
+    weightedTerms(valid) = (resid(valid).^2) ./ obsVar(valid);
+    standardizedResiduals(valid) = resid(valid) ./ sqrt(obsVar(valid));
+end
+
+nData = sum(valid);
+df = nData - nFreeParams;
+if nData > 0
+    weightedLoss = sum(weightedTerms(valid));
+else
+    weightedLoss = NaN;
+end
+
+if df > 0 && isfinite(weightedLoss)
+    reducedChiSq = weightedLoss / df;
+    pValue = gammainc(weightedLoss / 2, df / 2, 'upper');
+else
+    reducedChiSq = NaN;
+    pValue = NaN;
+end
+
+% These information criteria use the weighted residual loss without the
+% Gaussian normalization constants. That is sufficient for comparing models
+% fit to the same observations and variances.
+aic = weightedLoss + 2 * nFreeParams;
+if nData > nFreeParams + 1
+    aicc = aic + (2 * nFreeParams * (nFreeParams + 1)) / (nData - nFreeParams - 1);
+else
+    aicc = NaN;
+end
+if nData > 0
+    bic = weightedLoss + nFreeParams * log(nData);
+else
+    bic = NaN;
+end
+
+gof = struct();
+gof.weightedLoss = weightedLoss;
+gof.nData = nData;
+gof.nFreeParams = nFreeParams;
+gof.df = df;
+gof.reducedChiSq = reducedChiSq;
+gof.pValue = pValue;
+gof.aic = aic;
+gof.aicc = aicc;
+gof.bic = bic;
+gof.residuals = resid;
+gof.standardizedResiduals = standardizedResiduals;
+gof.weightedLossTerms = weightedTerms;
+gof.note = ['pValue is an approximate chi-square tail probability using ' ...
+            'bootstrap variances as known observation variances. AIC/AICc/BIC ' ...
+            'omit constants common to models fit to the same observations.'];
 end
 
 % ========================================================================
@@ -1438,45 +1700,77 @@ end
 
 % ========================================================================
 function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
-% Primary plots for the DOG readout model:
-%   1) observed scale values by probe offset, with predicted values overlaid
-%      when a readout fit is available
-%   2) fitted readout a(phi) over MT preferred direction, only when fit exists
+% Primary plots for the DOG readout models:
+%   1) observed scale values by probe offset, with signed and rectified DOG
+%      predictions overlaid when fits are available
+%   2) fitted readout/template diagnostics for each successful model
 
 emp = acrossOffsetSummary.empirical;
 offsets = [emp.probeOffsetDeg];
 obsScale = [emp.pooledScale];
 ci68 = vertcat(emp.boot68);
 
-hasReadoutFit = isfield(acrossOffsetSummary, 'readoutModel') && ...
-    isfield(acrossOffsetSummary.readoutModel, 'fit') && ~isempty(acrossOffsetSummary.readoutModel.fit) && ...
-    isfield(acrossOffsetSummary.readoutModel.fit, 'fitSuccess') && acrossOffsetSummary.readoutModel.fit.fitSuccess;
+hasModelCollection = isfield(acrossOffsetSummary, 'readoutModels');
+if hasModelCollection
+    signedRM = acrossOffsetSummary.readoutModels.signedDOG;
+    rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
+else
+    signedRM = acrossOffsetSummary.readoutModel;
+    rectRM   = struct();
+end
 
-% ---- Plot 1: observed scale by offset; overlay prediction if available ----
+hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...
+    isfield(signedRM.fit, 'fitSuccess') && signedRM.fit.fitSuccess;
+hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
+    isfield(rectRM.fit, 'fitSuccess') && rectRM.fit.fitSuccess;
+
+% ---- Plot 1: observed scale by offset; overlay model predictions ----
 fig1 = figure(300); clf; hold on;
 hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci68(:,1)'], [0, ci68(:,2)' - obsScale], ...
-    'bo-', 'LineWidth', 1.2, 'MarkerFaceColor', 'b');
-% plot(0, 1, 'ko', 'MarkerFaceColor', 'k');
+    'ko-', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
-if hasReadoutFit
-    rm = acrossOffsetSummary.readoutModel;
-    predScale = rm.predictedAtMeasuredOffsets;
-    hPred = plot(offsets, predScale, 'k-', 'LineWidth', 2);
-    legend([hObs, hPred], {'Observed pooled scale (68% CI)', 'Predicted from fitted readout'}, 'Location', 'northeast');
-    title(sprintf('Fit to Normalized Scales (%d bootstraps)', opts.NBoot));
+legendHandles = hObs;
+legendLabels = {'Observed pooled scale (68% CI)'};
+signedRM = acrossOffsetSummary.readoutModels.signedDOG;
+rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
+signedLoss = signedRM.fit.goodnessOfFit.weightedLoss;
+rectLoss   = rectRM.fit.goodnessOfFit.weightedLoss;
+if hasSignedFit
+    signedRM = acrossOffsetSummary.readoutModels.signedDOG;
+    hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, ...
+        'm-', 'LineWidth', 1.2);
+    legendHandles(end+1) = hSigned;
+    legendLabels{end+1} = sprintf('Fitted Signed DOG, loss %.3g', signedLoss);
+end
+if hasRectFit
+    rectRM = acrossOffsetSummary.readoutModels.rectifiedDOG;
+    hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, ...
+        'b-', 'LineWidth', 1.2);
+  legendHandles(end+1) = hRect;
+  legendLabels{end+1} = sprintf('Fitted Rectified DOG, loss %.3g', rectLoss);
+end
+legend(legendHandles, legendLabels, 'Location', 'northeast');
+if hasSignedFit || hasRectFit
+    title(sprintf('DOG Fits to Normalized Scales (%d bootstraps)', opts.NBoot));
 else
-    legend(hObs, {'Observed Pooled Normalized Scale (68% CI)'}, 'Location', 'northeast');
     title(sprintf('Normalized Scales (No Fit Over %d bootstraps)', opts.NBoot));
 end
 xlabel('Probe Offset (deg)');
 ylabel('Normalized Scale');
-xlim([0, 180])
+xlim([0, 180]);
 box off;
 saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
 % ---- Plot 2: fitted readout over MT preferred direction ----
-if hasReadoutFit
-  plotReadoutDiagnostics(acrossOffsetSummary, opts);
+if hasSignedFit
+    tmpSummary = acrossOffsetSummary;
+    tmpSummary.readoutModel = signedRM;
+    plotReadoutDiagnostics(tmpSummary, opts);
+end
+if hasRectFit
+    tmpSummary = acrossOffsetSummary;
+    tmpSummary.readoutModel = rectRM;
+    plotReadoutDiagnostics(tmpSummary, opts);
 end
 
 end
@@ -1661,7 +1955,7 @@ end
 % ========================================================================
 function probeOffsetDeg = extractProbeOffsetDeg(inStruct, offsetField)
 
-probeOffsetDeg = NaN;
+probeOffsetDeg = NaN; %#ok<NASGU>
 
 % New preferred contract: summary.sessionProbeHeader.probeDirDeg
 if isfield(inStruct, 'sessionProbeHeader') && isstruct(inStruct.sessionProbeHeader) && ...

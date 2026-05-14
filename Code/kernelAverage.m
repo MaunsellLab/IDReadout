@@ -58,7 +58,6 @@ sessionKStats    = {};
 sessionHitStats  = {};
 sessionCompStats = {};
 sessionProbeHeaders = {};
-sideTypeNames = {};
 initialized = false;
 nSessions = 0;
 
@@ -84,9 +83,6 @@ for f = 1:length(matFiles)
     msPerVFrame   = 1000.0 / frameRateHz;
     initialized   = true;
   end
-  if isempty(sideTypeNames) && isfield(sessionData, 'sideTypeNames')
-    sideTypeNames = sessionData.sideTypeNames;
-  end  
   preStepMS = sessionProbeHeader.preStepMS.data(1);
   stepMS    = sessionProbeHeader.stepMS.data(1);
   vFrames   = size(kernels, 4);
@@ -273,7 +269,7 @@ averageKernelPlotData.probeDirDeg = probeDirDeg;
 averageKernelPlotData.kernels = squeeze(avgKernels(summarySideTypeNum,:,:,:));
 averageKernelPlotData.kVars   = squeeze(avgKVars(summarySideTypeNum,:,:,:));
 
-averageKernelPlotData.sideTypeNames = sideTypeNames;
+[~, averageKernelPlotData.sideTypeNames] = sideTypeIndex();
 averageKernelPlotData.stepTypeNames = {'inc', 'dec'};      % confirm order if needed
 averageKernelPlotData.streamTypeNames = {'pref', 'probe'};
 

@@ -46,7 +46,7 @@ if isempty(dataFiles)
   fprintf('No data .mat files (excluding *_fileInfo.mat) found in %s\n', dataFolder);
   return;
 end
-sideTypeNames = {'diff', 'change', 'noChange', 'L', 'R', 'RF', 'Opp'};
+[~, sideTypeNames] = sideTypeIndex();
 
 % ---- Process each data file ----
 for k = 1:numel(dataFiles)
@@ -131,15 +131,11 @@ for k = 1:numel(dataFiles)
     sessionData.changeIndicesAll = changeIndicesAll;
 
     [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
-    save(matrixFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
-      'prefNoiseByPatch', 'probeNoiseByPatch', ...
-      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', ...
-      'compStats', 'hitStats', '-v7.3');
+    save(matrixFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr','prefNoiseByPatch', 'probeNoiseByPatch', ...
+      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     
-    save(kernelFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
-      'kernels', 'kVars', 'kStats', ...
-      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', ...
-      'compStats', 'hitStats', '-v7.3');
+    save(kernelFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', ...
+      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', compStats', 'hitStats', '-v7.3');
     titleStr = sprintf('\\bf%d° Probe Kernels %s', probeDirDeg, analysisBaseName);
 
     plotKernels(1, titleStr, sessionProbeHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);

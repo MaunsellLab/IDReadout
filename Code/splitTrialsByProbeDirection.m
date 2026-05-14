@@ -21,7 +21,6 @@ trialHasNoise = false(1, nTrials);
 for t = 1:nTrials
   if isfield(trials{t}, 'trial') && isfield(trials{t}.trial, 'data')
     D = trials{t}.trial.data;
-
     if isfield(D, 'cohNoise')
       trialHasNoise(t) = logical(D.cohNoise);
     else
@@ -29,7 +28,6 @@ for t = 1:nTrials
       % Treat them as noise trials unless told otherwise.
       trialHasNoise(t) = true;
     end
-
     if isfield(D, 'probeDirDeg')
       trialProbeDirs(t) = double(D.probeDirDeg);
     end
@@ -130,8 +128,7 @@ else
   for t = 1:numel(probeTrials)
     D = probeTrials{t}.trial.data;
 
-    assert(isfield(D, 'prefCohNoisePC'), ...
-      'makeSessionProbeHeader:MissingPrefCohNoisePC', ...
+    assert(isfield(D, 'prefCohNoisePC'), 'makeSessionProbeHeader:MissingPrefCohNoisePC', ...
       'Missing trial.data.prefCohNoisePC for probe trial %d.', t);
 
     prefCohs(t) = double(D.prefCohNoisePC);
@@ -140,8 +137,7 @@ else
   prefCohs = prefCohs(isfinite(prefCohs));
   prefCohs = unique(round(prefCohs, 6));
 
-  assert(numel(prefCohs) == 1, ...
-    'makeSessionProbeHeader:MixedPrefCohNoisePC', ...
+  assert(numel(prefCohs) == 1, 'makeSessionProbeHeader:MixedPrefCohNoisePC', ...
     'Expected exactly one prefCohNoisePC value in derived probe session.');
 
   H.prefCohNoisePC = struct('data', prefCohs);
@@ -154,8 +150,7 @@ requiredParentFields = {'frameRateHz', 'preStepMS', 'stepMS'};
 
 for f = 1:numel(requiredParentFields)
   fieldName = requiredParentFields{f};
-  assert(isfield(parentHeader, fieldName), ...
-    'makeSessionProbeHeader:MissingParentField', ...
+  assert(isfield(parentHeader, fieldName), 'makeSessionProbeHeader:MissingParentField', ...
     'parentHeader.%s is required for sessionProbeHeader.', fieldName);
   H.(fieldName) = parentHeader.(fieldName);
 end
@@ -175,13 +170,11 @@ trialProbeDirs = nan(1, numel(probeTrials));
 for t = 1:numel(probeTrials)
   D = probeTrials{t}.trial.data;
   if ~isfield(D, 'probeDirDeg')
-    assert(isfield(parentHeader, 'probeDirDeg'), ...
-      'makeSessionProbeHeader:MissingProbeDirDeg', ...
+    assert(isfield(parentHeader, 'probeDirDeg'), 'makeSessionProbeHeader:MissingProbeDirDeg', ...
       'Missing parentHeader.data.probeDirDeg');
     trialProbeDirs(t) = parentHeader.probeDirDeg.data;
   else
-    assert(isfield(D, 'probeDirDeg'), ...
-      'makeSessionProbeHeader:MissingProbeDirDeg', ...
+    assert(isfield(D, 'probeDirDeg'), 'makeSessionProbeHeader:MissingProbeDirDeg', ...
       'Missing trial.data.probeDirDeg for probe trial %d.', t);
     trialProbeDirs(t) = double(D.probeDirDeg);
   end

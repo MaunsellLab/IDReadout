@@ -45,11 +45,7 @@ prefCohNoisePC  = sessionProbeHeader.prefCohNoisePC.data(1);
 probeCohNoisePC = sessionProbeHeader.probeCohNoisePC.data(1);
 
 % side types
-if isfield(sessionData, 'sideTypeNames') && ~isempty(sessionData.sideTypeNames)
-  sideTypeNames = sessionData.sideTypeNames;
-else
-  sideTypeNames = {'diff', 'change', 'noChange', 'L', 'R', 'RF', 'Opp'};
-end
+[~, sideTypeNames] = sideTypeIndex();
 nSideTypes = numel(sideTypeNames);
 
 % sessionwise L/R mapping

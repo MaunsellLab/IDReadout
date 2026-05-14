@@ -13,11 +13,7 @@ if nargin < 1 || isempty(sideType)
     index = [];
     return
 end
-
 index = find(strcmp(sideTypeNames, sideType), 1);
-
-assert(~isempty(index), ...
-    'Unknown sideType "%s". Valid side types are: %s', ...
-    sideType, strjoin(sideTypeNames, ', '));
+assert(~isempty(index), 'Unknown sideType "%s". Valid side types are: %s', sideType, strjoin(sideTypeNames, ', '));
 
 end
