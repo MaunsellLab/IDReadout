@@ -59,6 +59,9 @@ for k = 1:numel(dataFiles)
   % Ensure all the required fields are present
   header = ensureSessionProbeHeaders(header, dataFilePath);
   sessionProbeHeaders = header.sessionProbeHeaders;
+  if excludeFile(header)
+    continue;
+  end
 
   % tally probe directions and check whether any needs processing
   needsKernels = replace;
@@ -131,11 +134,12 @@ for k = 1:numel(dataFiles)
     sessionData.changeIndicesAll = changeIndicesAll;
 
     [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
+    
     save(matrixFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr','prefNoiseByPatch', 'probeNoiseByPatch', ...
       'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     
     save(kernelFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', ...
-      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', compStats', 'hitStats', '-v7.3');
+      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     titleStr = sprintf('\\bf%d° Probe Kernels %s', probeDirDeg, analysisBaseName);
 
     plotKernels(1, titleStr, sessionProbeHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);

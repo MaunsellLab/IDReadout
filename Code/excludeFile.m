@@ -24,7 +24,6 @@ excludedFiles = { ...
   'IDReadout_Meetz_20260114_3.dat'};
 
 targetPrefNoisePC  = 10;
-% targetProbeNoisePCs = [7, 10 / sqrt(2)];  % historical stored value and exact intended value
 tol = 1e-6;
 exclude = false;
 reason = '';

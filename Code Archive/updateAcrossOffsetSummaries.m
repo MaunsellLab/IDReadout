@@ -1169,45 +1169,32 @@ end
 
 % ========================================================================
 function [aPhi, paramStruct] = evaluateReadoutDOG(phiDeg, params)
-% Evaluate DOG readout over MT preferred direction.
+% Evaluate three-parameter DOG readout over MT preferred direction.
 %
-% Three-parameter form, used for the signed-template fit:
+% Readout:
 %   a(phi) = exp(-(phi^2)/(2*sigmaC^2)) ...
 %          - As * exp(-(phi^2)/(2*sigmaS^2))
 %
-% Four-parameter form, used for the rectified-template fit:
-%   a(phi) = B ...
-%          + exp(-(phi^2)/(2*sigmaC^2)) ...
-%          - As * exp(-(phi^2)/(2*sigmaS^2))
-%
 % params:
-%   [sigmaC, sigmaS, As]       signed-template DOG
-%   [sigmaC, sigmaS, As, B]    rectified-template DOG with nonzero asymptote
+%   [sigmaC, sigmaS, As]
 
 phiDeg = phiDeg(:)';
 
-if numel(params) == 3
-    baselineOffset = 0;
-elseif numel(params) == 4
-    baselineOffset = params(4);
-else
-    error(['evaluateReadoutDOG requires params = [sigmaC, sigmaS, As] ' ...
-           'or [sigmaC, sigmaS, As, baselineOffset].']);
+if numel(params) ~= 3
+    error('evaluateReadoutDOG requires params = [sigmaC, sigmaS, As].');
 end
 
 sigmaC = params(1);
 sigmaS = params(2);
 As     = params(3);
 
-aPhi = baselineOffset ...
-     + exp(-(phiDeg.^2) ./ (2 * sigmaC.^2)) ...
+aPhi = exp(-(phiDeg.^2) ./ (2 * sigmaC.^2)) ...
      - As .* exp(-(phiDeg.^2) ./ (2 * sigmaS.^2));
 
 paramStruct = struct( ...
     'sigmaCenterDeg', sigmaC, ...
     'sigmaSurroundDeg', sigmaS, ...
-    'surroundGain', As, ...
-    'baselineOffset', baselineOffset );
+    'surroundGain', As );
 end
 
 % ========================================================================
@@ -1375,17 +1362,17 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   % ---- top panel: readout function ----
   nexttile; hold on;
   hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
-  % hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.5);
+  hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.5);
   plot(phiDeg, zeros(size(phiDeg)), 'k:', 'LineWidth', 1);
   xlabel('\phi (deg)');
   ylabel('a(\phi)');
   title(sprintf('Fitted DOG readout (%s template, %d bootstraps)', templateMode, opts.NBoot));
-  legend(hFitReadout, {'Fitted readout a(\phi)'}, 'Location', 'northeast');
+  legend([hFitReadout, hFlatReadout], [{'Fitted readout a(\phi)'}, {'Flat readout = 1'}], 'Location', 'northeast');
   paramText = cell(rm.nFreeParams, 1);
   for p = 1:rm.nFreeParams
     paramText{p} = sprintf('%s: %.2f', rm.paramNames{p}, rm.params(p));
   end
-  text(-100, 0.95, paramText, 'horizontalAlignment', 'right', 'VerticalAlignment', 'top');
+  text(-120, 0.95, paramText, 'horizontalAlignment', 'right', 'VerticalAlignment', 'top');
   ylimits = ylim();
   ylim([min(0.2, ylimits(1)), max(1.1, ylimits(2))]);
   box off;
@@ -1465,7 +1452,7 @@ parse(p, varargin{:});
 opts = p.Results;
 templateMode = lower(char(string(opts.TemplateMode)));
 
-[p0, lb, ub, paramNames] = initialGuessReadoutDOG(offsetsDeg, opts.Bounds, templateMode);
+[p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, opts.Bounds);
 
 obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel, templateMode);
 
@@ -1537,8 +1524,8 @@ fitResult.fitSuccess = fitConverged;   % backward compatibility
 fitResult.fitUsable = fitUsable;
 fitResult.params = params;
 fitResult.paramStruct = paramStruct;
-fitResult.paramNames = paramNames;
-fitResult.nFreeParams = numel(paramNames);
+fitResult.paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
+fitResult.nFreeParams = 3;
 fitResult.offsetsDeg = offsetsDeg(:)';
 fitResult.observedScale = obsScale(:)';
 fitResult.observedVar = obsVar(:)';
@@ -1558,12 +1545,7 @@ end
 end
 
 % ========================================================================
-function [p0, lb, ub, paramNames] = initialGuessReadoutDOG(offsetsDeg, bounds, templateMode)
-
-if nargin < 3 || isempty(templateMode)
-    templateMode = 'signed';
-end
-templateMode = lower(char(string(templateMode)));
+function [p0, lb, ub] = initialGuessReadoutDOG(offsetsDeg, bounds)
 
 sigmaC0 = max(10, min(50, median(offsetsDeg(offsetsDeg > 0), 'omitnan')));
 if isempty(sigmaC0) || ~isfinite(sigmaC0)
@@ -1576,20 +1558,6 @@ As0 = 0.5;
 p0 = [sigmaC0, sigmaS0, As0];
 lb = [1e-3, 1e-3, 0];
 ub = [300, 300, 10];
-paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
-
-% For the rectified MT template, the template no longer sums to zero. A
-% constant component in the DOG readout is therefore identifiable and lets
-% the readout asymptote to a nonzero value at far-from-preferred directions.
-% Keep the signed-template fit at three parameters for backward compatibility
-% and because this baseline is nulled by the mean-subtracted signed template.
-if strcmp(templateMode, 'rectified')
-    baselineOffset0 = 0;
-    p0 = [p0, baselineOffset0];
-    lb = [lb, -2];
-    ub = [ub,  2];
-    paramNames = [paramNames, {'baselineOffset'}];
-end
 
 if isfield(bounds, 'readoutDOG')
     B = bounds.readoutDOG;
@@ -1601,26 +1569,8 @@ else
     B = struct();
 end
 
-if isfield(B, 'lb')
-    lbUser = B.lb(:)';
-    if numel(lbUser) == numel(lb)
-        lb = lbUser;
-    elseif numel(lbUser) == 3 && numel(lb) == 4
-        lb(1:3) = lbUser;
-    else
-        error('readoutDOG lower bounds must have %d entries, or 3 entries for shared DOG parameters.', numel(lb));
-    end
-end
-if isfield(B, 'ub')
-    ubUser = B.ub(:)';
-    if numel(ubUser) == numel(ub)
-        ub = ubUser;
-    elseif numel(ubUser) == 3 && numel(ub) == 4
-        ub(1:3) = ubUser;
-    else
-        error('readoutDOG upper bounds must have %d entries, or 3 entries for shared DOG parameters.', numel(ub));
-    end
-end
+if isfield(B, 'lb'), lb = B.lb; end
+if isfield(B, 'ub'), ub = B.ub; end
 
 p0 = p0(:);
 lb = lb(:);
@@ -1777,7 +1727,7 @@ hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
 % ---- Plot 1: observed scale by offset; overlay model predictions ----
 fig1 = figure(300); clf; hold on;
 hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci68(:,1)'], [0, ci68(:,2)' - obsScale], ...
-    'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
+    'ko-', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
 legendHandles = hObs;
 legendLabels = {'Observed pooled scale (68% CI)'};

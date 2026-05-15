@@ -29,8 +29,7 @@ function [kernel, kernelVar, stats] = meanPsychKernel(cohMat, trialOutcome, chan
   % ---- Select valid trials ----
   valid = (trialOutcome == 0) | (trialOutcome == 1);
   if ~any(valid)
-    error('meanPsychKernel:NoValidTrials', ...
-      'No trials with outcome 0 or 1 found.');
+    error('meanPsychKernel:NoValidTrials', 'No trials with outcome 0 or 1 found.');
   end
   cohMat = cohMat(:, valid);
   trialOutcome = trialOutcome(valid);

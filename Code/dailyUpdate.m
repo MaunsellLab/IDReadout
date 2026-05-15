@@ -23,7 +23,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     doBootstrap = false;
   end
   if nargin < 3 || isempty(nBoot)
-    nBoot = 10;
+    nBoot = 100;
   end
   if nargin < 4 || isempty(path)
     path = folderPath();

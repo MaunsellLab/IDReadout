@@ -68,8 +68,7 @@ for f = 1:length(matFiles)
   end
   sessionData = load(fullfile(dataFolder, fileName));
   
-  assert(isfield(sessionData, 'sessionProbeHeader'), ...
-    'kernelAverage:MissingSessionProbeHeader', ...
+  assert(isfield(sessionData, 'sessionProbeHeader'), 'kernelAverage:MissingSessionProbeHeader', ...
     'Expected sessionProbeHeader in %s.', fileName);
   
   sessionProbeHeader = sessionData.sessionProbeHeader;
