@@ -58,14 +58,16 @@ if opts.Verbose
     fprintf('updateAcrossOffsetSummaries: scanning %s\n', summaryDir);
 end
 
+% get a list of all session summaries
 sessionList = loadSessionSummaries(opts);
+% create an empty acrossOffsetSummary
 acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList);
 if isempty(sessionList)
     warning('No usable session summaries found in %s.', summaryDir);
     saveAcrossOffsetSummary(opts, acrossOffsetSummary);
     return;
 end
-
+% extract the data for each probe offset
 [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, opts);
 if isempty(offsetData) || all([offsetData.nSessions] == 0)
     warning('No included sessions remain after exclusions. Returning summary without bootstrap/model fits.');
@@ -79,6 +81,7 @@ end
 acrossOffsetSummary.offsetData = offsetData;
 acrossOffsetSummary.meta.offsetKeysDeg = offsetKeys;
 acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
+% load the empirical data from the summaries, including the ci
 empirical = computeEmpiricalSummaries(offsetData, opts);
 acrossOffsetSummary.empirical = empirical;
 
@@ -128,6 +131,72 @@ readoutModels.rectifiedDOG = buildReadoutDOGModelSummary( ...
 acrossOffsetSummary.readoutModels = readoutModels;
 acrossOffsetSummary.readoutModelComparison = compareReadoutDOGModels(readoutModels);
 
+
+
+%% ---- Diagnostic: refit rectified DOG with 10-deg point omitted ----
+% if opts.Verbose
+%     try
+%         omitOffsetDeg = 10;
+%         templateMode = 'rectified';
+% 
+%         keepNo10 = abs(fitOffsetsDeg - omitOffsetDeg) > 1e-9 & ...
+%             isfinite(fitOffsetsDeg) & ...
+%             isfinite(fitScales) & ...
+%             isfinite(fitVars) & ...
+%             fitVars > 0;
+% 
+%         if sum(keepNo10) >= 1
+%             fitNo10 = fitReadoutDOGToScales( ...
+%                 fitOffsetsDeg(keepNo10), ...
+%                 fitScales(keepNo10), ...
+%                 fitVars(keepNo10), ...
+%                 mtModel, ...
+%                 'Bounds', opts.Bounds, ...
+%                 'TemplateMode', templateMode);
+% 
+%             predNo10AtAll = predictNormalizedScaleFromReadout( ...
+%                 fitNo10.params, fitOffsetsDeg, mtModel, ...
+%                 'TemplateMode', templateMode);
+% 
+%             residNo10 = fitScales(:)' - predNo10AtAll(:)';
+%             stdResidNo10 = residNo10 ./ sqrt(fitVars(:)');
+%             lossTermsNo10 = (residNo10 .^ 2) ./ fitVars(:)';
+% 
+%             fprintf('\nRectified DOG diagnostic: fit with %.1f deg omitted\n', omitOffsetDeg);
+%             fprintf('  params:');
+%             fprintf(' %.4g', fitNo10.params);
+%             fprintf('\n');
+%             fprintf('  weighted loss on fitted offsets only: %.4g\n', ...
+%                 fitNo10.goodnessOfFit.weightedLoss);
+%             fprintf('  weighted loss evaluated on all offsets: %.4g\n', ...
+%                 sum(lossTermsNo10, 'omitnan'));
+% 
+%             Tno10 = table( ...
+%                 fitOffsetsDeg(:), ...
+%                 fitScales(:), ...
+%                 predNo10AtAll(:), ...
+%                 fitVars(:), ...
+%                 residNo10(:), ...
+%                 stdResidNo10(:), ...
+%                 lossTermsNo10(:), ...
+%                 keepNo10(:), ...
+%                 'VariableNames', {'offsetDeg','obsScale','predNo10Fit', ...
+%                                   'var','resid','stdResid','lossTerm','usedInFit'});
+%             disp(Tno10);
+%         else
+%             fprintf('\nRectified DOG diagnostic skipped: too few offsets after omitting %.1f deg.\n', ...
+%                 omitOffsetDeg);
+%         end
+% 
+%     catch ME
+%         warning('Rectified DOG no-10 diagnostic failed: %s', ME.message);
+%     end
+% end
+
+
+
+
+
 % Backward compatibility: keep the historical top-level readoutModel field
 % as the standard signed-template DOG fit.
 acrossOffsetSummary.readoutModel = readoutModels.signedDOG;
@@ -147,7 +216,6 @@ if opts.MakePlots
 end
 
 end
-
 
 % ========================================================================
 function rm = buildReadoutDOGModelSummary(modelName, templateMode, ...
@@ -230,8 +298,6 @@ else
     rm.plotOffsetsDeg = 0:1:180;
     rm.plotPredictedScale = [];
 end
-
-
 end
 
 % ========================================================================
@@ -534,8 +600,8 @@ if ~ok || ~isfinite(probeCohNoisePC)
     return;
 end
 
-targetProbeNoisePCs = [7, 10 / sqrt(2)];
-tol = 1e-4;
+targetProbeNoisePCs = [7, 7.07, 10 / sqrt(2)];
+tol = 2e-3;
 
 if all(abs(probeCohNoisePC - targetProbeNoisePCs) > tol)
     exclude = true;
@@ -608,14 +674,11 @@ function [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, ~)
 allOffsets = [sessionList.probeOffsetDeg];
 allOffsets = allOffsets(isfinite(allOffsets));
 offsetKeys = unique(allOffsets(:)');
-
 offsetData = repmat(emptyOffsetStruct(), numel(offsetKeys), 1);
-
 for k = 1:numel(offsetKeys)
     thisOffset = offsetKeys(k);
     idx = [sessionList.probeOffsetDeg] == thisOffset;
     these = sessionList(idx);
-
     includeMask = ~[these.isExcluded];
     included = these(includeMask);
 
@@ -694,8 +757,8 @@ for k = 1:numel(offsetData)
     empirical(k).meanSessionScale = mean(x, 'omitnan');
     empirical(k).medianSessionScale = median(x, 'omitnan');
     empirical(k).semSessionScale  = localSEM(x);
-    empirical(k).boot68           = percentileCI(x, 68);
-    empirical(k).boot95           = percentileCI(x, 95);
+    empirical(k).sessionScale68 = percentileCI(x, 68);
+    empirical(k).sessionScale95 = percentileCI(x, 95);
     empirical(k).nSessions        = offsetData(k).nSessions;
     empirical(k).nTrialsTotal     = offsetData(k).nTrialsTotal;
     empirical(k).distributionSkew = localSkewness(x);
@@ -712,6 +775,8 @@ for k = 1:numel(empirical)
         fname = sprintf('boot%d', round(lvl));
         empirical(k).(fname) = percentileCI(offsetData(k).scaleBySession, lvl);
     end
+    fprintf('      offset %.1f: included %d/%d sessions, %d trials\n', offsetData(k).probeOffsetDeg, ...
+                  offsetData(k).nSessions, offsetData(k).nSessionsTotal, offsetData(k).nTrialsTotal);
 end
 
 end
@@ -722,8 +787,8 @@ function bootstrap = runHierarchicalBootstrap(offsetData, opts)
 %
 % Purpose:
 %   Estimate uncertainty in the pooled psychophysical scale at each tested
-%   probe offset. These offset variances are then used as weights for the
-%   primary MT-readout DOG fit.
+%   probe offset. These offset variances are then used as weights for
+%   MT-readout DOG fits.
 %
 % This function intentionally does not fit any offset-space descriptive
 % model. The active model fit is performed later by fitReadoutDOGToScales.
@@ -735,26 +800,25 @@ bootScaleMat = nan(nBoot, nOffsets);
 
 % Collect bootstrap pooled scales for each offset.
 for b = 1:nBoot
-    for k = 1:nOffsets
-        bootScaleMat(b, k) = computeOffsetPooledScale(offsetData(k), opts, true);
-    end
-
-    if b == 1 || mod(b, max(1, floor(nBoot/10))) == 0
-        fprintf('      bootstrap %d / %d\n', b, nBoot);
-    end
+  for k = 1:nOffsets
+    bootScaleMat(b, k) = computeOffsetPooledScale(offsetData(k), opts, true);
+  end
+  if b == 1 || mod(b, max(1, floor(nBoot/10))) == 0
+    fprintf('      bootstrap %d / %d\n', b, nBoot);
+  end
 end
 
 % Estimate offset-specific variances from the bootstrap distribution.
 offsetFitVar = nan(1, nOffsets);
 for k = 1:nOffsets
-    x = bootScaleMat(:, k);
-    x = x(isfinite(x));
+  x = bootScaleMat(:, k);
+  x = x(isfinite(x));
 
-    if numel(x) >= 2
-        offsetFitVar(k) = var(x, 0);
-    else
-        offsetFitVar(k) = NaN;
-    end
+  if numel(x) >= 2
+    offsetFitVar(k) = var(x, 0);
+  else
+    offsetFitVar(k) = NaN;
+  end
 end
 
 % Variance floor for stable inverse-variance weighting.
@@ -770,39 +834,38 @@ end
 % the normalized readout prediction S(0)=1.
 offsetFitWeights = nan(1, nOffsets);
 for k = 1:nOffsets
-    if isfinite(offsetFitVar(k)) && offsetFitVar(k) > 0
-        offsetFitWeights(k) = 1 ./ max(offsetFitVar(k), varFloor);
-    else
-        offsetFitWeights(k) = 1;
-    end
+  if isfinite(offsetFitVar(k)) && offsetFitVar(k) > 0
+    offsetFitWeights(k) = 1 ./ max(offsetFitVar(k), varFloor);
+  else
+    offsetFitWeights(k) = 1;
+  end
 end
 
 bootstrap = struct();
 bootstrap.bootScaleMat = bootScaleMat;
 
 bootstrap.offsetBootstrap = repmat(struct( ...
-    'probeOffsetDeg', NaN, ...
-    'bootScale', [], ...
-    'bootMean', NaN, ...
-    'bootMedian', NaN, ...
-    'boot68', [NaN NaN], ...
-    'boot95', [NaN NaN]), nOffsets, 1);
+  'probeOffsetDeg', NaN, ...
+  'bootScale', [], ...
+  'bootMean', NaN, ...
+  'bootMedian', NaN, ...
+  'boot68', [NaN NaN], ...
+  'boot95', [NaN NaN]), nOffsets, 1);
 
 for k = 1:nOffsets
-    x = bootScaleMat(:, k);
+  x = bootScaleMat(:, k);
+  bootstrap.offsetBootstrap(k).probeOffsetDeg = offsetData(k).probeOffsetDeg;
+  bootstrap.offsetBootstrap(k).bootScale  = x;
+  bootstrap.offsetBootstrap(k).bootMean   = mean(x, 'omitnan');
+  bootstrap.offsetBootstrap(k).bootMedian = median(x, 'omitnan');
+  bootstrap.offsetBootstrap(k).boot68     = percentileCI(x, 68);
+  bootstrap.offsetBootstrap(k).boot95     = percentileCI(x, 95);
 
-    bootstrap.offsetBootstrap(k).probeOffsetDeg = offsetData(k).probeOffsetDeg;
-    bootstrap.offsetBootstrap(k).bootScale  = x;
-    bootstrap.offsetBootstrap(k).bootMean   = mean(x, 'omitnan');
-    bootstrap.offsetBootstrap(k).bootMedian = median(x, 'omitnan');
-    bootstrap.offsetBootstrap(k).boot68     = percentileCI(x, 68);
-    bootstrap.offsetBootstrap(k).boot95     = percentileCI(x, 95);
-
-    for c = 1:numel(opts.CILevels)
-        lvl = opts.CILevels(c);
-        bootstrap.offsetBootstrap(k).(sprintf('boot%d', round(lvl))) = ...
-            percentileCI(x, lvl);
-    end
+  for c = 1:numel(opts.CILevels)
+    lvl = opts.CILevels(c);
+    bootstrap.offsetBootstrap(k).(sprintf('boot%d', round(lvl))) = ...
+      percentileCI(x, lvl);
+  end
 end
 
 % Keep the name fitBootstrap for minimal downstream disruption, but this is
@@ -816,7 +879,7 @@ bootstrap.fitBootstrap = struct( ...
     'fitWeights', offsetFitWeights, ...
     'note', ['No bootstrap model refits are performed. These fields provide ' ...
              'bootstrap variance estimates and inverse-variance weights for ' ...
-             'the primary readout DOG fit.'] );
+             'readout DOG fits.'] );
 end
 
 % ========================================================================
@@ -1383,7 +1446,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   legend(hFitReadout, {'Fitted readout a(\phi)'}, 'Location', 'northeast');
   paramText = cell(rm.nFreeParams, 1);
   for p = 1:rm.nFreeParams
-    paramText{p} = sprintf('%s: %.2f', rm.paramNames{p}, rm.params(p));
+    paramText{p} = sprintf('%s: %.4f', rm.paramNames{p}, rm.params(p));
   end
   text(-100, 0.95, paramText, 'horizontalAlignment', 'right', 'VerticalAlignment', 'top');
   ylimits = ylim();
@@ -1425,23 +1488,6 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   if ~isempty(char(string(opts.SaveFile)))
       saveas(fig, fullfile(opts.PlotDir, sprintf('ReadoutFunctions_%s.pdf', templateMode)));
   end
-
-  % Print a compact numeric summary to the command window
-  % fprintf('\nReadout overlap diagnostic:\n');
-  % for i = 1:nOffsets
-  %     fprintf(['  delta = %6.1f deg:  <a,Delta m> = %9.4f   ' ...
-  %              'positive = %9.4f   negative = %.2g'], ...
-  %         offsetsDeg(i), overlap(i), posPart(i), negPart(i));
-  %     if ~isnan(predScaleFit(i))
-  %         fprintf('   S_fit(delta) = %.2g', predScaleFit(i));
-  %     end
-  %     if ~isnan(predScaleFlat(i))
-  %         fprintf('   S_flat(delta) = %.2g', predScaleFlat(i));
-  %     else
-  %       fprintf('   S_flat(delta) = undefined (flat readout gives zero overlap)');
-  %     end
-  %     fprintf('\n');
-  % end
 end
 
 % ========================================================================
@@ -1453,10 +1499,16 @@ end
 
 % ========================================================================
 function fitResult = fitReadoutDOGToScales(offsetsDeg, obsScale, obsVar, mtModel, varargin)
-% Fit three-parameter DOG readout to observed non-anchor scale values.
+% Fit DOG readout to observed non-anchor scale values.
+%
+% Supports:
+%   signed template:    [sigmaCenterDeg, sigmaSurroundDeg, surroundGain]
+%   rectified template: [sigmaCenterDeg, sigmaSurroundDeg, surroundGain, baselineOffset]
 %
 % Weighted objective:
 %   sum_i (obsScale_i - predScale_i)^2 / obsVar_i
+%
+% Uses multi-start fmincon to reduce sensitivity to local minima.
 
 p = inputParser;
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
@@ -1467,16 +1519,81 @@ templateMode = lower(char(string(opts.TemplateMode)));
 
 [p0, lb, ub, paramNames] = initialGuessReadoutDOG(offsetsDeg, opts.Bounds, templateMode);
 
-obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel, templateMode);
-
 p0 = p0(:).';
 lb = lb(:).';
 ub = ub(:).';
 p0 = min(max(p0, lb), ub);
 
-params = nan(size(p0));
-loss = NaN;
-exitflag = NaN;
+obj = @(params) readoutDOGObjective(params, offsetsDeg, obsScale, obsVar, mtModel, templateMode);
+
+% ---- Build multi-start list ----
+% First row is the historical single-start initial guess. Subsequent rows
+% deliberately sample narrow, medium, and broad DOGs. The baseline column is
+% appended only for the rectified 4-parameter fit.
+baseStarts3 = [
+    p0(1:min(3,numel(p0)))
+    % 0.01   0.02  2.0
+   %  1.5    2.5    0.5
+   %  2.5    4.0    0.5
+   %  4.0    6.0    0.5
+   %  6.0    9.0    0.5
+   %  8.0   12.0    0.5
+   % 10.0   15.0    0.5
+   % 15.0   25.0    0.5
+   % 25.0   50.0    0.5
+   % 40.0   90.0    0.5
+   % 75.0  150.0    0.5
+   %  2.5    4.0    1.0
+   %  5.0    8.0    1.0
+   % 10.0   15.0    1.0
+   % 15.0   25.0    1.0
+   % 25.0   50.0    1.0
+   % 40.0   90.0    1.0
+   %  5.0   20.0    0.25
+   % 10.0   40.0    0.25
+   % 25.0   90.0    0.25
+];
+
+% Remove accidental duplicate rows before adding the rectified baseline.
+baseStarts3 = unique(baseStarts3, 'rows', 'stable');
+
+if numel(p0) == 3
+    startParams = baseStarts3;
+elseif numel(p0) == 4
+    % Try several baseline offsets. Include zero first so the original
+    % rectified behavior remains one of the candidate starts.
+    baselineStarts = [0, -0.2, 0.2, -0.5, 0.5];
+    startParams = [];
+    for iB = 1:numel(baselineStarts)
+        startParams = [startParams; ...
+            baseStarts3, repmat(baselineStarts(iB), size(baseStarts3, 1), 1)]; %#ok<AGROW>
+    end
+else
+    error('fitReadoutDOGToScales:BadParamCount', ...
+        'Expected 3 or 4 DOG parameters, got %d.', numel(p0));
+end
+
+% Respect user-supplied bounds and remove starts that cannot be finite.
+for iStart = 1:size(startParams, 1)
+    startParams(iStart,:) = min(max(startParams(iStart,:), lb), ub);
+end
+startParams = unique(startParams, 'rows', 'stable');
+
+% ---- Run fmincon from each start and keep the best finite objective ----
+bestParams = nan(size(p0));
+bestLoss = Inf;
+bestExitflag = NaN;
+bestStartIndex = NaN;
+fitSuccessAny = false;
+
+startLog = repmat(struct( ...
+    'startIndex', NaN, ...
+    'pStart', [], ...
+    'pFit', [], ...
+    'loss', NaN, ...
+    'exitflag', NaN, ...
+    'success', false, ...
+    'message', ''), size(startParams, 1), 1);
 
 try
     fminconOpts = optimoptions( ...
@@ -1484,61 +1601,91 @@ try
         'Display', 'off', ...
         'Algorithm', 'interior-point');
 
-    [params, loss, exitflag] = fmincon( ...
-        obj, ...
-        p0, ...
-        [], [], [], [], ...
-        lb, ub, ...
-        [], ...
-        fminconOpts);
+    for iStart = 1:size(startParams, 1)
+        pStart = startParams(iStart,:);
 
-    fitSuccess = exitflag > 0 && all(isfinite(params));
+        startLog(iStart).startIndex = iStart;
+        startLog(iStart).pStart = pStart;
+
+        try
+            [pFit, fval, exitflag] = fmincon( ...
+                obj, ...
+                pStart, ...
+                [], [], [], [], ...
+                lb, ub, ...
+                [], ...
+                fminconOpts);
+
+            thisSuccess = exitflag > 0 && all(isfinite(pFit)) && isfinite(fval);
+
+            startLog(iStart).pFit = pFit;
+            startLog(iStart).loss = fval;
+            startLog(iStart).exitflag = exitflag;
+            startLog(iStart).success = thisSuccess;
+
+            if thisSuccess
+                fitSuccessAny = true;
+            end
+
+            % Keep the best finite solution, even if fmincon reports a
+            % nonpositive exit flag. This avoids discarding useful boundary
+            % solutions while preserving fitSuccessAny separately.
+            if all(isfinite(pFit)) && isfinite(fval) && fval < bestLoss
+                bestParams = pFit;
+                bestLoss = fval;
+                bestExitflag = exitflag;
+                bestStartIndex = iStart;
+            end
+
+        catch MEstart
+            startLog(iStart).message = MEstart.message;
+        end
+    end
+
 catch ME
-    warning('fmincon failed in fitReadoutDOGToScales: %s', ME.message);
-    fitSuccess = false;
+    warning('fmincon setup failed in fitReadoutDOGToScales: %s', ME.message);
 end
 
-fitConverged = fitSuccess;
-fitUsable = all(isfinite(params));
+params = bestParams;
+loss = bestLoss;
+exitflag = bestExitflag;
 
-if fitUsable
-    predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, ...
-        'TemplateMode', templateMode).';
-    fitUsable = all(isfinite(predMeasured));
-end
+fitConverged = fitSuccessAny && all(isfinite(params)) && isfinite(loss);
+fitUsable = all(isfinite(params)) && isfinite(loss);
 
-if fitUsable
-    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
-    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
-    fitUsable = isfinite(gof.weightedLoss);
-else
-    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
-end
-
-predMeasured = nan(size(offsetsDeg));
+predMeasured = nan(size(offsetsDeg(:)'));
 paramStruct = struct();
-gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
 
-if fitSuccess
+if fitUsable
     predMeasured = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel, ...
-        'TemplateMode', templateMode).';
-    [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
-    gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
+        'TemplateMode', templateMode);
+    predMeasured = predMeasured(:).';
+
+    fitUsable = all(isfinite(predMeasured));
+
+    if fitUsable
+        [~, paramStruct] = evaluateReadoutDOG(mtModel.phiDeg, params);
+    end
 end
+
+gof = computeReadoutGoodnessOfFit(obsScale, predMeasured, obsVar, numel(p0));
+fitUsable = fitUsable && isfinite(gof.weightedLoss);
 
 fitResult = struct();
 fitResult.modelName = 'dog_readout';
 fitResult.templateMode = templateMode;
-fitResult.fitSuccess = fitSuccess;
+
+fitResult.fitSuccess = fitConverged;
 fitResult.loss = loss;
 fitResult.exitflag = exitflag;
 fitResult.fitConverged = fitConverged;
-fitResult.fitSuccess = fitConverged;   % backward compatibility
 fitResult.fitUsable = fitUsable;
+
 fitResult.params = params;
 fitResult.paramStruct = paramStruct;
 fitResult.paramNames = paramNames;
 fitResult.nFreeParams = numel(paramNames);
+
 fitResult.offsetsDeg = offsetsDeg(:)';
 fitResult.observedScale = obsScale(:)';
 fitResult.observedVar = obsVar(:)';
@@ -1548,13 +1695,23 @@ fitResult.standardizedResiduals = gof.standardizedResiduals;
 fitResult.goodnessOfFit = gof;
 fitResult.phiDeg = mtModel.phiDeg;
 
-if fitSuccess
+% New diagnostics for the multi-start search.
+fitResult.multistart = struct();
+fitResult.multistart.nStarts = size(startParams, 1);
+fitResult.multistart.starts = startParams;
+fitResult.multistart.bestStartIndex = bestStartIndex;
+fitResult.multistart.startLog = startLog;
+fitResult.multistart.note = ...
+    'Best finite weighted-loss solution retained across multiple fmincon starts.';
+
+if fitUsable
     fitResult.readoutPhiRaw = evaluateReadoutDOG(mtModel.phiDeg, params);
     fitResult.readoutPhi = normalizeReadoutAtPreferred(mtModel.phiDeg, fitResult.readoutPhiRaw);
 else
     fitResult.readoutPhiRaw = nan(size(mtModel.phiDeg));
     fitResult.readoutPhi = nan(size(mtModel.phiDeg));
 end
+
 end
 
 % ========================================================================
@@ -1563,7 +1720,7 @@ function [p0, lb, ub, paramNames] = initialGuessReadoutDOG(offsetsDeg, bounds, t
 if nargin < 3 || isempty(templateMode)
     templateMode = 'signed';
 end
-templateMode = lower(char(string(templateMode)));
+templateMode = char(string(templateMode));
 
 sigmaC0 = max(10, min(50, median(offsetsDeg(offsetsDeg > 0), 'omitnan')));
 if isempty(sigmaC0) || ~isfinite(sigmaC0)
@@ -1583,7 +1740,7 @@ paramNames = {'sigmaCenterDeg', 'sigmaSurroundDeg', 'surroundGain'};
 % the readout asymptote to a nonzero value at far-from-preferred directions.
 % Keep the signed-template fit at three parameters for backward compatibility
 % and because this baseline is nulled by the mean-subtracted signed template.
-if strcmp(templateMode, 'rectified')
+if strcmpi(templateMode, 'rectified')
     baselineOffset0 = 0;
     p0 = [p0, baselineOffset0];
     lb = [lb, -2];
@@ -1758,7 +1915,15 @@ function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
 emp = acrossOffsetSummary.empirical;
 offsets = [emp.probeOffsetDeg];
 obsScale = [emp.pooledScale];
-ci68 = vertcat(emp.boot68);
+ci68 = vertcat(emp.boot68);   % fallback only
+ci95 = vertcat(emp.boot95);   % fallback only
+
+if isfield(acrossOffsetSummary, 'bootstrap') && ...
+        isfield(acrossOffsetSummary.bootstrap, 'offsetBootstrap') && ...
+        numel(acrossOffsetSummary.bootstrap.offsetBootstrap) == numel(emp)
+    ci68 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot68);
+    ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
+end
 
 hasModelCollection = isfield(acrossOffsetSummary, 'readoutModels');
 if hasModelCollection
@@ -1774,28 +1939,26 @@ hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...
 hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
     isfield(rectRM.fit, 'fitSuccess') && rectRM.fit.fitSuccess;
 
-% ---- Plot 1: observed scale by offset; overlay model predictions ----
+% ---- Plot 1: observed and fit scale by offset ----
 fig1 = figure(300); clf; hold on;
-hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci68(:,1)'], [0, ci68(:,2)' - obsScale], ...
+hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci95(:,1)'], [0, ci95(:,2)' - obsScale], ...
     'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
 legendHandles = hObs;
-legendLabels = {'Observed pooled scale (68% CI)'};
+legendLabels = {'Observed pooled scale (95% CI)'};
 signedRM = acrossOffsetSummary.readoutModels.signedDOG;
 rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
 signedLoss = signedRM.fit.goodnessOfFit.weightedLoss;
 rectLoss   = rectRM.fit.goodnessOfFit.weightedLoss;
 if hasSignedFit
     signedRM = acrossOffsetSummary.readoutModels.signedDOG;
-    hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, ...
-        'm-', 'LineWidth', 1.2);
+    hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, 'm-', 'LineWidth', 1.2);
     legendHandles(end+1) = hSigned;
     legendLabels{end+1} = sprintf('Fitted Signed DOG, loss %.3g', signedLoss);
 end
 if hasRectFit
     rectRM = acrossOffsetSummary.readoutModels.rectifiedDOG;
-    hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, ...
-        'b-', 'LineWidth', 1.2);
+    hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, 'b-', 'LineWidth', 1.2);
   legendHandles(end+1) = hRect;
   legendLabels{end+1} = sprintf('Fitted Rectified DOG, loss %.3g', rectLoss);
 end

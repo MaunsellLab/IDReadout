@@ -157,7 +157,7 @@ if doBootstrap
   bootNormIntegrals = nan([size(avgCompStats.normIntegrals), nBoot]);
   for b = 1:nBoot
     if mod(b, 25) == 0
-      fprintf('     bootstrap %d of %d\n', b, nBoot);
+      fprintf('      bootstrap %d of %d\n', b, nBoot);
     end
     bootSessionIdx = randi(nSessions, [1 nSessions]);
     bootSessionKernels = cell(1, nSessions);
@@ -375,7 +375,8 @@ function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitu
 % scales with noise variance. Therefore, converting a probe kernel measured
 % at probeCohNoisePC to the equivalent prefCohNoisePC convention requires:
 %
-%   K_probe_norm = K_probe_raw * (prefCohNoisePC / probeCohNoisePC)^2
+%   K_probe_norm = K_probe_raw * ...
+%       (prefCohNoisePC / (nYokedProbeStreams * probeCohNoisePC))^2
 
 normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader);
 probeNormFactor = normInfo.probeNormFactor;

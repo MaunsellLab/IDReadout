@@ -23,7 +23,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     doBootstrap = false;
   end
   if nargin < 3 || isempty(nBoot)
-    nBoot = 100;
+    nBoot = 500;
   end
   if nargin < 4 || isempty(path)
     path = folderPath();
@@ -33,18 +33,18 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
   end
   path = char(path);
 
-  fprintf('>>> dailyUpdate start ---\n');
+  fprintf('>>> dailyUpdate start\n');
 
   % ---- Convert raw files ----
-  fprintf('  >> convertIDRData start ---\n');
+  fprintf('  >> convertIDRData start\n');
   convertIDRData;
-  fprintf('  << convertIDRData complete ---\n');
+  fprintf('  << convertIDRData complete\n');
 
   % ---- Session-level probe-specific kernels/noise matrices ----
-  fprintf('  >> makeKernels start ---\n');
+  fprintf('  >> makeKernels start\n');
   [allProbeDirs, staleProbeDirs] = makeKernels(replace, path);
   anythingChanged = replace || ~isempty(staleProbeDirs);
-  fprintf('  << makeKernels complete ---\n');
+  fprintf('  << makeKernels complete\n');
 
   allProbeDirs = unique(allProbeDirs);
   staleProbeDirs = unique(staleProbeDirs);
@@ -58,44 +58,44 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
 
   % ---- Per-session summaries ----
   if isempty(refreshProbeDirs)
-    fprintf('    no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
+    fprintf('      no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
   else
     sessionsDirs = probeDirsToSessionDirs(refreshProbeDirs);
 
-    fprintf('  >> makeKernelSessionSummaries start ---\n');
+    fprintf('  >> makeKernelSessionSummaries start\n');
     makeKernelSessionSummaries('path', path, 'sessionsDirs', sessionsDirs, 'replace', replace, 'doBootstrap', false);
-    fprintf('  << makeKernelSessionSummaries complete ---\n');
+    fprintf('  << makeKernelSessionSummaries complete\n');
 
     % ---- Average-kernel plots ----
-    fprintf('  >> kernelAverage start ---\n');
+    fprintf('  >> kernelAverage start\n');
     for p = refreshProbeDirs(:).'
       probeTag = sprintf('probe%d', round(p));
-      fprintf('      Updating average for %s\n', probeTag);
+      fprintf('      updating average for %s\n', probeTag);
       kernelAverage(true, 50, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
           'plotFolder', fullfile(path, 'Plots', 'AverageKernels'), 'probeDirDeg', p);
     end
-    fprintf('  << kernelAverage complete ---\n');
+    fprintf('  << kernelAverage complete\n');
   end
 
-  fprintf('  >> plotSideTypeKernelAverage start ---\n');
+  fprintf('  >> plotSideTypeKernelAverage start\n');
   plotSideTypeKernelAverage();
-  fprintf('  << plotSideTypeKernelAverage complete ---\n');
+  fprintf('  << plotSideTypeKernelAverage complete\n');
   % ---- Across-offset summary update ----
   % This should run even when no single-session files were stale, because it
   % is cheap relative to the pipeline and keeps summary/plots synchronized
   % with any manual changes to summaries or exclusion rules.
   % ---- Across-offset summary update ----
   if anythingChanged || doBootstrap || forceAcrossOffset
-    fprintf('  >> updateAcrossOffsetSummaries start ---\n');
+    fprintf('  >> updateAcrossOffsetSummaries start\n');
     acrossOffsetSummary = updateAcrossOffsetSummaries(fullfile(path, 'Data'), ...
       'SaveFile', fullfile(path, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat'), ...
       'PlotDir', fullfile(path, 'Plots', 'ReadoutFits'),'NBoot', nBoot, 'RandomSeed', 1, ...
       'MakePlots', true); %#ok<NASGU>
-    fprintf('  << updateAcrossOffsetSummaries complete ---\n');
+    fprintf('  << updateAcrossOffsetSummaries complete\n');
   else
-    fprintf('    no session-level updates detected; skipping across-offset bootstrap/fits.\n');
+    fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');
   end
-  fprintf('<<< Daily update complete ---\n');
+  fprintf('<<< daily update complete\n');
 end
 
 %% probeDirsToSessionDirs()

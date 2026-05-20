@@ -187,7 +187,7 @@ ax = gobjects(nProbes, nSteps);
 prefLine = gobjects(1, nSteps);
 probeLine = gobjects(1, nSteps);
 plotTitles = {'Decrement', 'Increment'};
-newYL = [overallYMin overallYMax];
+% newYL = [overallYMin overallYMax];
 
 for p = 1:nProbes
   D = plotData{p};
@@ -197,23 +197,23 @@ for p = 1:nProbes
     % with decrement on the left and increment on the right.
     ax(p, s) = nexttile((p - 1) * nSteps + 3 - s);
     hold on;
-
-    % Gray patches first, so kernels are on top.
+    [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(D.kernels(s, 1, :)), sqrt(D.kVars(s, 1)), [0, 0, 1]);
+    [~, probeLine(s)] = plotWithConstSEM(xValues, squeeze(D.kernels(s, 2, :)), sqrt(D.kVars(s, 2)), [0.7, 0, 0.7]);
+    plot([1, xValues(end)], [0, 0], 'k-');
+    plot([1, xValues(end)], [0, 0], 'k-');
+    yline(1, ':', 'Color', [0.5 0.5 0.5]);
+    yline(-1, ':', 'Color', [0.5 0.5 0.5]);
+    % Gray patches.
+    newYL = ylim();
     patch([preStepVF trialDurVF trialDurVF preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
       [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none');
     patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
       [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none');
-    plot([1, xValues(end)], [0, 0], 'k-');
-    yline( 2, ':', 'Color', [0.5 0.5 0.5]);
-    yline(-2, ':', 'Color', [0.5 0.5 0.5]);
-    [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(D.kernels(s, 1, :)), sqrt(D.kVars(s, 1)), [0, 0, 1]);
-    [~, probeLine(s)] = plotWithConstSEM(xValues, squeeze(D.kernels(s, 2, :)), sqrt(D.kVars(s, 2)), [0.7, 0, 0.7]);
-    plot([1, xValues(end)], [0, 0], 'k-');
 
     textStr = makeKernelStatsText(D, s);
     text(0.02, 0.98, textStr, 'units', 'normalized',  'VerticalAlignment', 'top',  'fontSize', 9);
 
-    ylim(newYL);
+    % ylim(newYL);
     xlim([1 xValues(end)]);
     xticks(xTickVals);
     xticklabels(xTickLabels);

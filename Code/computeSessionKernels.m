@@ -1,6 +1,6 @@
 function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, changeSidesByCond, changeIndicesByCond] = ...
   computeSessionKernels(sessionData, trialIdx)
-% sessionKernelFromSaved
+% computeSessionKernels
 % Recomputes the full nSideTypes x 2 x 2 kernel set from saved patchwise noise matrices.
 % If trialIdx is provided, trials are resampled/reordered accordingly.
 % This function is used both for ordinary per-session analysis and for
@@ -29,11 +29,9 @@ if nargin < 2 || isempty(trialIdx)
   trialIdx = 1:size(sessionData.prefNoiseByPatch, 3);
 end
 assert(isfield(sessionData, 'sessionProbeHeader') && ~isempty(sessionData.sessionProbeHeader), ...
-  'computeSessionKernels:MissingSessionProbeHeader', ...
-  'sessionData.sessionProbeHeader is required.');
+  'computeSessionKernels:MissingSessionProbeHeader', 'sessionData.sessionProbeHeader is required.');
 
 sessionProbeHeader = sessionData.sessionProbeHeader;
-
 prefNoiseAll     = sessionData.prefNoiseByPatch(:, :, trialIdx);
 probeNoiseAll    = sessionData.probeNoiseByPatch(:, :, trialIdx);
 trialOutcomesAll = sessionData.trialOutcomesAll(trialIdx);
@@ -41,8 +39,21 @@ changeSidesAll   = sessionData.changeSidesAll(trialIdx);
 changeIndicesAll = sessionData.changeIndicesAll(trialIdx);
 
 % Pull amplitudes from the authoritative per-probe session metadata.
+% probeCohNoisePC is the single-stream probe noise amplitude stored in the
+% experimental file. probeNoiseByPatch has already been converted to the
+% effective yoked-probe perturbation, so kernel estimation must use the
+% corresponding combined probe amplitude.
 prefCohNoisePC  = sessionProbeHeader.prefCohNoisePC.data(1);
 probeCohNoisePC = sessionProbeHeader.probeCohNoisePC.data(1);
+
+if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
+  error('computeSessionKernels:BadNoiseAmplitude', ...
+    'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
+    prefCohNoisePC, probeCohNoisePC);
+end
+
+nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
+combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
 
 % side types
 [~, sideTypeNames] = sideTypeIndex();
@@ -84,13 +95,10 @@ for sideType = 1:nSideTypes
 
   for s = 1:2   % 1=DEC, 2=INC
     useTrials = (changeIndicesAll == s);
-
     prefNoiseStep  = prefNoiseAll(:, :, useTrials);
     probeNoiseStep = probeNoiseAll(:, :, useTrials);
-
     prefNoiseStep  = forcePatchNoise3D(prefNoiseStep, m);
     probeNoiseStep = forcePatchNoise3D(probeNoiseStep, m);
-
     trialOutcomesByCond{sideType, s} = trialOutcomesAll(useTrials);
     changeSidesByCond{sideType, s}   = changeSidesAll(useTrials);
     changeIndicesByCond{sideType, s} = changeIndicesAll(useTrials);
@@ -102,7 +110,7 @@ for sideType = 1:nSideTypes
       prefMat, trialOutcomesByCond{sideType, s}, changeSidesByCond{sideType, s}, ampScale * prefCohNoisePC);
 
     [kernels(sideType, s, 2, :), kVars(sideType, s, 2), kStats(sideType, s, 2)] = meanPsychKernel( ...
-      probeMat, trialOutcomesByCond{sideType, s}, changeSidesByCond{sideType, s}, ampScale * probeCohNoisePC);
+      probeMat, trialOutcomesByCond{sideType, s}, changeSidesByCond{sideType, s}, ampScale * combinedProbeCohNoisePC);
   end
 end
 
@@ -155,15 +163,6 @@ compStats = struct;
   kernelScaleFit(kernels, msPerVFrame);
 
 % Normalized compStats
-if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
-  error('computeSessionKernels:BadNoiseAmplitude', ...
-    'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
-    prefCohNoisePC, probeCohNoisePC);
-end
-
-nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
-combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
-
 probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
 kernelsNorm = kernels;
 kVarsNorm   = kVars;
@@ -171,8 +170,7 @@ kVarsNorm   = kVars;
 kernelsNorm(:, :, 2, :) = kernelsNorm(:, :, 2, :) * probeNormFactor;
 kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
 
-[compStats.normIntegrals, compStats.normR, compStats.normRVar] = ...
-  kernelIntegral(kernelsNorm, kVarsNorm, msPerVFrame);
+[compStats.normIntegrals, compStats.normR, compStats.normRVar] = kernelIntegral(kernelsNorm, kVarsNorm, msPerVFrame);
 [compStats.normScale, compStats.normScaleSEM, compStats.normFitR2, compStats.normSSE] = ...
   kernelScaleFit(kernelsNorm, msPerVFrame);
 
@@ -183,8 +181,9 @@ compStats.normInfo.probeNormFactor = probeNormFactor;
 compStats.normInfo.nYokedProbeStreams = nYokedProbeStreams;
 compStats.normInfo.combinedProbeCohNoisePC = combinedProbeCohNoisePC;
 compStats.normInfo.method = ...
-  'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
-
+  ['probeNoiseByPatch stores effective yoked probe noise; probe kernels are ' ...
+   'normalized by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 ' ...
+   'before computing normalized ratios/scales'];
 % Legacy aliases: preserve old downstream behavior for now.
 compStats.kIntegrals = compStats.rawIntegrals;
 compStats.R          = compStats.rawR;

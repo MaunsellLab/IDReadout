@@ -6,6 +6,9 @@ function [prefNoise, probeNoise, trialOutcomes, changeSides, changeIndices] = ..
 % OUTPUTS
 %   prefNoise      : 2 x m x nTrials   (1=RF, 2=Opp)
 %   probeNoise     : 2 x m x nTrials   (1=RF, 2=Opp)
+%                    Effective probe noise. For paired yoked probes, the
+%                    single-stream probe coherence noise is multiplied by
+%                    nYokedProbeStreams before storage.
 %   trialOutcomes  : 1 x nTrials       (0=correct, 1=wrong)
 %   changeSides    : 1 x nTrials       (0=RF changed, 1=Opp changed)
 %   changeIndices  : 1 x nTrials       (1=DEC, 2=INC)
@@ -58,6 +61,8 @@ end
 msPerVFrame = 1000.0 / sessionProbeHeader.frameRateHz.data(1);
 m = round((sessionProbeHeader.preStepMS.data(1) + sessionProbeHeader.stepMS.data(1)) / msPerVFrame);
 
+nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
+
 prefNoise  = nan(2, m, nValid);
 probeNoise = nan(2, m, nValid);
 
@@ -68,6 +73,12 @@ for kk = 1:nValid
   probeChange   = fillFromTimes(tr.changeProbeCohsPC.data(:),   tr.changeTimesMS.data(:),   m, msPerVFrame);
   prefNoChange  = fillFromTimes(tr.noChangePrefCohsPC.data(:),  tr.noChangeTimesMS.data(:), m, msPerVFrame);
   probeNoChange = fillFromTimes(tr.noChangeProbeCohsPC.data(:), tr.noChangeTimesMS.data(:), m, msPerVFrame);
+  
+  % The stored probe coherence stream is the scalar used for each member of
+  % the yoked pair. For kernel estimation, probeNoise should represent the
+  % effective perturbation delivered by the paired probe streams.
+  probeChange   = nYokedProbeStreams * probeChange;
+  probeNoChange = nYokedProbeStreams * probeNoChange;
 
   if tr.trial.data.changeSide == 0
     % RF changed, Opp noChange
@@ -122,6 +133,36 @@ for tIndex = 1:nTimes
 end
 end
 
-% function tf = isNoNoise(x)
-% tf = isscalar(x) && isequal(x, 0);
-% end
+function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
+% Number of yoked probe streams represented by the effective probe-noise
+% variable.
+%
+%   0 < probeDirDeg < 180 : paired yoked streams at +/- probeDirDeg
+%   probeDirDeg == 180   : legacy single opposite-direction stream
+
+assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
+  'extractPatchNoiseMatrices:MissingProbeDir', ...
+  'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
+
+probeDirDeg = localHeaderScalar(sessionProbeHeader.probeDirDeg);
+probeDirDeg = abs(double(probeDirDeg));
+
+if probeDirDeg > 0 && probeDirDeg < 180
+  n = 2;
+elseif abs(probeDirDeg - 180) < 1e-9
+  n = 1;
+else
+  error('extractPatchNoiseMatrices:UnsupportedProbeDir', ...
+    'Unsupported probeDirDeg for probe noise extraction: %g.', probeDirDeg);
+end
+end
+
+function x = localHeaderScalar(v)
+% Accept either modern scalar fields or older struct-with-data fields.
+
+if isstruct(v) && isfield(v, 'data')
+  v = v.data;
+end
+
+x = v(1);
+end

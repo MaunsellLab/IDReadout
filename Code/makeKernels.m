@@ -71,7 +71,7 @@ for k = 1:numel(dataFiles)
     allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
   
     if ~replace
-    probeTag = char(sessionProbeHeaders(p).probeTag);
+      probeTag = char(sessionProbeHeaders(p).probeTag);
       analysisBaseName = sprintf('%s_%s', baseName, probeTag);
 
       probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
@@ -107,7 +107,8 @@ for k = 1:numel(dataFiles)
     probeDirDeg = probeSessions(p).probeDirDeg;
     probeTag = probeSessions(p).probeTag;
     sessionProbeHeader = probeSessions(p).sessionProbeHeader;
-    probeTrials = probeSessions(p).trials;    analysisBaseName = sprintf('%s_%s', baseName, probeTag);
+    probeTrials = probeSessions(p).trials;
+    analysisBaseName = sprintf('%s_%s', baseName, probeTag);
 
     probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
     probeDataFolder = validFolder(fullfile(path, 'Data', probeTag));
