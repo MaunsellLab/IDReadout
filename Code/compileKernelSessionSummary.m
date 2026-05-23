@@ -1,21 +1,15 @@
 function summary = compileKernelSessionSummary(kernelFile, varargin)
 % compileKernelSessionSummary
 %
-% Build and optionally save a lightweight per-session summary for tracking
-% one selected kernel scale across sessions.
+% Build a deterministic lightweight summary from one kernel file.
+% The output file contains:
+%   summary
+%   sessionHeader
+%   sessionProbeHeader
 %
-% Uses:
-%   - Kernels file for observed metrics and sessionProbeHeader
-%   - NoiseMatrices file for within-session trial bootstrap
-%
-% Default tracked entry:
-%   sideType = 2   ('changeSide')
-%   stepType = 2   ('INC')
-%
-% Example:
-%   compileKernelSessionSummary( ...
-%     '/Users/Shared/Data/IDReadout/Data/Kernels/IDReadout_Meetz_20260402.mat', ...
-%     'doBootstrap', true, 'nBoot', 500);
+% KernelSummary files do not store per-session bootstrap results. Bootstrap
+% uncertainty for the readout analysis is computed fresh by
+% updateAcrossOffsetSummaries using hierarchical resampling.
 
 P = inputParser;
 addParameter(P, 'noiseFile', '', @ischar);

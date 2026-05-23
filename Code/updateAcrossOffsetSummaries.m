@@ -24,27 +24,18 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 %       lr
 %       sideTypeNames
 %
-%   The original parent file header is not part of the downstream contract.
-%   Any remaining support for header/blockStatus access is transitional
-%   compatibility only and should not be used by newly generated derived
-%   files.
+%   % updateAcrossOffsetSummaries
 %
-% READOUT-FIT ELIGIBILITY
-%   Kernel generation and averaging include all sessions not excluded by
-%   excludeFile.m. This function applies additional readout-fit exclusions
-%   internally, currently requiring paired-probe offsets:
-%       1 < probeOffsetDeg < 180
-%   and paired-probe noise amplitudes:
-%       probeCohNoisePC == 7 or 10/sqrt(2), within tolerance.
+% Consumes KernelSummary files produced by compileKernelSessionSummary /
+% makeKernels. Each KernelSummary file must contain top-level variables:
+%   summary
+%   sessionHeader
+%   sessionProbeHeader
 %
-%   Thus legacy 180 deg single-stream sessions may be processed and averaged
-%   upstream, but are excluded here from the paired-probe readout fit.
-%   Also, brief testing at 1° are excluded because they were sparse and
-%   uninformative.
-% This function loads previously saved per-session summary files, groups them
-% by probe offset, applies readout-fit eligibility criteria, performs
-% across-offset bootstrap resampling, fits the readout model, and saves a
-% single across-offset summary structure.
+% This function constructs explicit per-session records from those objects,
+% applies readout-fit eligibility rules, performs hierarchical bootstrap
+% resampling from the source noise-matrix files, and fits the MT-readout
+% model across probe offsets.
 % -------------------------------------------------------------------------
     
 if nargin < 1 || isempty(summaryDir)

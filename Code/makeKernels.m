@@ -1,28 +1,29 @@
   function [allProbeDirs, staleProbeDirs] = makeKernels(replace)
-% makeKernels  Generate kernel, noise-matrix, and plot files for converted session files.
-%   makeKernels is the ordinary producer of per-probe derived products:
-%       NoiseMatrices
-%       Kernels
-%       KernelSummaries
-%       Kernel plots
+% makeKernels  Build all ordinary per-probe derived analysis products.
 %
-%   makeKernelSessionSummaries remains a batch backfill/repair utility for
-%   rebuilding KernelSummary files from existing kernel files.%
-%   staleProbeDirs = makeKernels(replace)
-%       If replace is false (default), only computes missing outputs.
-%       If replace is true, recomputes all kernels and plots even if they exist.
+% makeKernels is the authoritative producer of analysis headers:
 %
-%   Directory conventions:
-%       Converted data files:   path/Data/Converted/*.mat   (excluding *_fileInfo.mat)
-%       Kernel .mat files:      path/Data/Kernels/<baseName>.mat
-%       Noise matrix .mat files:path/Data/NoiseMatrices/<baseName>.mat
-%       Kernel plot PDFs:       path/Plots/Kernels/<baseName>/<baseName>_probeXX.pdf
-%       Kernel summary files:   path/Data/probeXX/KernelSummaries/<baseName>_probeXX_kernelSummary.mat
+%   sessionHeader
+%       Parent-session metadata shared by all probe splits.
+%       Includes timing, preferred direction/noise amplitude, and the
+%       session-level probe manifest:
+%           probeDirectionsDeg
+%           probeTags
+%
+%   sessionProbeHeader
+%       Probe-specific metadata for one derived probe session.
+%       Includes probeDirDeg, probeTag, trialIdx, probeCohNoisePC, and
+%       probe-session trial counts.
+%
+% Derived per-probe files written by makeKernels contain both headers:
+%   Data/probeXX/NoiseMatrices
+%   Data/probeXX/Kernels
+%   Data/probeXX/KernelSummaries
+%
+% Aggregate files, such as average kernels and across-offset summaries, do
+% not contain a single sessionHeader/sessionProbeHeader because they span
+% multiple sessions.
 
-%   Output:
-%       staleProbeDirs          Unique probeDirDeg values for sessions whose
-%                               outputs were newly created or updated.
-% ---- Handle inputs ----
 if nargin < 1 || isempty(replace)
   replace = false;
 end
