@@ -1,6 +1,13 @@
   function [allProbeDirs, staleProbeDirs] = makeKernels(replace)
 % makeKernels  Generate kernel, noise-matrix, and plot files for converted session files.
+%   makeKernels is the ordinary producer of per-probe derived products:
+%       NoiseMatrices
+%       Kernels
+%       KernelSummaries
+%       Kernel plots
 %
+%   makeKernelSessionSummaries remains a batch backfill/repair utility for
+%   rebuilding KernelSummary files from existing kernel files.%
 %   staleProbeDirs = makeKernels(replace)
 %       If replace is false (default), only computes missing outputs.
 %       If replace is true, recomputes all kernels and plots even if they exist.
@@ -10,11 +17,11 @@
 %       Kernel .mat files:      path/Data/Kernels/<baseName>.mat
 %       Noise matrix .mat files:path/Data/NoiseMatrices/<baseName>.mat
 %       Kernel plot PDFs:       path/Plots/Kernels/<baseName>/<baseName>_probeXX.pdf
-%
+%       Kernel summary files:   path/Data/probeXX/KernelSummaries/<baseName>_probeXX_kernelSummary.mat
+
 %   Output:
 %       staleProbeDirs          Unique probeDirDeg values for sessions whose
 %                               outputs were newly created or updated.
-
 % ---- Handle inputs ----
 if nargin < 1 || isempty(replace)
   replace = false;
@@ -102,6 +109,8 @@ for k = 1:numel(dataFiles)
       kernelFilePath = fullfile(kernelFolder, [analysisBaseName '.mat']);
       matrixFilePath = fullfile(matrixFolder, [analysisBaseName '.mat']);
       plotFilePath = fullfile(probePlotFolder, sprintf('%s.pdf', analysisBaseName));
+      summaryFolder = validFolder(fullfile(probeDataFolder, 'KernelSummaries'));
+      summaryFilePath = fullfile(summaryFolder, [analysisBaseName '_kernelSummary.mat']);
 
       outputsStale = ...
         ~isfile(plotFilePath) || ...
@@ -162,7 +171,7 @@ for k = 1:numel(dataFiles)
       'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     
     summaryFolder = validFolder(fullfile(probeDataFolder, 'KernelSummaries'));
-
+    
     compileKernelSessionSummary(kernelFilePath, ...
       'noiseFile', matrixFilePath, ...
       'summaryDir', summaryFolder, ...
@@ -170,7 +179,6 @@ for k = 1:numel(dataFiles)
       'doBootstrap', false);
 
     titleStr = sprintf('\\bf%d° Probe Kernels %s', probeDirDeg, analysisBaseName);
-
     plotKernels(1, titleStr, sessionHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);
     exportgraphics(gcf, plotFilePath, 'ContentType', 'vector');
   end
