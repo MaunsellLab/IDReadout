@@ -1889,157 +1889,157 @@ end
 
 end
 
-% ========================================================================
-function name = extractSessionName(inStruct, sourceFile, sessionNameField)
-
-name = '';
-
-if isfield(inStruct, sessionNameField)
-    try
-        name = char(string(inStruct.(sessionNameField)));
-    catch
-    end
-end
-
-if isempty(name) && isfield(inStruct, 'sessionID')
-    name = char(string(inStruct.sessionID));
-end
-
-if isempty(name)
-    [~, name, ~] = fileparts(sourceFile);
-end
-
-end
-
-% ========================================================================
-function scaleVal = extractSessionScaleEstimate(inStruct, opts)
-% Project-specific adaptor. Tries common fields and then falls back.
-
-scaleVal = NaN;
-
-if isfield(inStruct, 'scalePointEstimate') && isfinite(inStruct.scalePointEstimate)
-    scaleVal = inStruct.scalePointEstimate;
-    return;
-end
-if isfield(inStruct, 'scale') && isstruct(inStruct.scale)
-    if isfield(inStruct.scale, 'normEstimate') && isfinite(inStruct.scale.normEstimate)
-        scaleVal = inStruct.scale.normEstimate;
-        return;
-    end
-    if isfield(inStruct.scale, 'estimate') && isfinite(inStruct.scale.estimate)
-        scaleVal = inStruct.scale.estimate;
-        return;
-    end
-end
-if isfield(inStruct, 'summary') && isstruct(inStruct.summary)
-    if isfield(inStruct.summary, 'scalePointEstimate') && isfinite(inStruct.summary.scalePointEstimate)
-        scaleVal = inStruct.summary.scalePointEstimate;
-        return;
-    end
-end
-if isfield(inStruct, 'compStats') && isstruct(inStruct.compStats)
-    cs = inStruct.compStats;
-    if isfield(cs, 'normScale') && isnumeric(cs.normScale)
-        try
-            scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
-            return;
-        catch
-        end
-    end
-    if isfield(cs, 'scale') && isnumeric(cs.scale)
-        try
-            scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
-            return;
-        catch
-        end
-    end
-end
-if isfield(inStruct, 'avgCompStats') && isstruct(inStruct.avgCompStats)
-    cs = inStruct.avgCompStats;
-    if isfield(cs, 'normScale') && isnumeric(cs.normScale)
-        try
-            scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
-            return;
-        catch
-        end
-    end
-    if isfield(cs, 'scale') && isnumeric(cs.scale)
-        try
-            scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
-            return;
-        catch
-        end
-    end
-end
-end
+% % ========================================================================
+% function name = extractSessionName(inStruct, sourceFile, sessionNameField)
+% 
+% name = '';
+% 
+% if isfield(inStruct, sessionNameField)
+%     try
+%         name = char(string(inStruct.(sessionNameField)));
+%     catch
+%     end
+% end
+% 
+% if isempty(name) && isfield(inStruct, 'sessionID')
+%     name = char(string(inStruct.sessionID));
+% end
+% 
+% if isempty(name)
+%     [~, name, ~] = fileparts(sourceFile);
+% end
+% 
+% end
 
 % ========================================================================
-function nTrials = extractSessionTrialCount(inStruct)
+% function scaleVal = extractSessionScaleEstimate(inStruct, opts)
+% % Project-specific adaptor. Tries common fields and then falls back.
+% 
+% scaleVal = NaN;
+% 
+% if isfield(inStruct, 'scalePointEstimate') && isfinite(inStruct.scalePointEstimate)
+%     scaleVal = inStruct.scalePointEstimate;
+%     return;
+% end
+% if isfield(inStruct, 'scale') && isstruct(inStruct.scale)
+%     if isfield(inStruct.scale, 'normEstimate') && isfinite(inStruct.scale.normEstimate)
+%         scaleVal = inStruct.scale.normEstimate;
+%         return;
+%     end
+%     if isfield(inStruct.scale, 'estimate') && isfinite(inStruct.scale.estimate)
+%         scaleVal = inStruct.scale.estimate;
+%         return;
+%     end
+% end
+% if isfield(inStruct, 'summary') && isstruct(inStruct.summary)
+%     if isfield(inStruct.summary, 'scalePointEstimate') && isfinite(inStruct.summary.scalePointEstimate)
+%         scaleVal = inStruct.summary.scalePointEstimate;
+%         return;
+%     end
+% end
+% if isfield(inStruct, 'compStats') && isstruct(inStruct.compStats)
+%     cs = inStruct.compStats;
+%     if isfield(cs, 'normScale') && isnumeric(cs.normScale)
+%         try
+%             scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
+%             return;
+%         catch
+%         end
+%     end
+%     if isfield(cs, 'scale') && isnumeric(cs.scale)
+%         try
+%             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
+%             return;
+%         catch
+%         end
+%     end
+% end
+% if isfield(inStruct, 'avgCompStats') && isstruct(inStruct.avgCompStats)
+%     cs = inStruct.avgCompStats;
+%     if isfield(cs, 'normScale') && isnumeric(cs.normScale)
+%         try
+%             scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
+%             return;
+%         catch
+%         end
+%     end
+%     if isfield(cs, 'scale') && isnumeric(cs.scale)
+%         try
+%             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
+%             return;
+%         catch
+%         end
+%     end
+% end
+% end
 
-nTrials = NaN;
-
-if isfield(inStruct, 'metrics') && isstruct(inStruct.metrics)
-    if isfield(inStruct.metrics, 'nTrials') && isnumeric(inStruct.metrics.nTrials)
-        nTrials = inStruct.metrics.nTrials;
-        return;
-    end
-end
-
-if isfield(inStruct, 'nTrialsTotal') && isnumeric(inStruct.nTrialsTotal)
-    nTrials = inStruct.nTrialsTotal;
-    return;
-end
-
-if isfield(inStruct, 'avgHitStats') && isstruct(inStruct.avgHitStats)
-    hs = inStruct.avgHitStats;
-    if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-        nTrials = sum(hs.nTrials(:), 'omitnan');
-        return;
-    end
-end
-
-if isfield(inStruct, 'hitStats') && isstruct(inStruct.hitStats)
-    hs = inStruct.hitStats;
-    if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-        nTrials = sum(hs.nTrials(:), 'omitnan');
-        return;
-    end
-end
-
-end
-
-% ========================================================================
-function dt = extractSessionDate(inStruct, sourceFile)
-
-dt = NaT;
-
-if isfield(inStruct, 'date')
-    try
-        dt = datetime(inStruct.date);
-        return;
-    catch
-    end
-end
-
-if isfield(inStruct, 'sessionDate')
-    try
-        dt = datetime(inStruct.sessionDate);
-        return;
-    catch
-    end
-end
-
-% try parsing YYYYMMDD from filename
-expr = '(20\d{6})';
-tok = regexp(sourceFile, expr, 'tokens', 'once');
-if ~isempty(tok)
-    try
-        dt = datetime(tok{1}, 'InputFormat', 'yyyyMMdd');
-    catch
-    end
-end
-
-end
+% % ========================================================================
+% function nTrials = extractSessionTrialCount(inStruct)
+% 
+% nTrials = NaN;
+% 
+% if isfield(inStruct, 'metrics') && isstruct(inStruct.metrics)
+%     if isfield(inStruct.metrics, 'nTrials') && isnumeric(inStruct.metrics.nTrials)
+%         nTrials = inStruct.metrics.nTrials;
+%         return;
+%     end
+% end
+% 
+% if isfield(inStruct, 'nTrialsTotal') && isnumeric(inStruct.nTrialsTotal)
+%     nTrials = inStruct.nTrialsTotal;
+%     return;
+% end
+% 
+% if isfield(inStruct, 'avgHitStats') && isstruct(inStruct.avgHitStats)
+%     hs = inStruct.avgHitStats;
+%     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
+%         nTrials = sum(hs.nTrials(:), 'omitnan');
+%         return;
+%     end
+% end
+% 
+% if isfield(inStruct, 'hitStats') && isstruct(inStruct.hitStats)
+%     hs = inStruct.hitStats;
+%     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
+%         nTrials = sum(hs.nTrials(:), 'omitnan');
+%         return;
+%     end
+% end
+% 
+% end
+% 
+% % ========================================================================
+% function dt = extractSessionDate(inStruct, sourceFile)
+% 
+% dt = NaT;
+% 
+% if isfield(inStruct, 'date')
+%     try
+%         dt = datetime(inStruct.date);
+%         return;
+%     catch
+%     end
+% end
+% 
+% if isfield(inStruct, 'sessionDate')
+%     try
+%         dt = datetime(inStruct.sessionDate);
+%         return;
+%     catch
+%     end
+% end
+% 
+% % try parsing YYYYMMDD from filename
+% expr = '(20\d{6})';
+% tok = regexp(sourceFile, expr, 'tokens', 'once');
+% if ~isempty(tok)
+%     try
+%         dt = datetime(tok{1}, 'InputFormat', 'yyyyMMdd');
+%     catch
+%     end
+% end
+% 
+% end
 
 % ========================================================================
 function v = selectCompStatsEntry(arr, sideType, stepType)
@@ -2053,57 +2053,6 @@ if ndims(arr) < 2
 end
 v = arr(sideIdx, stepIdx);
 
-end
-
-% ========================================================================
-function probeOffsetDeg = extractProbeOffsetDeg(inStruct, offsetField)
-
-probeOffsetDeg = NaN; %#ok<NASGU>
-
-% New preferred contract: summary.sessionProbeHeader.probeDirDeg
-if isfield(inStruct, 'sessionProbeHeader') && isstruct(inStruct.sessionProbeHeader) && ...
-        isfield(inStruct.sessionProbeHeader, 'probeDirDeg')
-    probeOffsetDeg = double(localExtractValue(inStruct.sessionProbeHeader.probeDirDeg));
-    assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
-        'sessionProbeHeader.probeDirDeg must be a finite scalar.');
-    return;
-end
-
-% New explicit summary-level field, if present.
-if isfield(inStruct, offsetField)
-    probeOffsetDeg = double(localExtractValue(inStruct.(offsetField)));
-    assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
-        '%s must be a finite scalar.', offsetField);
-    return;
-end
-
-% Transitional compatibility: summary.header may now actually be a
-% sessionProbeHeader-like struct.
-if isfield(inStruct, 'header') && isstruct(inStruct.header) && ...
-        isfield(inStruct.header, 'probeDirDeg')
-    probeOffsetDeg = double(localExtractValue(inStruct.header.probeDirDeg));
-    assert(isscalar(probeOffsetDeg) && isfinite(probeOffsetDeg), ...
-        'header.probeDirDeg must be a finite scalar.');
-    return;
-end
-
-error('extractProbeOffsetDeg:MissingProbeOffset', ...
-    'No authoritative probe offset found in summary sessionProbeHeader, header, or %s.', offsetField);
-end
-
-% ========================================================================
-function val = localExtractValue(x)
-% localExtractValue  Pull scalar/string value from either scalar or .data field.
-
-if isstruct(x) && isfield(x, 'data')
-    val = x.data;
-else
-    val = x;
-end
-
-if isnumeric(val) && ~isscalar(val)
-    val = val(1);
-end
 end
 
 % ========================================================================
@@ -2278,7 +2227,7 @@ assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
     'updateAcrossOffsetSummaries:MissingProbeDir', ...
     'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
 
-probeDirDeg = abs(double(localExtractValue(sessionProbeHeader.probeDirDeg)));
+probeDirDeg = abs(double(sessionProbeHeader.probeDirDeg));
 
 if probeDirDeg > 0 && probeDirDeg < 180
     n = 2;
@@ -2348,9 +2297,8 @@ sessionRecord.sessionHeader = S.sessionHeader;
 sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
 
 sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
-sessionRecord.sessionName    = extractSessionName(summary, sourceFile, opts.SessionNameField);
-sessionRecord.sessionDate    = extractSessionDate(summary, sourceFile);
-
+sessionRecord.sessionName = summary.sessionID;
+sessionRecord.sessionDate = summary.date;
 sessionRecord.kernelFile = summary.kernelFile;
 sessionRecord.noiseFile  = summary.noiseFile;
 
@@ -2360,15 +2308,14 @@ sessionRecord.hitStats  = getFieldOrDefault(summary, 'hitStats', struct());
 sessionRecord.sourceFile = sourceFile;
 sessionRecord.rawSummary = summary;
 
-sessionRecord.scalePointEstimate = extractSessionScaleEstimate(summary, opts);
+% sessionRecord.scalePointEstimate = summary.scalePointEstimate;
 
 try
   sessionRecord.scalePointEstimate = recomputeSessionScalePointEstimate(sessionRecord, opts);
 catch
 end
 
-sessionRecord.nTrialsTotal = extractSessionTrialCount(summary);
-
+sessionRecord.nTrialsTotal = summary.metrics.nTrials;
 if isfield(summary, 'flags') && isstruct(summary.flags)
   if isfield(summary.flags, 'excluded') && islogical(summary.flags.excluded)
     sessionRecord.isExcluded = summary.flags.excluded;

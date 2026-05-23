@@ -1,10 +1,8 @@
 function makeKernelSessionSummaries(varargin)
 % makeKernelSessionSummaries
 %
-% % Batch utility for rebuilding KernelSummary files from existing kernel files.
+% Batch utility for rebuilding KernelSummary files from existing kernel files.
 % Routine makeKernels runs create KernelSummary files automatically.
-% Use this function for backfilling, refreshing summaries after format changes,
-% or computing optional per-session bootstrap diagnostics.
 
 P = inputParser;
 addParameter(P, 'kernelDir', '/Users/Shared/Data/IDReadout/Data/Kernels', @ischar);
