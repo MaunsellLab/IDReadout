@@ -9,9 +9,7 @@ function probeSessions = splitTrialsByProbeDirection(header, trials, parentSessi
 %   .trials
 %   .trialIdx
 %
-% parentSessionHeader must be supplied explicitly.  This function must not
-% construct or retrieve sessionHeader from header.sessionHeader; doing so can
-% propagate stale cached metadata into newly derived files.
+% parentSessionHeader must be supplied explicitly.  
 %
 % Old single-probe files remain compatible only at this split boundary.
 % If per-trial probeDirDeg is absent, header.probeDirDeg.data may be used

@@ -226,35 +226,6 @@ if R.doBootstrap && exist(noiseFile, 'file')
       bootNormScale(b) = NaN;
     end
   end
-  bootRawScale  = bootRawScale(isfinite(bootRawScale));
-  bootNormScale = bootNormScale(isfinite(bootNormScale));
-
-  if ~isempty(bootNormScale)
-    % Primary bootstrap fields are normalized.
-    summary.scale.ci68       = prctile(bootNormScale, [16 84]);
-    summary.scale.ci95       = prctile(bootNormScale, [2.5 97.5]);
-    summary.scale.ci68Width  = diff(summary.scale.ci68);
-    summary.scale.ci95Width  = diff(summary.scale.ci95);
-    summary.scale.bootMedian = median(bootNormScale);
-    summary.scale.bootSD     = std(bootNormScale, 0);
-
-    summary.scale.normCI68       = summary.scale.ci68;
-    summary.scale.normCI95       = summary.scale.ci95;
-    summary.scale.normBootMedian = summary.scale.bootMedian;
-    summary.scale.normBootSD     = summary.scale.bootSD;
-
-    if ~isempty(bootRawScale)
-      summary.scale.rawCI68       = prctile(bootRawScale, [16 84]);
-      summary.scale.rawCI95       = prctile(bootRawScale, [2.5 97.5]);
-      summary.scale.rawBootMedian = median(bootRawScale);
-      summary.scale.rawBootSD     = std(bootRawScale, 0);
-    end
-
-    summary.bootstrap.done  = true;
-    summary.bootstrap.nReps = numel(bootNormScale);
-  else
-    summary.flags.unstableScale = true;
-  end
 end
 
 summary.scale.valid = ...

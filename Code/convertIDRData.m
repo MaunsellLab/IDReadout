@@ -81,8 +81,8 @@ for fi = 1:numel(paths)
   trials = correctIndices(header, trials);
 
   % Save header, sessionHeader, and trials; use -v7.3 if these can get large
-  sessionHeader = makeSessionHeader(header, trialMeta);
-  save(outFileName, 'trials', 'header', 'sessionHeader');
+  % sessionHeader = makeSessionHeader(header, trialMeta);
+  save(outFileName, 'trials', 'header');
   fprintf('Saved %s\n', outFileName);
 end
 end
