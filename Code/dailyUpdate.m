@@ -1,13 +1,6 @@
-function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
+function dailyUpdate()
 % dailyUpdate  Run the daily MT-kernel analysis update pipeline.
-%
-%   dailyUpdate()
-%       Runs with defaults:
-%         replace     = false
-%         doBootstrap = false
-%         nBoot       = 100
-%         path        = folderPath()
-%
+%%
 %   Pipeline:
 %     1) convert any unconverted raw dat files
 %     2) build missing/stale probe-specific kernel, noise-matrix, and plot outputs
@@ -15,23 +8,10 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
 %     4) refresh average-kernel plots for affected probe directions
 %     5) refresh across-offset summaries/plots
 
-  % ---- Handle inputs ----
-  if nargin < 1 || isempty(replace)
-    replace = false;
-  end
-  if nargin < 2 || isempty(doBootstrap)
-    doBootstrap = false;
-  end
-  if nargin < 3 || isempty(nBoot)
-    nBoot = 500;
-  end
-  if nargin < 4 || isempty(path)
-    path = folderPath();
-  end
-  if nargin < 5 || isempty(forceAcrossOffset)
-    forceAcrossOffset = false;
-  end
-  path = char(path);
+  replace = false;
+  doBootstrap = false;
+  nBoot = 500;
+  path = folderPath();
 
   fprintf('>>> dailyUpdate start\n');
 
@@ -42,7 +22,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
 
   % ---- Session-level probe-specific kernels/noise matrices ----
   fprintf('  >> makeKernels start\n');
-  [allProbeDirs, staleProbeDirs] = makeKernels(replace, path);
+  [allProbeDirs, staleProbeDirs] = makeKernels(replace);
   anythingChanged = replace || ~isempty(staleProbeDirs);
   fprintf('  << makeKernels complete\n');
 
@@ -63,7 +43,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     sessionsDirs = probeDirsToSessionDirs(refreshProbeDirs);
 
     fprintf('  >> makeKernelSessionSummaries start\n');
-    makeKernelSessionSummaries('path', path, 'sessionsDirs', sessionsDirs, 'replace', replace, 'doBootstrap', false);
+    makeKernelSessionSummaries('sessionsDirs', sessionsDirs, 'replace', replace, 'doBootstrap', doBootstrap);
     fprintf('  << makeKernelSessionSummaries complete\n');
 
     % ---- Average-kernel plots ----
@@ -71,8 +51,7 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
     for p = refreshProbeDirs(:).'
       probeTag = sprintf('probe%d', round(p));
       fprintf('      updating average for %s\n', probeTag);
-      kernelAverage(true, 50, 'dataFolder', fullfile(path, 'Data', probeTag, 'NoiseMatrices'), ...
-          'plotFolder', fullfile(path, 'Plots', 'AverageKernels'), 'probeDirDeg', p);
+      kernelAverage(true, 50, 'probeDirDeg', p);
     end
     fprintf('  << kernelAverage complete\n');
   end
@@ -80,17 +59,15 @@ function dailyUpdate(replace, doBootstrap, nBoot, path, forceAcrossOffset)
   fprintf('  >> plotSideTypeKernelAverage start\n');
   plotSideTypeKernelAverage();
   fprintf('  << plotSideTypeKernelAverage complete\n');
+
   % ---- Across-offset summary update ----
   % This should run even when no single-session files were stale, because it
   % is cheap relative to the pipeline and keeps summary/plots synchronized
   % with any manual changes to summaries or exclusion rules.
   % ---- Across-offset summary update ----
-  if anythingChanged || doBootstrap || forceAcrossOffset
+  if anythingChanged || doBootstrap
     fprintf('  >> updateAcrossOffsetSummaries start\n');
-    acrossOffsetSummary = updateAcrossOffsetSummaries(fullfile(path, 'Data'), ...
-      'SaveFile', fullfile(path, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat'), ...
-      'PlotDir', fullfile(path, 'Plots', 'ReadoutFits'),'NBoot', nBoot, 'RandomSeed', 1, ...
-      'MakePlots', true); %#ok<NASGU>
+    acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1); %#ok<NASGU>
     fprintf('  << updateAcrossOffsetSummaries complete\n');
   else
     fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');

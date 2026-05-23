@@ -33,12 +33,14 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 %   Kernel generation and averaging include all sessions not excluded by
 %   excludeFile.m. This function applies additional readout-fit exclusions
 %   internally, currently requiring paired-probe offsets:
-%       0 < probeOffsetDeg < 180
+%       1 < probeOffsetDeg < 180
 %   and paired-probe noise amplitudes:
 %       probeCohNoisePC == 7 or 10/sqrt(2), within tolerance.
 %
 %   Thus legacy 180 deg single-stream sessions may be processed and averaged
 %   upstream, but are excluded here from the paired-probe readout fit.
+%   Also, brief testing at 1° are excluded because they were sparse and
+%   uninformative.
 % This function loads previously saved per-session summary files, groups them
 % by probe offset, applies readout-fit eligibility criteria, performs
 % across-offset bootstrap resampling, fits the readout model, and saves a
@@ -54,14 +56,15 @@ if ~isempty(opts.RandomSeed)
     rng(opts.RandomSeed);
 end
 
-if opts.Verbose
-    fprintf('updateAcrossOffsetSummaries: scanning %s\n', summaryDir);
-end
+% if opts.Verbose
+%     fprintf('updateAcrossOffsetSummaries: scanning %s\n', summaryDir);
+% end
 
 % get a list of all session summaries
-sessionList = loadSessionSummaries(opts);
+[sessionList, fileInfo] = loadSessionSummaries(opts);
 % create an empty acrossOffsetSummary
 acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList);
+acrossOffsetSummary.fileInfo = fileInfo;
 if isempty(sessionList)
     warning('No usable session summaries found in %s.', summaryDir);
     saveAcrossOffsetSummary(opts, acrossOffsetSummary);
@@ -103,7 +106,7 @@ validFitOffset = ~isAnchor & ...
     isfinite(pooledScaleAll) & ...
     isfinite(bootstrapVarAll) & ...
     bootstrapVarAll > 0;
-% Fit only non-anchor offsets. The 0-deg value is the normalization anchor. Excllude 180° for now.
+% Fit only non-anchor offsets. The 0-deg value is the normalization anchor. 
 fitOffsetsDeg = offsetsDegAll(validFitOffset);
 fitScales     = pooledScaleAll(validFitOffset);
 fitVars       = bootstrapVarAll(validFitOffset);
@@ -131,72 +134,6 @@ readoutModels.rectifiedDOG = buildReadoutDOGModelSummary( ...
 acrossOffsetSummary.readoutModels = readoutModels;
 acrossOffsetSummary.readoutModelComparison = compareReadoutDOGModels(readoutModels);
 
-
-
-%% ---- Diagnostic: refit rectified DOG with 10-deg point omitted ----
-% if opts.Verbose
-%     try
-%         omitOffsetDeg = 10;
-%         templateMode = 'rectified';
-% 
-%         keepNo10 = abs(fitOffsetsDeg - omitOffsetDeg) > 1e-9 & ...
-%             isfinite(fitOffsetsDeg) & ...
-%             isfinite(fitScales) & ...
-%             isfinite(fitVars) & ...
-%             fitVars > 0;
-% 
-%         if sum(keepNo10) >= 1
-%             fitNo10 = fitReadoutDOGToScales( ...
-%                 fitOffsetsDeg(keepNo10), ...
-%                 fitScales(keepNo10), ...
-%                 fitVars(keepNo10), ...
-%                 mtModel, ...
-%                 'Bounds', opts.Bounds, ...
-%                 'TemplateMode', templateMode);
-% 
-%             predNo10AtAll = predictNormalizedScaleFromReadout( ...
-%                 fitNo10.params, fitOffsetsDeg, mtModel, ...
-%                 'TemplateMode', templateMode);
-% 
-%             residNo10 = fitScales(:)' - predNo10AtAll(:)';
-%             stdResidNo10 = residNo10 ./ sqrt(fitVars(:)');
-%             lossTermsNo10 = (residNo10 .^ 2) ./ fitVars(:)';
-% 
-%             fprintf('\nRectified DOG diagnostic: fit with %.1f deg omitted\n', omitOffsetDeg);
-%             fprintf('  params:');
-%             fprintf(' %.4g', fitNo10.params);
-%             fprintf('\n');
-%             fprintf('  weighted loss on fitted offsets only: %.4g\n', ...
-%                 fitNo10.goodnessOfFit.weightedLoss);
-%             fprintf('  weighted loss evaluated on all offsets: %.4g\n', ...
-%                 sum(lossTermsNo10, 'omitnan'));
-% 
-%             Tno10 = table( ...
-%                 fitOffsetsDeg(:), ...
-%                 fitScales(:), ...
-%                 predNo10AtAll(:), ...
-%                 fitVars(:), ...
-%                 residNo10(:), ...
-%                 stdResidNo10(:), ...
-%                 lossTermsNo10(:), ...
-%                 keepNo10(:), ...
-%                 'VariableNames', {'offsetDeg','obsScale','predNo10Fit', ...
-%                                   'var','resid','stdResid','lossTerm','usedInFit'});
-%             disp(Tno10);
-%         else
-%             fprintf('\nRectified DOG diagnostic skipped: too few offsets after omitting %.1f deg.\n', ...
-%                 omitOffsetDeg);
-%         end
-% 
-%     catch ME
-%         warning('Rectified DOG no-10 diagnostic failed: %s', ME.message);
-%     end
-% end
-
-
-
-
-
 % Backward compatibility: keep the historical top-level readoutModel field
 % as the standard signed-template DOG fit.
 acrossOffsetSummary.readoutModel = readoutModels.signedDOG;
@@ -214,7 +151,6 @@ if opts.MakePlots
         warning('Plot generation failed: %s', ME.message);
     end
 end
-
 end
 
 % ========================================================================
@@ -377,7 +313,6 @@ end
 p = inputParser;
 p.FunctionName = mfilename;
 
-
 addRequired(p, 'summaryDir', @(x) ischar(x) || isstring(x) || iscell(x));
 defaultSaveFile = fullfile(folderPath(), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
@@ -387,6 +322,7 @@ addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x >
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
+addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(p, 'OffsetField', 'probeOffsetDeg', @(x) ischar(x) || isstring(x));
 addParameter(p, 'SessionNameField', 'sessionName', @(x) ischar(x) || isstring(x));
 addParameter(p, 'ScaleMode', 'scaleFit', @(x) ischar(x) || isstring(x));
@@ -401,6 +337,7 @@ opts.summaryDir = normalizeSummaryDirs(summaryDir);
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
 opts.FilePattern = char(opts.FilePattern);
+opts.FileSelectionArgs = opts.FileSelectionArgs;
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
 opts.ScaleMode = char(opts.ScaleMode);
@@ -414,38 +351,50 @@ end
 end
 
 % ========================================================================
-function sessionList = loadSessionSummaries(opts)
+function [sessionList, fileInfo] = loadSessionSummaries(opts)
 % Load per-session summaries and apply exclusion logic.
 
 files = [];
+fileInfo = table();
+
 for iDir = 1:numel(opts.summaryDir)
     thisDir = opts.summaryDir{iDir};
-    files = [files; dir(fullfile(thisDir, opts.FilePattern))]; %#ok<AGROW>
+    selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
+    [thisFiles, thisFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
+    files = [files; pathsToDirStruct(thisFiles)]; %#ok<AGROW>
+    fileInfo = [fileInfo; thisFileInfo]; %#ok<AGROW>
 end
 
 sessionList = repmat(emptySessionStruct(), 0, 1);
 
 if opts.Verbose
-    fprintf('  Found %d candidate session summary files across %d folders.\n', ...
+    fprintf('  Found %d selected session summary files across %d folders.\n', ...
         numel(files), numel(opts.summaryDir));
 end
-
 for iFile = 1:numel(files)
     thisFile = fullfile(files(iFile).folder, files(iFile).name);
+
     try
-        S = load(thisFile);
+        S = load(thisFile, 'summary', 'sessionHeader', 'sessionProbeHeader');
     catch ME
         warning('Could not load %s: %s', thisFile, ME.message);
         continue;
     end
-    sessionStruct = extractSessionStruct(S, thisFile, opts);
-    if isempty(sessionStruct)
-        continue;
+
+    sessionRecord = makeSessionRecordFromSummaryFile(S, thisFile, opts);
+
+    if ~isempty(fileInfo) && height(fileInfo) >= iFile
+        sessionRecord.fileInfo = fileInfo(iFile, :);
     end
-    [tfExclude, reasonStr] = excludeFromReadoutFit(sessionStruct);
-    sessionStruct.isExcluded = tfExclude;
-    sessionStruct.excludeReason = reasonStr;
-    sessionList(end+1,1) = sessionStruct; %#ok<AGROW>
+
+    [tfExclude, reasonStr] = excludeFromReadoutFit( ...
+        sessionRecord.probeOffsetDeg, ...
+        sessionRecord.sessionProbeHeader.probeCohNoisePC);
+
+    sessionRecord.isExcluded = tfExclude;
+    sessionRecord.excludeReason = reasonStr;
+
+    sessionList(end+1,1) = sessionRecord; %#ok<AGROW>
 end
 
 if opts.Verbose
@@ -472,167 +421,57 @@ end
 end
 
 % ========================================================================
-function sessionStruct = extractSessionStruct(S, sourceFile, opts)
-% Attempt to find a plausible session summary struct in a loaded MAT file.
-
-sessionStruct = [];
-fn = fieldnames(S);
-
-% Preferred: variable already named summary (compileKernelSessionSummary output).
-if isfield(S, 'summary') && isstruct(S.summary)
-    sessionStruct = standardizeSessionStruct(S.summary, sourceFile, opts);
-    return;
-end
-
-% Backward compatibility: variable named sessionSummary.
-if isfield(S, 'sessionSummary') && isstruct(S.sessionSummary)
-    sessionStruct = standardizeSessionStruct(S.sessionSummary, sourceFile, opts);
-    return;
-end
-
-% Otherwise find the first struct containing plausible fields.
-for i = 1:numel(fn)
-    val = S.(fn{i});
-    if isstruct(val)
-        if isfield(val, 'scale') || isfield(val, opts.OffsetField) || isfield(val, 'header')
-            sessionStruct = standardizeSessionStruct(val, sourceFile, opts);
-            return;
-        end
-    end
-end
-
-warning('No recognizable session summary struct found in %s.', sourceFile);
-
-end
-
-% ========================================================================
-function sessionStruct = standardizeSessionStruct(inStruct, sourceFile, opts)
-% Map session summary into a stable internal struct.
-
-sessionStruct = emptySessionStruct();
-
-sessionStruct.probeOffsetDeg = extractProbeOffsetDeg(inStruct, opts.OffsetField);
-sessionStruct.sessionName    = extractSessionName(inStruct, sourceFile, opts.SessionNameField);
-sessionStruct.sessionDate    = extractSessionDate(inStruct, sourceFile);
-sessionStruct.header = getFieldOrDefault(inStruct, 'sessionProbeHeader', struct());
-
-if isempty(fieldnames(sessionStruct.header))
-    sessionStruct.header = getFieldOrDefault(inStruct, 'header', struct());
-end
-if isempty(fieldnames(sessionStruct.header)) && ...
-        isfield(inStruct, 'kernelFile') && ...
-        (ischar(inStruct.kernelFile) || isstring(inStruct.kernelFile))
-    try
-        K = load(char(inStruct.kernelFile), 'sessionProbeHeader');
-        if isfield(K, 'sessionProbeHeader') && isstruct(K.sessionProbeHeader)
-            sessionStruct.header = K.sessionProbeHeader;
-        end
-    catch
-    end
-end
-sessionStruct.compStats      = getFieldOrDefault(inStruct, 'compStats', struct());
-sessionStruct.hitStats       = getFieldOrDefault(inStruct, 'hitStats', struct());
-sessionStruct.bootstrapSource = extractBootstrapSource(inStruct);
-sessionStruct.rawSummary     = inStruct;
-sessionStruct.scalePointEstimate = extractSessionScaleEstimate(inStruct, opts);
-try
-    sessionStruct.scalePointEstimate = recomputeSessionScalePointEstimate(sessionStruct, opts);
-catch
-end
-sessionStruct.nTrialsTotal = extractSessionTrialCount(inStruct);
-if isfield(inStruct, 'flags') && isstruct(inStruct.flags)
-    if isfield(inStruct.flags, 'excluded') && islogical(inStruct.flags.excluded)
-        sessionStruct.isExcluded = inStruct.flags.excluded;
-        if sessionStruct.isExcluded
-            sessionStruct.excludeReason = 'summary.flags.excluded';
-        end
-    end
-end
-
-end
-
-% ========================================================================
 function s = emptySessionStruct()
 
 s = struct( ...
     'probeOffsetDeg', NaN, ...
     'sessionName', '', ...
     'sessionDate', NaT, ...
-    'header', struct(), ...
+    'summary', struct(), ...
+    'sessionHeader', struct(), ...
+    'sessionProbeHeader', struct(), ...
+    'kernelFile', '', ...
+    'noiseFile', '', ...
     'compStats', struct(), ...
     'hitStats', struct(), ...
-    'bootstrapSource', struct(), ...
     'rawSummary', struct(), ...
     'scalePointEstimate', NaN, ...
     'nTrialsTotal', NaN, ...
     'isExcluded', false, ...
     'excludeReason', '', ...
-    'sourceFile', '' );
+    'sourceFile', '', ...
+    'fileInfo', table() );
 end
 
-% ========================================================================
-function [exclude, reason] = excludeFromReadoutFit(sessionStruct)
+function [exclude, reason] = excludeFromReadoutFit(probeDirDeg, probeCohNoisePC)
 % excludeFromReadoutFit  Exclude sessions not eligible for paired-probe readout fitting.
 %
 % These exclusions are specific to the across-offset readout model. They do
 % not imply that the session should be excluded from kernel generation,
 % kernel averaging, or other preprocessing summaries.
+%
+% Inputs are explicit to avoid searching through generic session/header
+% structs. The caller is responsible for passing canonical values.
 
 exclude = false;
 reason = '';
 
-H = sessionStruct.header;
-
-% Prefer the standardized offset field, because standardizeSessionStruct()
-% has already extracted it from the summary metadata.
-probeDirDeg = sessionStruct.probeOffsetDeg;
-
-if ~(isfinite(probeDirDeg) && probeDirDeg > 0 && probeDirDeg < 180)
+% Paired-probe offsets are strictly between 0 and 180 deg.
+% Exact 0 and exact 180 are single-stream probes.
+if ~(isfinite(probeDirDeg) && probeDirDeg > 1 && probeDirDeg <= 180)
     exclude = true;
     reason = sprintf('probeDirDeg %.6g is not a paired-probe offset', probeDirDeg);
     return;
 end
 
-[probeCohNoisePC, ok] = localGetHeaderValue(H, 'probeCohNoisePC');
-if ~ok || ~isfinite(probeCohNoisePC)
-    exclude = true;
-    reason = 'missing/non-finite probeCohNoisePC';
-    return;
-end
-
-targetProbeNoisePCs = [7, 7.07, 10 / sqrt(2)];
+% Accept known paired-probe amplitudes. This is intentionally a readout-fit
+% eligibility rule, not a global file exclusion rule.
+targetProbeNoisePCs = [1, 7, 7.07, 10 / sqrt(2), 10];
 tol = 2e-3;
 
 if all(abs(probeCohNoisePC - targetProbeNoisePCs) > tol)
     exclude = true;
     reason = sprintf('probeCohNoisePC %.6g is not paired-probe amplitude', probeCohNoisePC);
-    return;
-end
-end
-
-% ========================================================================
-function [v, ok] = localGetHeaderValue(S, fieldName)
-
-ok = false;
-v = NaN;
-
-if isfield(S, fieldName)
-    x = S.(fieldName);
-    if isstruct(x) && isfield(x, 'data')
-        v = double(x.data(1));
-    else
-        v = double(x(1));
-    end
-    ok = true;
-    return;
-end
-
-if isfield(S, 'blockStatus') && isfield(S.blockStatus, 'data') && ...
-        isfield(S.blockStatus.data, fieldName)
-
-    x = S.blockStatus.data(1).(fieldName);
-    v = double(localExtractValue(x));
-    ok = true;
     return;
 end
 end
@@ -883,59 +722,44 @@ bootstrap.fitBootstrap = struct( ...
 end
 
 % ========================================================================
-function scaleVal = recomputeSessionScalePointEstimate(sessionStruct, opts)
-% Recompute the requested side/step point estimate from source data.
+function scaleVal = recomputeSessionScalePointEstimate(sessionRecord, opts)
+% Recompute the requested side/step point estimate from source noise matrices.
 
-bs = sessionStruct.bootstrapSource;
-if isempty(fieldnames(bs))
-    scaleVal = sessionStruct.scalePointEstimate;
+if isempty(sessionRecord.noiseFile) || ~exist(sessionRecord.noiseFile, 'file')
+    scaleVal = sessionRecord.scalePointEstimate;
     return;
 end
 
-if isfield(bs, 'sessionData') && isstruct(bs.sessionData)
-    sessionData = bs.sessionData;
-elseif hasComputeSessionKernelFields(bs)
-    sessionData = bs;
-elseif isfield(bs, 'noiseFile') && exist(bs.noiseFile, 'file')
-    sessionData = load(bs.noiseFile);
-else
-    scaleVal = sessionStruct.scalePointEstimate;
-    return;
-end
+sessionData = load(sessionRecord.noiseFile);
 
-[~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, []);
+[kernels, kVars, ~, ~, compStats] = computeSessionKernels(sessionData, []);
 
 if isfield(compStats, 'normScale')
     scaleVal = selectCompStatsEntry(compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
 else
     warning('updateAcrossOffsetSummaries:MissingNormScale', ...
         'compStats.normScale missing for session %s; falling back to raw scale.', ...
-        sessionStruct.sessionName);
+        sessionRecord.sessionName);
     scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
 end
 end
 
 % ========================================================================
-function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionStruct, ~, doTrialBootstrap)
-% Recompute full session kernel outputs from source data.
+function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionRecord, ~, doTrialBootstrap)
+% Recompute full session kernel outputs from source noise matrices.
 
-bs = sessionStruct.bootstrapSource;
-
-if isfield(bs, 'sessionData') && isstruct(bs.sessionData)
-    sessionData = bs.sessionData;
-elseif hasComputeSessionKernelFields(bs)
-    sessionData = bs;
-elseif isfield(bs, 'noiseFile') && exist(bs.noiseFile, 'file')
-    sessionData = load(bs.noiseFile);
-else
-    error('Missing bootstrap source for session %s.', sessionStruct.sessionName);
+if isempty(sessionRecord.noiseFile) || ~exist(sessionRecord.noiseFile, 'file')
+    error('Missing noiseFile for session %s.', sessionRecord.sessionName);
 end
+
+sessionData = load(sessionRecord.noiseFile);
 
 trialIdx = [];
 if doTrialBootstrap
     nTrials = size(sessionData.prefNoiseByPatch, 3);
     trialIdx = randi(nTrials, [1 nTrials]);
 end
+
 [kernels, kVars, ~, hitStats, compStats] = computeSessionKernels(sessionData, trialIdx);
 end
 
@@ -1075,13 +899,14 @@ refNFrames = NaN;
 for j = 1:numel(sessIdx)
     src = sessions(sessIdx(j));
     [kernels, kVars, ~, ~] = recomputeSessionKernelStruct(src, opts, doBootstrap);
-
-    [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, src.header);
+    [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude( ...
+      kernels, kVars, src.sessionHeader, src.sessionProbeHeader);
 
     sessionKernelsNorm{j} = kernelsNorm;
     sessionKVarsNorm{j}   = kVarsNorm;
 
-    thisFrameRateHz = src.header.frameRateHz.data(1);
+    thisFrameRateHz = src.sessionHeader.frameRateHz;
+
     thisNFrames = size(kernels, 4);
     if j == 1
         refFrameRateHz = thisFrameRateHz;
@@ -1098,14 +923,6 @@ msPerVFrame = 1000.0 / refFrameRateHz;
 [scaleMat, ~, ~, ~] = kernelScaleFit(avgKernelsNorm, msPerVFrame);
 pooledScale = selectCompStatsEntry(scaleMat, opts.ScaleSideType, opts.ScaleStepType);
 
-end
-
-% ========================================================================
-function tf = hasComputeSessionKernelFields(S)
-
-req = {'prefNoiseByPatch','probeNoiseByPatch','trialOutcomesAll', ...
-       'changeSidesAll','changeIndicesAll','sessionProbeHeader'};
-tf = all(isfield(S, req));
 end
 
 % ========================================================================
@@ -1915,13 +1732,13 @@ function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
 emp = acrossOffsetSummary.empirical;
 offsets = [emp.probeOffsetDeg];
 obsScale = [emp.pooledScale];
-ci68 = vertcat(emp.boot68);   % fallback only
+% ci68 = vertcat(emp.boot68);   % fallback only
 ci95 = vertcat(emp.boot95);   % fallback only
 
 if isfield(acrossOffsetSummary, 'bootstrap') && ...
         isfield(acrossOffsetSummary.bootstrap, 'offsetBootstrap') && ...
         numel(acrossOffsetSummary.bootstrap.offsetBootstrap) == numel(emp)
-    ci68 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot68);
+    % ci68 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot68);
     ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
 end
 
@@ -1945,23 +1762,42 @@ hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci95(:,1)'], [0, ci9
     'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
 legendHandles = hObs;
-legendLabels = {'Observed pooled scale (95% CI)'};
+legendLabels = {'Observed Scale (95% CI)'};
 signedRM = acrossOffsetSummary.readoutModels.signedDOG;
 rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
-signedLoss = signedRM.fit.goodnessOfFit.weightedLoss;
-rectLoss   = rectRM.fit.goodnessOfFit.weightedLoss;
+% signedLoss = NaN;
+% rectLoss = NaN;
+% if hasSignedFit
+%     signedLoss = signedRM.fit.goodnessOfFit.weightedLoss;
+% end
+% if hasRectFit
+%     rectLoss = rectRM.fit.goodnessOfFit.weightedLoss;
+% end
 if hasSignedFit
     signedRM = acrossOffsetSummary.readoutModels.signedDOG;
     hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, 'm-', 'LineWidth', 1.2);
     legendHandles(end+1) = hSigned;
-    legendLabels{end+1} = sprintf('Fitted Signed DOG, loss %.3g', signedLoss);
+    legendLabels{end+1} = 'Fitted Signed DOG';
 end
 if hasRectFit
     rectRM = acrossOffsetSummary.readoutModels.rectifiedDOG;
     hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, 'b-', 'LineWidth', 1.2);
-  legendHandles(end+1) = hRect;
-  legendLabels{end+1} = sprintf('Fitted Rectified DOG, loss %.3g', rectLoss);
+    legendHandles(end+1) = hRect;
+    legendLabels{end+1} = 'Fitted Rectified DOG';
 end
+if hasSignedFit || hasRectFit
+    fitText = formatDOGFitText(signedRM, hasSignedFit, rectRM, hasRectFit);
+    text(0.98, 0.02, fitText, ...
+      'Units', 'normalized', ...
+      'VerticalAlignment', 'bottom', ...
+      'HorizontalAlignment', 'right', ...
+      'FontSize', 8, ...
+      'BackgroundColor', 'w', ...
+      'EdgeColor', [0.7 0.7 0.7], ...
+      'Margin', 4, ...
+      'Interpreter', 'none');
+end
+
 legend(legendHandles, legendLabels, 'Location', 'northeast');
 if hasSignedFit || hasRectFit
     title(sprintf('DOG Fits to Normalized Scales (%d bootstraps)', opts.NBoot));
@@ -1988,6 +1824,60 @@ end
 
 end
 
+% ========================================================================
+function fitText = formatDOGFitText(signedRM, hasSignedFit, rectRM, hasRectFit)
+% Format DOG fit parameters for display on the scale-fit summary figure.
+
+lines = {};
+
+if hasSignedFit
+    lines{end+1} = formatOneDOGFitText('Signed DOG', signedRM); 
+end
+
+if hasRectFit
+    if ~isempty(lines)
+        lines{end+1} = ''; 
+    end
+    lines{end+1} = formatOneDOGFitText('Rectified DOG', rectRM); 
+end
+
+fitText = strjoin(lines, newline);
+end
+
+% ========================================================================
+function txt = formatOneDOGFitText(label, rm)
+% One-model parameter/goodness-of-fit text block.
+
+lines = {label};
+
+if ~isfield(rm, 'params') || isempty(rm.params) || ...
+        ~isfield(rm, 'paramNames') || isempty(rm.paramNames)
+    txt = sprintf('%s: no usable fit', label);
+    return;
+end
+
+for p = 1:min(numel(rm.params), numel(rm.paramNames))
+    lines{end+1} = sprintf('  %s = %.4g', rm.paramNames{p}, rm.params(p)); %#ok<AGROW>
+end
+
+if isfield(rm, 'fit') && ~isempty(rm.fit) && ...
+        isfield(rm.fit, 'goodnessOfFit') && isstruct(rm.fit.goodnessOfFit)
+
+    g = rm.fit.goodnessOfFit;
+
+    if isfield(g, 'weightedLoss') && isfinite(g.weightedLoss)
+        lines{end+1} = sprintf('  loss = %.4g', g.weightedLoss); 
+    end
+    if isfield(g, 'reducedChiSq') && isfinite(g.reducedChiSq)
+      lines{end+1} = sprintf('  red chi2 = %.4g', g.reducedChiSq); 
+    end
+    if isfield(g, 'aicc') && isfinite(g.aicc)
+        lines{end+1} = sprintf('  AICc = %.4g', g.aicc); 
+    end
+end
+
+txt = strjoin(lines, newline);
+end
 % ========================================================================
 function val = getFieldOrDefault(S, fieldName, defaultVal)
 
@@ -2217,35 +2107,6 @@ end
 end
 
 % ========================================================================
-function bs = extractBootstrapSource(inStruct)
-
-bs = struct();
-
-candidateFields = {'bootstrapSource','noiseMatrices','sessionKernelSource','resampleSource'};
-for i = 1:numel(candidateFields)
-    if isfield(inStruct, candidateFields{i}) && isstruct(inStruct.(candidateFields{i}))
-        bs = inStruct.(candidateFields{i});
-        return;
-    end
-end
-
-% compileKernelSessionSummary stores the path to the noise matrix file.
-if isfield(inStruct, 'noiseFile') && (ischar(inStruct.noiseFile) || isstring(inStruct.noiseFile))
-    bs.noiseFile = char(inStruct.noiseFile);
-end
-if isfield(inStruct, 'kernelFile') && (ischar(inStruct.kernelFile) || isstring(inStruct.kernelFile))
-    bs.kernelFile = char(inStruct.kernelFile);
-end
-if isfield(inStruct, 'track') && isstruct(inStruct.track)
-    bs.track = inStruct.track;
-end
-if isfield(inStruct, 'header') && isstruct(inStruct.header)
-    bs.header = inStruct.header;
-end
-
-end
-
-% ========================================================================
 function idx = mapSideType(sideType)
 
 if isnumeric(sideType)
@@ -2379,9 +2240,9 @@ end
 
 end
 % ========================================================================
-function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionProbeHeader)
+function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionHeader, sessionProbeHeader)
 
-normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader);
+normInfo = normalizationInfoFromHeaders(sessionHeader, sessionProbeHeader);
 probeNormFactor = normInfo.probeNormFactor;
 
 kernelsNorm = kernels;
@@ -2392,29 +2253,23 @@ kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
 end
 
 % ========================================================================
-function normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader)
+function normInfo = normalizationInfoFromHeaders(sessionHeader, sessionProbeHeader)
 
-[prefCohNoisePC, okPref] = localGetHeaderValue(sessionProbeHeader, 'prefCohNoisePC');
-[probeCohNoisePC, okProbe] = localGetHeaderValue(sessionProbeHeader, 'probeCohNoisePC');
-
-if ~okPref || ~okProbe || ...
-        ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
-    error('updateAcrossOffsetSummaries:BadNoiseAmplitude', ...
-        'Invalid pref/probe coherence noise amplitudes: pref=%g, probe=%g.', ...
-        prefCohNoisePC, probeCohNoisePC);
-end
-
-nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
-combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
+prefCohNoisePC  = sessionHeader.prefCohNoisePC;
+probeCohNoisePC = sessionProbeHeader.probeCohNoisePC;
 
 normInfo = struct();
 normInfo.prefCohNoisePC = prefCohNoisePC;
 normInfo.probeCohNoisePC = probeCohNoisePC;
+
+nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
+combinedProbeCohNoisePC = nYokedProbeStreams * probeCohNoisePC;
+
 normInfo.nYokedProbeStreams = nYokedProbeStreams;
 normInfo.combinedProbeCohNoisePC = combinedProbeCohNoisePC;
 normInfo.probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
 normInfo.method = ...
-    'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
+  'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
 end
 % ========================================================================
 function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
@@ -2432,5 +2287,94 @@ elseif abs(probeDirDeg - 180) < 1e-9
 else
     error('updateAcrossOffsetSummaries:UnsupportedProbeDir', ...
         'Unsupported probeDirDeg for probe normalization: %g.', probeDirDeg);
+end
+end
+
+% ========================================================================
+function files = pathsToDirStruct(filePaths)
+% pathsToDirStruct  Convert full path cell/string array to dir-like struct array.
+%
+% updateAcrossOffsetSummaries historically iterates over dir() output with
+% .folder and .name fields. selectAnalysisFiles returns selected full paths,
+% so this adaptor preserves the existing downstream loop.
+
+if isempty(filePaths)
+    files = struct('folder', {}, 'name', {});
+    return;
+end
+
+if isstring(filePaths)
+    filePaths = cellstr(filePaths);
+end
+
+files = repmat(struct('folder', '', 'name', ''), numel(filePaths), 1);
+
+for i = 1:numel(filePaths)
+    [folderName, baseName, ext] = fileparts(char(filePaths{i}));
+    files(i).folder = folderName;
+    files(i).name = [baseName ext];
+end
+end
+
+function sessionRecord = makeSessionRecordFromSummaryFile(S, sourceFile, opts)
+% makeSessionRecordFromSummaryFile  Build canonical per-session record.
+%
+% Required top-level variables in each KernelSummary file:
+%   summary
+%   sessionHeader
+%   sessionProbeHeader
+
+if ~isfield(S, 'summary') || ~isstruct(S.summary)
+  error('updateAcrossOffsetSummaries:MissingSummary', ...
+    'KernelSummary file lacks top-level summary: %s', sourceFile);
+end
+
+if ~isfield(S, 'sessionHeader') || ~isstruct(S.sessionHeader)
+  error('updateAcrossOffsetSummaries:MissingSessionHeader', ...
+    'KernelSummary file lacks top-level sessionHeader: %s', sourceFile);
+end
+
+if ~isfield(S, 'sessionProbeHeader') || ~isstruct(S.sessionProbeHeader)
+  error('updateAcrossOffsetSummaries:MissingSessionProbeHeader', ...
+    'KernelSummary file lacks top-level sessionProbeHeader: %s', sourceFile);
+end
+
+summary = S.summary;
+
+sessionRecord = emptySessionStruct();
+
+sessionRecord.summary = summary;
+sessionRecord.sessionHeader = S.sessionHeader;
+sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
+
+sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
+sessionRecord.sessionName    = extractSessionName(summary, sourceFile, opts.SessionNameField);
+sessionRecord.sessionDate    = extractSessionDate(summary, sourceFile);
+
+sessionRecord.kernelFile = summary.kernelFile;
+sessionRecord.noiseFile  = summary.noiseFile;
+
+sessionRecord.compStats = getFieldOrDefault(summary, 'compStats', struct());
+sessionRecord.hitStats  = getFieldOrDefault(summary, 'hitStats', struct());
+
+sessionRecord.sourceFile = sourceFile;
+sessionRecord.rawSummary = summary;
+
+sessionRecord.scalePointEstimate = extractSessionScaleEstimate(summary, opts);
+
+try
+  sessionRecord.scalePointEstimate = recomputeSessionScalePointEstimate(sessionRecord, opts);
+catch
+end
+
+sessionRecord.nTrialsTotal = extractSessionTrialCount(summary);
+
+if isfield(summary, 'flags') && isstruct(summary.flags)
+  if isfield(summary.flags, 'excluded') && islogical(summary.flags.excluded)
+    sessionRecord.isExcluded = summary.flags.excluded;
+    if sessionRecord.isExcluded
+      sessionRecord.excludeReason = 'summary.flags.excluded';
+    end
+  end
 end
 end

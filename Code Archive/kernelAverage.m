@@ -16,33 +16,36 @@ if nargin < 2 || isempty(nBoot)
   nBoot = 1000;
 end
 
+baseFolder = folderPath();
 P = inputParser;
 addParameter(P, 'dataFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
 parse(P, varargin{:});
 R = P.Results;
-R.FileSectionArgs = {};
-
 summarySideType = char(R.SummarySideType);
 summarySideTypeNum = sideTypeIndex(summarySideType);
 
-baseFolder = folderPath();
 if isempty(R.dataFolder)
-  dataFolder = fullfile(baseFolder, 'Data', sprintf('probe%d', R.probeDirDeg), 'NoiseMatrices');
+  dataFolder = fullfile(baseFolder, 'Data', 'NoiseMatrices');
+else
+  dataFolder = char(R.dataFolder);
 end
+
 if isempty(R.plotFolder)
-  plotFolder = fullfile(baseFolder, 'Plots', 'AverageKernels');
+  plotFolder = fullfile(baseFolder, 'Plots', 'Kernels');
+else
+  plotFolder = char(R.plotFolder);
 end
 if ~exist(dataFolder, 'dir')
   error('kernelAverage:MissingFolder', 'Data folder not found: %s', dataFolder);
 end
-plotFolder = validFolder(plotFolder);
+if ~exist(plotFolder, 'dir')
+  mkdir(plotFolder);
+end
 
-[selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, 'RequireSessionProbeHeader', true, ...
-    R.FileSelectionArgs{:});
+matFiles = dir(fullfile(dataFolder, '*.mat'));
 [firstPreStepMS] = integralWindowMS();
 
 % ---- Load valid sessions and recompute per-session kernels ----
@@ -58,13 +61,12 @@ sessionProbeHeaders = {};
 initialized = false;
 nSessions = 0;
 
-for f = 1:numel(selectedFiles)
-  filePath = selectedFiles{f};
-  [~, fileName, ext] = fileparts(filePath);
-  fileName = [fileName ext]; %#ok<AGROW>
-  sessionData = load(filePath);
-  sessionHeader = sessionData.sessionHeader;
-  sessionProbeHeader = sessionData.sessionProbeHeader;
+for f = 1:length(matFiles)
+  fileName = matFiles(f).name;
+  if endsWith(fileName, '_fileInfo.mat')
+    continue;
+  end
+  sessionData = load(fullfile(dataFolder, fileName));
   
   assert(isfield(sessionData, 'sessionProbeHeader'), 'kernelAverage:MissingSessionProbeHeader', ...
     'Expected sessionProbeHeader in %s.', fileName);
@@ -72,17 +74,16 @@ for f = 1:numel(selectedFiles)
   sessionProbeHeader = sessionData.sessionProbeHeader;
   
   [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
-  [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionHeader, sessionProbeHeader);
+  [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionProbeHeader);
   if ~initialized
-    firstPreStepMS   = sessionHeader.preStepMS;
-    firstStepMS   = sessionHeader.stepMS;
+    firstStepMS   = sessionProbeHeader.stepMS.data(1);
     firstVFrames  = size(kernels, 4);
-    frameRateHz   = sessionHeader.frameRateHz;
+    frameRateHz   = sessionProbeHeader.frameRateHz.data(1);
     msPerVFrame   = 1000.0 / frameRateHz;
     initialized   = true;
   end
-  preStepMS = sessionHeader.preStepMS;
-  stepMS    = sessionHeader.stepMS;
+  preStepMS = sessionProbeHeader.preStepMS.data(1);
+  stepMS    = sessionProbeHeader.stepMS.data(1);
   vFrames   = size(kernels, 4);
 
   if preStepMS ~= firstPreStepMS || stepMS ~= firstStepMS || vFrames ~= firstVFrames
@@ -135,7 +136,8 @@ avgCompStats = struct;
 avgCompStats.rawRVar  = sqrt(avgCompStats.rawRVar);
 avgCompStats.normRVar = sqrt(avgCompStats.normRVar);
 
-avgCompStats.normInfo = normalizationInfoFromHeaders(sessionHeader, sessionProbeHeader);
+avgCompStats.normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader);
+
 % Legacy aliases: preserve old downstream behavior for now.
 avgCompStats.kIntegrals = avgCompStats.rawIntegrals;
 avgCompStats.R          = avgCompStats.rawR;
@@ -169,8 +171,8 @@ if doBootstrap
       nTrials = size(thisSession.prefNoiseByPatch, 3);
       trialIdx = randi(nTrials, [1 nTrials]);
       [bootKernels, bootKVars] = computeSessionKernels(thisSession, trialIdx);
-      [bootKernelsNorm, bootKVarsNorm, bootNormInfo] = normalizeProbeKernelsToPrefAmplitude(bootKernels, bootKVars, ...
-        thisSession.sessionHeader, thisSession.sessionProbeHeader);
+      [bootKernelsNorm, bootKVarsNorm] = ...
+              normalizeProbeKernelsToPrefAmplitude(bootKernels, bootKVars, thisSession.sessionProbeHeader);
       bootSessionKernels{j} = bootKernels;
       bootSessionKVars{j}   = bootKVars;
 
@@ -251,8 +253,8 @@ else
 end
 
 % ---- Plot/export averaged kernels ----
-plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
-  avgKVars(1:5,:,:), avgCompStats, avgHitStats, probeDirDeg);
+plotKernels(2, plotTitle, sessionProbeHeader, avgKernels(1:5,:,:,:), ...
+  avgKVars(1:5,:,:,:), avgCompStats, avgHitStats, probeDirDeg);
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 
@@ -278,7 +280,6 @@ averageKernelPlotData.msPerVFrame = msPerVFrame;
 averageKernelPlotData.avgCompStats = avgCompStats;
 averageKernelPlotData.avgHitStats = avgHitStats;
 averageKernelPlotData.nSessions = nSessions;
-averageKernelPlotData.fileInfo = fileInfo;
 
 averageKernelPlotData.meta = struct();
 averageKernelPlotData.meta.createdDate = datetime('now');
@@ -366,9 +367,18 @@ end
 end
 
 %%
-function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionHeader, sessionProbeHeader)
+function [kernelsNorm, kVarsNorm, normInfo] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionProbeHeader)
+% Normalize probe-stream kernels to the pref-noise amplitude convention.
+%
+% The raw kernels are measured using each stream's actual coherence-noise
+% amplitude. Under the standard small-signal assumption, kernel amplitude
+% scales with noise variance. Therefore, converting a probe kernel measured
+% at probeCohNoisePC to the equivalent prefCohNoisePC convention requires:
+%
+%   K_probe_norm = K_probe_raw * ...
+%       (prefCohNoisePC / (nYokedProbeStreams * probeCohNoisePC))^2
 
-normInfo = normalizationInfoFromHeaders(sessionHeader, sessionProbeHeader);
+normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader);
 probeNormFactor = normInfo.probeNormFactor;
 
 kernelsNorm = kernels;
@@ -379,10 +389,10 @@ kVarsNorm(:, :, 2)      = kVarsNorm(:, :, 2) * probeNormFactor^2;
 end
 
 %%
-function normInfo = normalizationInfoFromHeaders(sessionHeader, sessionProbeHeader)
+function normInfo = normalizationInfoFromSessionProbeHeader(sessionProbeHeader)
 
-prefCohNoisePC  = localDataValue(sessionHeader.prefCohNoisePC);
-probeCohNoisePC = localDataValue(sessionProbeHeader.probeCohNoisePC);
+prefCohNoisePC  = sessionProbeHeader.prefCohNoisePC.data(1);
+probeCohNoisePC = sessionProbeHeader.probeCohNoisePC.data(1);
 
 if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
   error('kernelAverage:BadNoiseAmplitude', ...
@@ -420,17 +430,5 @@ elseif abs(probeDirDeg - 180) < 1e-9
 else
   error('kernelAverage:UnsupportedProbeDir', ...
     'Unsupported probeDirDeg for probe normalization: %g.', probeDirDeg);
-end
-end
-
-function v = localDataValue(x)
-if isstruct(x) && isfield(x, 'data')
-  v = x.data;
-else
-  v = x;
-end
-
-if isnumeric(v) && ~isscalar(v)
-  v = v(1);
 end
 end

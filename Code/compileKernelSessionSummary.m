@@ -52,13 +52,18 @@ if exist(summaryFile, 'file') && ~R.replace
 end
 
 K = load(kernelFile);
+assert(isfield(K, 'sessionHeader'), ...
+  'compileKernelSessionSummary:MissingSessionHeader', ...
+  'Expected sessionHeader in kernel file %s.', kernelFile);
+
 assert(isfield(K, 'sessionProbeHeader'), ...
   'compileKernelSessionSummary:MissingSessionProbeHeader', ...
   'Expected sessionProbeHeader in kernel file %s.', kernelFile);
 
+sessionHeader = K.sessionHeader;
 sessionProbeHeader = K.sessionProbeHeader;
 
-frameRateHz = sessionProbeHeader.frameRateHz.data;
+frameRateHz = localDataValue(sessionHeader.frameRateHz);
 msPerVFrame = 1000 / frameRateHz;
 
 [preStepMS, intStartMS, intDurMS] = integralWindowMS();
@@ -79,11 +84,9 @@ end
 summary = struct;
 summary.version = 2;
 summary.sessionID = baseName;
-summary.date = localDateFromHeaderOrFile(sessionProbeHeader, baseName);
+summary.date = localDateFromHeaderOrFile(sessionHeader, baseName);
 summary.kernelFile = kernelFile;
 summary.noiseFile = noiseFile;
-
-summary.sessionProbeHeader = sessionProbeHeader;
 summary.probeOffsetDeg = sessionProbeHeader.probeDirDeg;
 
 summary.track = struct;
@@ -184,7 +187,7 @@ summary.bootstrap.method  = 'trial';
 summary.bootstrap.rngSeed = NaN;
 
 summary.flags = struct;
-summary.flags.excluded = excludeFile(sessionProbeHeader);
+% summary.flags.excluded = excludeFile(sessionProbeHeader);
 summary.flags.lowTrialCount    = summary.metrics.nTrials < R.minTrials;
 summary.flags.lowPrefEnergy    = summary.pref.energy < R.minPrefEnergy;
 summary.flags.unstableScale    = false;
@@ -260,8 +263,7 @@ summary.scale.valid = ...
   ~summary.flags.lowPrefEnergy && ...
   ~summary.flags.unstableScale;
 
-save(summaryFile, 'summary');
-
+save(summaryFile, 'summary', 'sessionHeader', 'sessionProbeHeader');
 end
 
 
@@ -315,5 +317,17 @@ switch sideType
     txt = 'Opp';
   otherwise
     txt = sprintf('side %d', sideType);
+end
+end
+
+function v = localDataValue(x)
+if isstruct(x) && isfield(x, 'data')
+  v = x.data;
+else
+  v = x;
+end
+
+if isnumeric(v) && ~isscalar(v)
+  v = v(1);
 end
 end

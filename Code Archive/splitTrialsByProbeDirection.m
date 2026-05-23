@@ -1,28 +1,19 @@
-function probeSessions = splitTrialsByProbeDirection(header, trials, parentSessionHeader)
+function probeSessions = splitTrialsByProbeDirection(header, trials)
 % splitTrialsByProbeDirection  Split one recording session into probe-specific analysis sessions.
 %
 % Each output element has:
 %   .probeDirDeg
 %   .probeTag
 %   .sessionProbeHeader
-%   .sessionHeader
 %   .trials
 %   .trialIdx
 %
-% parentSessionHeader must be supplied explicitly.  This function must not
-% construct or retrieve sessionHeader from header.sessionHeader; doing so can
-% propagate stale cached metadata into newly derived files.
-%
 % Old single-probe files remain compatible only at this split boundary.
 % If per-trial probeDirDeg is absent, header.probeDirDeg.data may be used
-% at this boundary for old-format compatibility.
+% to construct sessionProbeHeader. No downstream derived file should save or
+% depend on the parent header.
 
 nTrials = numel(trials);
-if nargin < 3 || isempty(parentSessionHeader)
-  error('splitTrialsByProbeDirection:MissingSessionHeader', ...
-    ['parentSessionHeader is required. Build sessionHeader upstream in ' ...
-    'makeKernels and pass it explicitly.']);
-end
 trialProbeDirs = nan(1, nTrials);
 trialHasNoise = false(1, nTrials);
 
@@ -81,7 +72,6 @@ probeSessions = repmat(struct( ...
   'probeDirDeg', [], ...
   'probeTag', '', ...
   'sessionProbeHeader', [], ...
-  'sessionHeader', [], ...
   'trials', [], ...
   'trialIdx', []), 1, numel(probeDirs));
 
@@ -91,19 +81,18 @@ for p = 1:numel(probeDirs)
   probeTag = sprintf('probe%d', round(probeDirDeg));
   probeTrials = trials(idx);
 
-  sessionProbeHeader = makeSessionProbeHeader(header, parentSessionHeader, probeTrials, probeDirDeg, probeTag, nTrials, idx, probeDirs);
+  sessionProbeHeader = makeSessionProbeHeader(header, probeTrials, probeDirDeg, probeTag, nTrials, idx);
 
   probeSessions(p).probeDirDeg = probeDirDeg;
   probeSessions(p).probeTag = probeTag;
   probeSessions(p).sessionProbeHeader = sessionProbeHeader;
-  probeSessions(p).sessionHeader = parentSessionHeader;
   probeSessions(p).trials = probeTrials;
   probeSessions(p).trialIdx = idx;
 end
 end
 
 %% makeSessionProbeHeader  Build authoritative metadata for one derived probe session.
-function H = makeSessionProbeHeader(parentHeader, parentSessionHeader, probeTrials, probeDirDeg, probeTag, parentNTrials, trialIdx, parentProbeDirectionsDeg)
+function H = makeSessionProbeHeader(parentHeader, probeTrials, probeDirDeg, probeTag, parentNTrials, trialIdx)
 %
 % H is the metadata record for a probe-specific analysis session.
 % Downstream kernel/noise/summary files should save H as sessionProbeHeader,
@@ -118,14 +107,61 @@ H = struct();
 H.probeDirDeg = probeDirDeg;
 H.probeTag = probeTag;
 H.parentNumberOfTrials = parentNTrials;
-H.parentNProbeDirections = numel(parentProbeDirectionsDeg);
-H.parentProbeDirectionsDeg = parentProbeDirectionsDeg(:)';
 H.trialIdx = trialIdx(:)';
 
-if isfield(parentSessionHeader, 'fileName')
-  H.parentFileName = parentSessionHeader.fileName;
-elseif isfield(parentHeader, 'fileName')
+if isfield(parentHeader, 'fileName')
   H.parentFileName = parentHeader.fileName;
+end
+
+% ---- Preferred coherence noise amplitude ----
+% prefCohNoisePC is file-level by experimental contract, but we derive it
+% from trials if it is absent from the parent header.  The derived value is
+% stored in sessionProbeHeader, not assumed downstream from parent header.
+
+if isfield(parentHeader, 'prefCohNoisePC')
+  H.prefCohNoisePC = parentHeader.prefCohNoisePC;
+elseif isfield(parentHeader, 'prefNoiseCohPC')
+  H.prefCohNoisePC = parentHeader.prefNoiseCohPC;
+else
+  prefCohs = nan(1, numel(probeTrials));
+
+  for t = 1:numel(probeTrials)
+    D = probeTrials{t}.trial.data;
+
+    assert(isfield(D, 'prefCohNoisePC'), 'makeSessionProbeHeader:MissingPrefCohNoisePC', ...
+      'Missing trial.data.prefCohNoisePC for probe trial %d.', t);
+
+    prefCohs(t) = double(D.prefCohNoisePC);
+  end
+
+  prefCohs = prefCohs(isfinite(prefCohs));
+  prefCohs = unique(round(prefCohs, 6));
+
+  assert(numel(prefCohs) == 1, 'makeSessionProbeHeader:MixedPrefCohNoisePC', ...
+    'Expected exactly one prefCohNoisePC value in derived probe session.');
+
+  H.prefCohNoisePC = struct('data', prefCohs);
+end
+
+% ---- File-level constants required downstream ----
+% These are copied from the parent header because they are fixed for the
+% parent data file and define the time base / kernel length.
+requiredParentFields = {'frameRateHz', 'preStepMS', 'stepMS'};
+
+for f = 1:numel(requiredParentFields)
+  fieldName = requiredParentFields{f};
+  assert(isfield(parentHeader, fieldName), 'makeSessionProbeHeader:MissingParentField', ...
+    'parentHeader.%s is required for sessionProbeHeader.', fieldName);
+  H.(fieldName) = parentHeader.(fieldName);
+end
+% Useful if present, but do not require for all historical files.
+optionalParentFields = {'prefDirDeg', 'subject', 'date', 'taskName', 'fileName'};
+
+for f = 1:numel(optionalParentFields)
+  fieldName = optionalParentFields{f};
+  if isfield(parentHeader, fieldName)
+    H.(fieldName) = parentHeader.(fieldName);
+  end
 end
 
 % ---- Trial-derived probe direction validation ----
@@ -170,7 +206,8 @@ assert(numel(probeCohs) == 1, ...
   'makeSessionProbeHeader:MixedProbeCohNoisePC', ...
   'Expected exactly one probeCohNoisePC value in derived probe session.');
 
-H.probeCohNoisePC = probeCohs;
+% Preserve the parameter-field style used elsewhere in the pipeline.
+H.probeCohNoisePC = struct('data', probeCohs);
 
 % ---- Noise-trial counts ----
 cohNoiseFlags = true(1, numel(probeTrials));

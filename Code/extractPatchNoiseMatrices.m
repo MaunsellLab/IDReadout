@@ -1,5 +1,5 @@
 function [prefNoise, probeNoise, trialOutcomes, changeSides, changeIndices] = ...
-  extractPatchNoiseMatrices(sessionProbeHeader, trials, stepTypes)
+  extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, trials, stepTypes)
 % extractPatchNoiseMatrices
 % Return patchwise noise matrices for all valid trials.
 %
@@ -58,8 +58,9 @@ if nValid == 0
   error('extractPatchNoiseMatrices:NoValidTrials', 'No valid matching trials were found.');
 end
 
-msPerVFrame = 1000.0 / sessionProbeHeader.frameRateHz.data(1);
-m = round((sessionProbeHeader.preStepMS.data(1) + sessionProbeHeader.stepMS.data(1)) / msPerVFrame);
+frameRateHz = localDataValue(sessionHeader.frameRateHz);
+msPerVFrame = 1000.0 / frameRateHz;
+m = round((sessionHeader.preStepMS + sessionHeader.stepMS) / msPerVFrame);
 
 nYokedProbeStreams = probeStreamCountFromSessionProbeHeader(sessionProbeHeader);
 
@@ -165,4 +166,16 @@ if isstruct(v) && isfield(v, 'data')
 end
 
 x = v(1);
+end
+
+function v = localDataValue(x)
+if isstruct(x) && isfield(x, 'data')
+  v = x.data;
+else
+  v = x;
+end
+
+if isnumeric(v) && ~isscalar(v)
+  v = v(1);
+end
 end

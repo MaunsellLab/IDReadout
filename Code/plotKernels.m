@@ -1,4 +1,4 @@
-function plotKernels(fig, titleStr, header, kernels, kVars, compStats, hitStats, probeDirDeg)
+function plotKernels(fig, titleStr, sessionHeader, kernels, kVars, compStats, hitStats, probeDirDeg)
 % Make a separate tile for inc/dec kernels, superimposing both preferred and
 % probe kernel on each.
 
@@ -10,7 +10,7 @@ end
 %
 %   INPUTS:
 %     fig           : number of the figure to use
-%     header        : IDR header structure from dat file
+%     sessionHeader : session-level analysis metadata
 %     kernels       : k x 2 x 2 x nVFrames kernels (numKTypes, dec/inc, pref/probe)
 %     kVars         : k x 2 x 2  (fixed over time) (numKTypes, dec/inc, pref/probe)
 %     compStats     : struct with 5 x 2 x 2 fields for kernel integrals and scale
@@ -35,9 +35,8 @@ elseif isgraphics(fig, 'figure')
 else
     error('plotKernels:BadFigure: fig must be empty, a figure number, or a valid figure handle.');
 end
-
-frameRateHz = header.frameRateHz.data;
-stepMS = header.stepMS.data(1);
+frameRateHz = localDataValue(sessionHeader.frameRateHz);
+stepMS = localDataValue(sessionHeader.stepMS);
 msPerVFrame = 1000.0 / frameRateHz;
 [preStepMS, intStartMS, intDurMS] = integralWindowMS();
 intStartVF = round((preStepMS + intStartMS) / msPerVFrame);
@@ -62,9 +61,9 @@ strElement = {"Dec", "Inc"};
 
 for sideType = 1:nKernelTypes
   for s = 1:2
-    colTitle = sprintf('%s: %d trials, %.0f%% correct (%d Left trials (%.1f%%), %.0f%% correct)', ...
+    colTitle = sprintf('%s: %d trials, %.0f%% correct (%.1f%% left, %.0f%% correct)', ...
       strElement{s}, hitStats.nTrials(3 - s), hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
-      hitStats.nLeftTrials(3 - s), hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
+      hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
       hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s));
     ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
     xValues = 1:size(kernels, 4);
@@ -196,3 +195,14 @@ end
 outStr = replace(inStr, "_", "-");
 end
 
+function v = localDataValue(x)
+if isstruct(x) && isfield(x, 'data')
+  v = x.data;
+else
+  v = x;
+end
+
+if isnumeric(v) && ~isscalar(v)
+  v = v(1);
+end
+end

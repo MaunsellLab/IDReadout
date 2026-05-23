@@ -1,4 +1,4 @@
-  function [allProbeDirs, staleProbeDirs] = makeKernels(replace, path)
+  function [allProbeDirs, staleProbeDirs] = makeKernels(replace)
 % makeKernels  Generate kernel, noise-matrix, and plot files for converted session files.
 %
 %   staleProbeDirs = makeKernels(replace)
@@ -19,10 +19,7 @@
 if nargin < 1 || isempty(replace)
   replace = false;
 end
-if nargin < 2 || isempty(path)
-  path = folderPath();
-end
-path = char(path);                % older MATLABs are happier with char for fullfile
+path = folderPath();
 staleProbeDirs = [];
 allProbeDirs = [];
 
@@ -53,31 +50,54 @@ for k = 1:numel(dataFiles)
   dataFileName = dataFiles(k).name;
   dataFilePath = fullfile(dataFolder, dataFileName);
   [~, baseName] = fileparts(dataFileName);
+  clear trials;
 
-  % check whether any kernels need to be made
-  load(dataFilePath, 'header');
-  % Ensure all the required fields are present
-  header = ensureSessionProbeHeaders(header, dataFilePath);
-  sessionProbeHeaders = header.sessionProbeHeaders;
-  if excludeFile(header)
+  % Load lightweight parent metadata first.  sessionHeader is the compact
+  % analysis-facing manifest used for stale-output checks.
+  sessionHeader = [];
+  load(dataFilePath, 'header', 'sessionHeader');
+
+  if applyExperimentalValidityChecks(header)
     continue;
   end
 
-  % tally probe directions and check whether any needs processing
+  needSessionHeaderRefresh = ...
+    replace || ...
+    ~exist('sessionHeader', 'var') || ...
+    isempty(sessionHeader) || ...
+    ~isfield(sessionHeader, 'probeDirectionsDeg') || ...
+    isempty(sessionHeader.probeDirectionsDeg) || ...
+    ~isfield(sessionHeader, 'probeTags') || ...
+    isempty(sessionHeader.probeTags);
+
+  if needSessionHeaderRefresh
+    load(dataFilePath, 'trials');
+    trialMeta = trialMetaFromTrials(header, trials);
+    sessionHeader = makeSessionHeader(header, trialMeta);
+    save(dataFilePath, 'sessionHeader', '-append');
+  end
+
+  probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
+  probeTags = sessionHeader.probeTags;
+
+  % ---- Tally probe directions and check whether any outputs are missing ----
   needsKernels = replace;
 
-  for p = 1:numel(sessionProbeHeaders)
-    probeDirDeg = sessionProbeHeaders(p).probeDirDeg;
+  for p = 1:numel(probeDirectionsDeg)
+    probeDirDeg = probeDirectionsDeg(p);
+    probeTag = char(probeTags{p});
+
     allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
-  
+
     if ~replace
-      probeTag = char(sessionProbeHeaders(p).probeTag);
       analysisBaseName = sprintf('%s_%s', baseName, probeTag);
 
       probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
       probeDataFolder = validFolder(fullfile(path, 'Data', probeTag));
       kernelFolder = validFolder(fullfile(probeDataFolder, 'Kernels'));
       matrixFolder = validFolder(fullfile(probeDataFolder, 'NoiseMatrices'));
+      summaryFolder = validFolder(fullfile(probeDataFolder, 'KernelSummaries'));
+      summaryFilePath = fullfile(summaryFolder, [analysisBaseName '_kernelSummary.mat']);
 
       kernelFilePath = fullfile(kernelFolder, [analysisBaseName '.mat']);
       matrixFilePath = fullfile(matrixFolder, [analysisBaseName '.mat']);
@@ -87,26 +107,24 @@ for k = 1:numel(dataFiles)
         ~isfile(plotFilePath) || ...
         ~isfile(kernelFilePath) || ...
         ~isfile(matrixFilePath) || ...
-        ~matFileHasVariable(kernelFilePath, 'sessionProbeHeader') || ...
-        ~matFileHasVariable(matrixFilePath, 'sessionProbeHeader');
-      
+        ~isfile(summaryFilePath);
+
       if outputsStale
         staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
         needsKernels = true;
       end
     end
   end
+
   if ~needsKernels
     continue
   end
-
-  % loading trials is very slow, so we don't do it unless we need to
-  load(dataFilePath, 'trials');
-  probeSessions = splitTrialsByProbeDirection(header, trials);
+  probeSessions = splitTrialsByProbeDirection(header, trials, sessionHeader);
   for p = 1:numel(probeSessions)
     probeDirDeg = probeSessions(p).probeDirDeg;
     probeTag = probeSessions(p).probeTag;
     sessionProbeHeader = probeSessions(p).sessionProbeHeader;
+    sessionHeader = probeSessions(p).sessionHeader;
     probeTrials = probeSessions(p).trials;
     analysisBaseName = sprintf('%s_%s', baseName, probeTag);
 
@@ -121,10 +139,11 @@ for k = 1:numel(dataFiles)
 
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
     [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, changeIndicesAll] = ...
-      extractPatchNoiseMatrices(sessionProbeHeader, probeTrials, [1 2]);
+      extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, probeTrials, [1 2]);
     lr = sessionLRMap(probeTrials);
 
     sessionData = struct;
+    sessionData.sessionHeader = sessionHeader;
     sessionData.sessionProbeHeader = sessionProbeHeader;
     sessionData.sideTypeNames = sideTypeNames;
     sessionData.lr = lr;
@@ -136,14 +155,23 @@ for k = 1:numel(dataFiles)
 
     [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
     
-    save(matrixFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr','prefNoiseByPatch', 'probeNoiseByPatch', ...
+    save(matrixFilePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr','prefNoiseByPatch', 'probeNoiseByPatch', ...
       'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     
-    save(kernelFilePath, 'sessionProbeHeader', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', ...
+    save(kernelFilePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', ...
       'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
+    
+    summaryFolder = validFolder(fullfile(probeDataFolder, 'KernelSummaries'));
+
+    compileKernelSessionSummary(kernelFilePath, ...
+      'noiseFile', matrixFilePath, ...
+      'summaryDir', summaryFolder, ...
+      'replace', true, ...
+      'doBootstrap', false);
+
     titleStr = sprintf('\\bf%d° Probe Kernels %s', probeDirDeg, analysisBaseName);
 
-    plotKernels(1, titleStr, sessionProbeHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);
+    plotKernels(1, titleStr, sessionHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);
     exportgraphics(gcf, plotFilePath, 'ContentType', 'vector');
   end
 end
@@ -151,41 +179,117 @@ allProbeDirs = unique(allProbeDirs);
 staleProbeDirs = unique(staleProbeDirs);
 end
 
-%% Add fields
-function header = ensureSessionProbeHeaders(header, dataFilePath)
-% ensureSessionProbeHeaders  Cache derived probe-session metadata in parent header.
-%
-% This is a private cache in the converted file, used only to avoid loading
-% the large trials variable during stale-output checks. Downstream analysis
-% files must save individual sessionProbeHeader records, not the parent header.
+% function [header, sessionHeader] = ensureSessionProbeHeaders(header, sessionHeader, dataFilePath)
+% % ensureSessionProbeHeaders  Cache derived probe-session metadata in parent header.
+% %
+% % This is a private cache in the converted file, used only to avoid loading
+% % the large trials variable during stale-output checks. Downstream analysis
+% % files must save individual sessionProbeHeader records, not the parent header.
+% 
+% if isempty(sessionHeader)
+%   sessionHeader = makeSessionHeader(header);
+% end
+% 
+% % Keep the parent-header cache aligned with the authoritative sessionHeader
+% % used for derived outputs. The cache is only for fast stale-output checks;
+% % probe-specific output files save their own sessionProbeHeader records.
+% header.sessionHeader = sessionHeader;
+% 
+% if isfield(header, 'sessionProbeHeaders') && ~isempty(header.sessionProbeHeaders)
+%   save(dataFilePath, 'header', 'sessionHeader', '-append');
+%   return;
+% end
+% 
+% load(dataFilePath, 'trials');
+% 
+% % Retain old-format compatibility at the split boundary only.
+% if ~isfield(header, 'prefDirDeg')
+%   header.prefDirDeg = struct('data', trials{1}.changeDots.data.directionDeg);
+% end
+% 
+% probeSessions = splitTrialsByProbeDirection(header, trials);
+% header.sessionProbeHeaders = [probeSessions.sessionProbeHeader];
+% 
+% save(dataFilePath, 'header', 'sessionHeader', '-append');
+% end
 
-if isfield(header, 'sessionProbeHeaders') && ~isempty(header.sessionProbeHeaders)
-  return;
+% function tf = matFileHasVariable(filePath, varName)
+% % matFileHasVariable  True if MAT file exists and contains variable varName.
+% 
+% tf = false;
+% 
+% if ~isfile(filePath)
+%   return;
+% end
+% 
+% tic
+% vars = whos('-file', filePath);
+% elapsed = toc;
+% fprintf('%.3fs looking for %s in %s\n', elapsed, varName, filePath);
+% tf = any(strcmp({vars.name}, varName));
+% if tf
+%   fprintf("  ***\n");
+% else
+%   fprintf("000\n");
+% end
+% end
+% 
+% function v = localDataValue(x)
+% if isstruct(x) && isfield(x, 'data')
+%   v = x.data;
+% else
+%   v = x;
+% end
+% 
+% if isnumeric(v) && ~isscalar(v)
+%   v = v(1);
+% end
+% end
+
+function trialMeta = trialMetaFromTrials(header, trials)
+
+nTrials = numel(trials);
+trialProbeDirs = nan(1, nTrials);
+trialHasNoise = false(1, nTrials);
+
+for t = 1:nTrials
+  if isfield(trials{t}, 'trial') && isfield(trials{t}.trial, 'data')
+    D = trials{t}.trial.data;
+
+    if isfield(D, 'cohNoise')
+      trialHasNoise(t) = logical(D.cohNoise);
+    else
+      trialHasNoise(t) = true;
+    end
+
+    if isfield(D, 'probeDirDeg')
+      trialProbeDirs(t) = double(D.probeDirDeg);
+    end
+  end
 end
 
-load(dataFilePath, 'trials');
-
-% Retain old-format compatibility by ensuring prefDirDeg is available if
-% historical downstream/sessionProbeHeader creation needs it.
-if ~isfield(header, 'prefDirDeg')
-  header.prefDirDeg = struct('data', trials{1}.changeDots.data.directionDeg);
+% Old single-probe compatibility at the conversion boundary only.
+if all(isnan(trialProbeDirs(trialHasNoise)))
+  if isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+    trialProbeDirs(:) = double(header.probeDirDeg.data);
+  else
+    error('trialMetaFromTrials:MissingProbeDir', ...
+      'No per-trial probeDirDeg and no header.probeDirDeg.data.');
+  end
 end
 
-probeSessions = splitTrialsByProbeDirection(header, trials);
-header.sessionProbeHeaders = [probeSessions.sessionProbeHeader];
-
-save(dataFilePath, 'header', '-append');
+if any(isnan(trialProbeDirs(trialHasNoise)))
+  error('trialMetaFromTrials:IncompleteProbeDir', ...
+    'Missing probeDirDeg for at least one noise trial.');
 end
 
-function tf = matFileHasVariable(filePath, varName)
-% matFileHasVariable  True if MAT file exists and contains variable varName.
+probeDirectionsDeg = unique(trialProbeDirs(trialHasNoise));
+probeDirectionsDeg(probeDirectionsDeg == -1) = [];
 
-tf = false;
-
-if ~isfile(filePath)
-  return;
-end
-
-vars = whos('-file', filePath);
-tf = any(strcmp({vars.name}, varName));
+trialMeta = struct();
+trialMeta.probeDirectionsDeg = probeDirectionsDeg(:)';
+trialMeta.nProbeDirections = numel(probeDirectionsDeg);
+trialMeta.probeTags = arrayfun(@(d) sprintf('probe%d', round(d)), ...
+  trialMeta.probeDirectionsDeg, 'UniformOutput', false);
+trialMeta.nNoiseTrials = sum(trialHasNoise & trialProbeDirs ~= -1);
 end

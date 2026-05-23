@@ -12,7 +12,8 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 %   sessionData.trialOutcomesAll : 1 x nTrials
 %   sessionData.changeSidesAll   : 1 x nTrials
 %   sessionData.changeIndicesAll : 1 x nTrials   (1=decrement, 2=increment)
-%   sessionData.sessionProbeHeader : metadata struct for this derived probe session
+%   sessionData.sessionHeader      : session-level metadata
+%   sessionData.sessionProbeHeader : probe-level metadata for this derived probe session
 %   sessionData.lr               : optional session L/R mapping struct
 %   sessionData.sideTypeNames    : optional cell array of side-type names
 %
@@ -28,9 +29,15 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 if nargin < 2 || isempty(trialIdx)
   trialIdx = 1:size(sessionData.prefNoiseByPatch, 3);
 end
-assert(isfield(sessionData, 'sessionProbeHeader') && ~isempty(sessionData.sessionProbeHeader), ...
-  'computeSessionKernels:MissingSessionProbeHeader', 'sessionData.sessionProbeHeader is required.');
+assert(isfield(sessionData, 'sessionHeader') && ~isempty(sessionData.sessionHeader), ...
+  'computeSessionKernels:MissingSessionHeader', ...
+  'sessionData.sessionHeader is required.');
 
+assert(isfield(sessionData, 'sessionProbeHeader') && ~isempty(sessionData.sessionProbeHeader), ...
+  'computeSessionKernels:MissingSessionProbeHeader', ...
+  'sessionData.sessionProbeHeader is required.');
+
+sessionHeader = sessionData.sessionHeader;
 sessionProbeHeader = sessionData.sessionProbeHeader;
 prefNoiseAll     = sessionData.prefNoiseByPatch(:, :, trialIdx);
 probeNoiseAll    = sessionData.probeNoiseByPatch(:, :, trialIdx);
@@ -38,13 +45,14 @@ trialOutcomesAll = sessionData.trialOutcomesAll(trialIdx);
 changeSidesAll   = sessionData.changeSidesAll(trialIdx);
 changeIndicesAll = sessionData.changeIndicesAll(trialIdx);
 
-% Pull amplitudes from the authoritative per-probe session metadata.
+% Pull amplitudes from the authoritative headers.
+% prefCohNoisePC is session-level; probeCohNoisePC is probe-level.
 % probeCohNoisePC is the single-stream probe noise amplitude stored in the
 % experimental file. probeNoiseByPatch has already been converted to the
 % effective yoked-probe perturbation, so kernel estimation must use the
 % corresponding combined probe amplitude.
-prefCohNoisePC  = sessionProbeHeader.prefCohNoisePC.data(1);
-probeCohNoisePC = sessionProbeHeader.probeCohNoisePC.data(1);
+prefCohNoisePC  = localDataValue(sessionHeader.prefCohNoisePC);
+probeCohNoisePC = localDataValue(sessionProbeHeader.probeCohNoisePC);
 
 if ~isfinite(prefCohNoisePC) || ~isfinite(probeCohNoisePC) || probeCohNoisePC <= 0
   error('computeSessionKernels:BadNoiseAmplitude', ...
@@ -135,7 +143,8 @@ for s = 1:2
   hitStats.nLeftTrials(s) = sum(idxLeft);
   hitStats.nLeftHits(s)   = sum(trialOutcomesByCond{1, s} == 0 & idxLeft);
 end
-msPerVFrame = 1000.0 / sessionProbeHeader.frameRateHz.data(1);
+frameRateHz = localDataValue(sessionHeader.frameRateHz);
+msPerVFrame = 1000.0 / frameRateHz;
 
 % ---- Comparison statistics ----
 %
@@ -231,12 +240,24 @@ if isempty(X)
   return;
 end
 
-if ndims(X) == 2
+if ismatrix(X)
   assert(size(X,1) == 2 && size(X,2) == nFrames, ...
     'computeSessionKernels:BadPatchNoiseShape', ...
     'Expected patch noise matrix to be 2 x %d or 2 x %d x nTrials.', ...
     nFrames, nFrames);
 
   X = reshape(X, 2, nFrames, 1);
+end
+end
+
+function v = localDataValue(x)
+if isstruct(x) && isfield(x, 'data')
+  v = x.data;
+else
+  v = x;
+end
+
+if isnumeric(v) && ~isscalar(v)
+  v = v(1);
 end
 end

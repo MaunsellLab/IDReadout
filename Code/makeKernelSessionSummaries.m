@@ -1,30 +1,23 @@
 function makeKernelSessionSummaries(varargin)
 % makeKernelSessionSummaries
 %
-% Batch-create per-session tracking summaries from kernel files.
-%
-% Old flat-folder use:
-%   makeKernelSessionSummaries('kernelDir', ..., 'summaryDir', ...)
-%
-% Probe-folder use:
-%   makeKernelSessionSummaries('sessionsDirs', {'probe45','probe90',...})
-%
-% If sessionsDirs is supplied, each entry may be either:
-%   - a full path to Data/probeXX
-%   - a folder name such as 'probe45', interpreted relative to Data/
+% % Batch utility for rebuilding KernelSummary files from existing kernel files.
+% Routine makeKernels runs create KernelSummary files automatically.
+% Use this function for backfilling, refreshing summaries after format changes,
+% or computing optional per-session bootstrap diagnostics.
 
 P = inputParser;
 addParameter(P, 'kernelDir', '/Users/Shared/Data/IDReadout/Data/Kernels', @ischar);
 addParameter(P, 'summaryDir', '/Users/Shared/Data/IDReadout/Data/KernelSummaries', @ischar);
 addParameter(P, 'sessionsDirs', {}, @(x) iscell(x) || isstring(x) || ischar(x));
-addParameter(P, 'path', folderPath(), @ischar);
 addParameter(P, 'replace', false, @islogical);
-addParameter(P, 'doBootstrap', true, @islogical);
-addParameter(P, 'nBoot', 100, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(P, 'doBootstrap', false, @islogical);
+addParameter(P, 'nBoot', 1, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(P, 'trackSideType', 1, @(x) isnumeric(x) && isscalar(x));
 addParameter(P, 'trackStepType', 2, @(x) isnumeric(x) && isscalar(x));
 parse(P, varargin{:});
 R = P.Results;
+R.path = folderPath();
 
 sessionsDirs = normalizeSessionsDirs(R.sessionsDirs, R.path);
 

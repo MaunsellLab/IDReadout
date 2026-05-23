@@ -36,24 +36,55 @@ for fi = 1:numel(paths)
   movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
   nTrials = header.numberOfTrials;
   trials  = cell(1, nTrials);
+  trialMeta.probeDirectionsDeg = [];
+  trialMeta.nProbeDirections = 0;
+  trialMeta.nNoiseTrials = 0;
   fprintf('       converting %s\n', datName);
   for t = 1:nTrials
     trials{t} = readLLFile('t', t);
+    % trialMeta = updateTrialMeta(trialMeta, trials{t});
+    % if ~(isfield(trial, 'trial') && isfield(trial.trial, 'data'))
+    %   return
+    % end
+    D = trials{t}.trial.data;
+    if D.cohNoise
+      % if isfield(D, 'cohNoise')
+      %   hasNoise = logical(D.cohNoise);
+      % else
+      %   hasNoise = true;   % old-file compatibility
+      % end
+      % if ~hasNoise
+      %   return
+      % end
+      trialMeta.nNoiseTrials = trialMeta.nNoiseTrials + 1;
+      if isfield(D, 'probeDirDeg')
+        probeDirDeg = double(D.probeDirDeg);
+        if isfinite(probeDirDeg) && probeDirDeg ~= -1
+          trialMeta.probeDirectionsDeg(end+1) = probeDirDeg; %#ok<AGROW>
+        end
+      end
+    end
     if t == nTrials || mod(t, 500) == 0                            % Occasionally update the waitbar text
       fprintf('       reading %s: trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
     end
   end
 
+  probeDirs = unique(round(trialMeta.probeDirectionsDeg, 6));
+  % Old-format fallback: no per-trial probeDirDeg, but parent header has one.
+  if isempty(probeDirs) && isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+    probeDirs = double(header.probeDirDeg.data);
+  end
+  trialMeta.probeDirectionsDeg = probeDirs(:)';
+  trialMeta.nProbeDirections = numel(probeDirs);
+
   % correct indexing errors that existed in earlier version of IDR
   trials = correctIndices(header, trials);
 
-  % Save header and trials; use -v7.3 if these can get large
-  fprintf('Saving %s\n', outFileName);
-  save(outFileName, 'trials', 'header');
+  % Save header, sessionHeader, and trials; use -v7.3 if these can get large
+  sessionHeader = makeSessionHeader(header, trialMeta);
+  save(outFileName, 'trials', 'header', 'sessionHeader');
+  fprintf('Saved %s\n', outFileName);
 end
-% if numSkipped > 0
-%   fprintf('     convertIDRData: Skipped %d previously converted files\n', numSkipped);
-% end
 end
 
 % Several events were mislabeled as "change..." and "noChange..." when they
@@ -95,3 +126,51 @@ else
   end
 end
 end
+
+% function trialMeta = initializeTrialMeta()
+% 
+% trialMeta.probeDirectionsDeg = [];
+% trialMeta.nProbeDirections = 0;
+% trialMeta.nNoiseTrials = 0;
+% 
+% end
+
+% function trialMeta = updateTrialMeta(trialMeta, trial)
+% 
+% if ~(isfield(trial, 'trial') && isfield(trial.trial, 'data'))
+%   return
+% end
+% D = trial.trial.data;
+% if isfield(D, 'cohNoise')
+%   hasNoise = logical(D.cohNoise);
+% else
+%   hasNoise = true;   % old-file compatibility
+% end
+% if ~hasNoise
+%   return
+% end
+% 
+% trialMeta.nNoiseTrials = trialMeta.nNoiseTrials + 1;
+% 
+% if isfield(D, 'probeDirDeg')
+%   probeDirDeg = double(D.probeDirDeg);
+%   if isfinite(probeDirDeg) && probeDirDeg ~= -1
+%     trialMeta.probeDirectionsDeg(end+1) = probeDirDeg; %#ok<AGROW>
+%   end
+% end
+% 
+% end
+
+% function trialMeta = finalizeTrialMeta(trialMeta, header)
+% 
+% probeDirs = unique(round(trialMeta.probeDirectionsDeg, 6));
+% 
+% % Old-format fallback: no per-trial probeDirDeg, but parent header has one.
+% if isempty(probeDirs) && isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
+%   probeDirs = double(header.probeDirDeg.data);
+% end
+% 
+% trialMeta.probeDirectionsDeg = probeDirs(:)';
+% trialMeta.nProbeDirections = numel(probeDirs);
+% 
+% end
