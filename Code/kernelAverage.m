@@ -17,7 +17,6 @@ if nargin < 2 || isempty(nBoot)
 end
 
 P = inputParser;
-addParameter(P, 'dataFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
@@ -30,16 +29,15 @@ summarySideType = R.SummarySideType;
 summarySideTypeNum = sideTypeIndex(summarySideType);
 
 baseFolder = folderPath();
-if isempty(R.dataFolder)
-  dataFolder = fullfile(baseFolder, 'Data', sprintf('probe%d', R.probeDirDeg), 'NoiseMatrices');
-end
-if isempty(R.plotFolder)
-  plotFolder = fullfile(baseFolder, 'Plots', 'AverageKernels');
-end
+
+dataFolder = fullfile(baseFolder, 'Data', sprintf('probe%d', R.probeDirDeg), 'NoiseMatrices');
+% If no kernels exist, notify user and return
 if ~exist(dataFolder, 'dir')
-  error('kernelAverage:MissingFolder', 'Data folder not found: %s', dataFolder);
+  fprintf('      data folder not found: %s\n', dataFolder);
+  return;
 end
-plotFolder = validFolder(plotFolder);
+
+plotFolder = validFolder(fullfile(baseFolder, 'Plots', 'AverageKernels'));
 
 [selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, R.FileSelectionArgs{:});
 if R.verbose

@@ -2,6 +2,10 @@ IDReadout To Do:
 
 Incorporate makeKernelSessionsSummaries into makeKernels
 
+Current:
+  Move all construction of sessionProbeHeader to splitTrialsByProbeDirection
+  updateOverKernelSessionSummaries isn't finding kernel or noise file names
+
 Revise:
   updateAcrossOffsetSummaries 
     stop using summary files and start using kernel files.
@@ -14,6 +18,7 @@ Eliminate:
   makeKernelSessionsSummaries as a free standing file.
   compileKernelSessionSummary as a free standing file.
   updateAcrossOffsetSummaries -- remove selectCompStatsEntry
+  lots of asserts in plotSideTypeKernelAverage
 
 
 IDReadout Analysis Overview:

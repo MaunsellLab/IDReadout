@@ -139,7 +139,7 @@ if opts.MakePlots
   makeAcrossOffsetPlots(acrossOffsetSummary, opts);
 end
 if opts.Verbose
-  fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
+  fprintf('updateAcrossOffsetSummaries: done.\n');
 end
 
 end
@@ -2085,8 +2085,8 @@ sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
 sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
 sessionRecord.sessionName = S.sessionHeader.fileName;
 % sessionRecord.sessionDate = summary.date;
-% sessionRecord.kernelFile = summary.kernelFile;
-% sessionRecord.noiseFile  = summary.noiseFile;
+sessionRecord.kernelFile = S.sessionProbeHeader.kernelFile;
+sessionRecord.noiseFile  = S.sessionProbeHeader.noiseFile;
 
 sessionRecord.compStats = S.compStats;
 sessionRecord.hitStats  = S.hitStats;

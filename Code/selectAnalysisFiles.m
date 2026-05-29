@@ -161,7 +161,7 @@ if R.Bin179With180
     otherProbeDir = 179;
   end
   % If 179 or 180 has been selected, concatenate entries for the other;
-  if ~isempty(otherDataFolder)
+  if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
     modifiedArgs = removeParameterPair(varargin, 'Bin179With180');
     modifiedArgs = [modifiedArgs, {'Bin179With180', false, 'ProbeDirDeg', otherProbeDir}];
     [otherFiles, otherFileInfo] = selectAnalysisFiles(otherDataFolder, modifiedArgs{:});

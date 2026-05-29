@@ -35,10 +35,16 @@ assert(~isempty(probeDirs), 'plotSideTypeKernelAverage:NoProbeDirs', ...
 % ---- Load average-kernel plot data ----
 nProbes = numel(probeDirs);
 plotData = cell(1, nProbes);
+missingIndices = [];
 
 for p = 1:nProbes
-  probeTag = sprintf('probe%d', round(probeDirs(p)));
+  probeTag = sprintf('probe%d', probeDirs(p));
   dataFile = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideType, 'AverageKernelPlotData.mat');
+  if ~isfile(dataFile)
+    missingIndices = [missingIndices, p]; %#ok<AGROW>
+    fprintf('      no kernels for probe %3d°\n', probeDirs(p));
+    continue;
+  end
 
   S = load(dataFile);
   D = S.averageKernelPlotData;
@@ -56,6 +62,11 @@ for p = 1:nProbes
   assert(isfield(D, 'tMS') && numel(D.tMS) == size(D.kernels, 3), 'plotSideTypeKernelAverage:BadTimeVector', ...
     'tMS missing or inconsistent in %s', dataFile);
   plotData{p} = D;
+end
+if ~isempty(missingIndices)
+  probeDirs(missingIndices) = [];
+  plotData(missingIndices) = [];
+  nProbes = numel(probeDirs);
 end
 
 % ---- Confirm compatible labels and timing ----

@@ -1,19 +1,5 @@
 function probeSessions = splitTrialsByProbeDirection(header, trials, parentSessionHeader)
 % splitTrialsByProbeDirection  Split one recording session into probe-specific analysis sessions.
-%
-% Each output element has:
-%   .probeDirDeg
-%   .probeTag
-%   .sessionProbeHeader
-%   .sessionHeader
-%   .trials
-%   .trialIdx
-%
-% parentSessionHeader must be supplied explicitly.  
-%
-% Old single-probe files remain compatible only at this split boundary.
-% If per-trial probeDirDeg is absent, header.probeDirDeg.data may be used
-% at this boundary for old-format compatibility.
 
 nTrials = numel(trials);
 if nargin < 3 || isempty(parentSessionHeader)
@@ -80,6 +66,8 @@ probeSessions = repmat(struct( ...
   'probeTag', '', ...
   'sessionProbeHeader', [], ...
   'sessionHeader', [], ...
+  'kernelFile', [], ...
+  'noiseFile', [], ...
   'trials', [], ...
   'trialIdx', []), 1, numel(probeDirs));
 
@@ -101,30 +89,31 @@ end
 end
 
 %% makeSessionProbeHeader  Build authoritative metadata for one derived probe session.
-function H = makeSessionProbeHeader(parentHeader, parentSessionHeader, probeTrials, probeDirDeg, probeTag, parentNTrials, trialIdx, parentProbeDirectionsDeg)
+function H = makeSessionProbeHeader(parentHeader, parentSessionHeader, probeTrials, probeDirDeg, probeTag, ...
+parentNTrials, trialIdx, parentProbeDirectionsDeg)
 %
-% H is the metadata record for a probe-specific analysis session.
-% Downstream kernel/noise/summary files should save H as sessionProbeHeader,
-% not the original parent file header.
-%
-% The parent header may be used here only for file-level constants and
-% provenance. Trial-varying probe metadata must be derived from probeTrials.
+% Create a sessionProbeHeader that describes details for one probe
+% direction in a session
+
+[~, baseName] = fileparts(parentHeader.fileName);
+probeDataFolder = fullfile(folderPath, 'Data', probeTag);
+kernelFolder = fullfile(probeDataFolder, 'Kernels');
+noiseFolder = fullfile(probeDataFolder, 'NoiseMatrices');
 
 H = struct();
 
 % ---- Identity / provenance ----
+H.version = 3;
+H.sessionID = baseName;
+H.parentFileName = parentHeader.fileName;
+H.kernelFile = fullfile(kernelFolder, [baseName, '.mat']);
+H.noiseFile = fullfile(noiseFolder, [baseName, '.mat']);
 H.probeDirDeg = probeDirDeg;
 H.probeTag = probeTag;
 H.parentNumberOfTrials = parentNTrials;
 H.parentNProbeDirections = numel(parentProbeDirectionsDeg);
 H.parentProbeDirectionsDeg = parentProbeDirectionsDeg(:)';
 H.trialIdx = trialIdx(:)';
-
-if isfield(parentSessionHeader, 'fileName')
-  H.parentFileName = parentSessionHeader.fileName;
-elseif isfield(parentHeader, 'fileName')
-  H.parentFileName = parentHeader.fileName;
-end
 
 % ---- Trial-derived probe direction validation ----
 trialProbeDirs = nan(1, numel(probeTrials));
