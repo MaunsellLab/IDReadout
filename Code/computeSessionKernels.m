@@ -30,12 +30,10 @@ if nargin < 2 || isempty(trialIdx)
   trialIdx = 1:size(sessionData.prefNoiseByPatch, 3);
 end
 assert(isfield(sessionData, 'sessionHeader') && ~isempty(sessionData.sessionHeader), ...
-  'computeSessionKernels:MissingSessionHeader', ...
-  'sessionData.sessionHeader is required.');
+  'computeSessionKernels:MissingSessionHeader', 'sessionData.sessionHeader is required.');
 
 assert(isfield(sessionData, 'sessionProbeHeader') && ~isempty(sessionData.sessionProbeHeader), ...
-  'computeSessionKernels:MissingSessionProbeHeader', ...
-  'sessionData.sessionProbeHeader is required.');
+  'computeSessionKernels:MissingSessionProbeHeader', 'sessionData.sessionProbeHeader is required.');
 
 sessionHeader = sessionData.sessionHeader;
 sessionProbeHeader = sessionData.sessionProbeHeader;
@@ -194,13 +192,13 @@ compStats.normInfo.method = ...
    'normalized by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 ' ...
    'before computing normalized ratios/scales'];
 % Legacy aliases: preserve old downstream behavior for now.
-compStats.kIntegrals = compStats.rawIntegrals;
-compStats.R          = compStats.rawR;
-compStats.RVar       = compStats.rawRVar;
-compStats.scale      = compStats.rawScale;
-compStats.scaleSEM   = compStats.rawScaleSEM;
-compStats.fitR2      = compStats.rawFitR2;
-compStats.sse        = compStats.rawSSE;
+% compStats.kIntegrals = compStats.rawIntegrals;
+% compStats.R          = compStats.rawR;
+% compStats.RVar       = compStats.rawRVar;
+% compStats.scale      = compStats.rawScale;
+% compStats.scaleSEM   = compStats.rawScaleSEM;
+% compStats.fitR2      = compStats.rawFitR2;
+% compStats.sse        = compStats.rawSSE;
 
 end
 

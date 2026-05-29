@@ -1,3 +1,21 @@
+IDReadout To Do:
+
+Incorporate makeKernelSessionsSummaries into makeKernels
+
+Revise:
+  updateAcrossOffsetSummaries 
+    stop using summary files and start using kernel files.
+    update documentation at the top to reflect new input files.
+  makeKernels
+    strip parsing out of compileKernelSummary
+    eliminate the stub: recomputeSessionKernelStruct
+  
+Eliminate: 
+  makeKernelSessionsSummaries as a free standing file.
+  compileKernelSessionSummary as a free standing file.
+  updateAcrossOffsetSummaries -- remove selectCompStatsEntry
+
+
 IDReadout Analysis Overview:
 ============================
 

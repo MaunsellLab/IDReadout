@@ -15,13 +15,10 @@ P = inputParser;
 addParameter(P, 'noiseFile', '', @ischar);
 addParameter(P, 'summaryDir', '', @ischar);
 addParameter(P, 'replace', false, @islogical);
-% addParameter(P, 'doBootstrap', true, @islogical);
-% addParameter(P, 'nBoot', 500, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(P, 'trackSideType', 2, @(x) isnumeric(x) && isscalar(x));
 addParameter(P, 'trackStepType', 2, @(x) isnumeric(x) && isscalar(x));
 addParameter(P, 'minTrials', 200, @(x) isnumeric(x) && isscalar(x));
 addParameter(P, 'minPrefEnergy', 1e-6, @(x) isnumeric(x) && isscalar(x));
-% addParameter(P, 'rngSeed', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 parse(P, varargin{:});
 R = P.Results;
 
@@ -46,13 +43,6 @@ if exist(summaryFile, 'file') && ~R.replace
 end
 
 K = load(kernelFile);
-assert(isfield(K, 'sessionHeader'), ...
-  'compileKernelSessionSummary:MissingSessionHeader', ...
-  'Expected sessionHeader in kernel file %s.', kernelFile);
-
-assert(isfield(K, 'sessionProbeHeader'), ...
-  'compileKernelSessionSummary:MissingSessionProbeHeader', ...
-  'Expected sessionProbeHeader in kernel file %s.', kernelFile);
 
 sessionHeader = K.sessionHeader;
 sessionProbeHeader = K.sessionProbeHeader;
@@ -152,22 +142,8 @@ end
 summary.scale.estimate = summary.scale.normEstimate;
 summary.scale.sem      = summary.scale.normSEM;
 
-% summary.scale.ci68       = [NaN NaN];
-% summary.scale.ci95       = [NaN NaN];
-% summary.scale.ci68Width  = NaN;
-% summary.scale.ci95Width  = NaN;
-% summary.scale.bootMedian = NaN;
-% summary.scale.bootSD     = NaN;
-summary.scale.valid      = false;
 
-% summary.scale.rawCI68       = [NaN NaN];
-% summary.scale.rawCI95       = [NaN NaN];
-% summary.scale.rawBootMedian = NaN;
-% summary.scale.rawBootSD     = NaN;
-% summary.scale.normCI68       = [NaN NaN];
-% summary.scale.normCI95       = [NaN NaN];
-% summary.scale.normBootMedian = NaN;
-% summary.scale.normBootSD     = NaN;
+summary.scale.valid      = false;
 kPref = squeeze(K.kernels(R.trackSideType, R.trackStepType, 1, iIndices));
 summary.pref = struct;
 summary.pref.energy   = sum(kPref(:).^2);
@@ -181,46 +157,11 @@ summary.bootstrap.method  = 'trial';
 summary.bootstrap.rngSeed = NaN;
 
 summary.flags = struct;
-% summary.flags.excluded = excludeFile(sessionProbeHeader);
 summary.flags.lowTrialCount    = summary.metrics.nTrials < R.minTrials;
 summary.flags.lowPrefEnergy    = summary.pref.energy < R.minPrefEnergy;
 summary.flags.unstableScale    = false;
 summary.flags.missingNoiseFile = ~exist(noiseFile, 'file');
 summary.flags.needsRefresh     = false;
-
-% if R.doBootstrap && exist(noiseFile, 'file')
-%   if ~isempty(R.rngSeed)
-%     rng(R.rngSeed);
-%     summary.bootstrap.rngSeed = R.rngSeed;
-%   end
-% 
-%   N = load(noiseFile);
-%   nTrials = size(N.prefNoiseByPatch, 3);
-%   bootRawScale  = nan(R.nBoot, 1);
-%   bootNormScale = nan(R.nBoot, 1);
-% 
-%   for b = 1:R.nBoot
-%     idx = randi(nTrials, nTrials, 1);
-% 
-%     try
-%       [~, ~, ~, ~, compStatsBoot] = computeSessionKernels(N, idx);
-%       if isfield(compStatsBoot, 'rawScale')
-%         bootRawScale(b) = compStatsBoot.rawScale(R.trackSideType, R.trackStepType);
-%       else
-%         bootRawScale(b) = compStatsBoot.scale(R.trackSideType, R.trackStepType);
-%       end
-% 
-%       if isfield(compStatsBoot, 'normScale')
-%         bootNormScale(b) = compStatsBoot.normScale(R.trackSideType, R.trackStepType);
-%       else
-%         bootNormScale(b) = bootRawScale(b);
-%       end
-%     catch
-%       bootRawScale(b)  = NaN;
-%       bootNormScale(b) = NaN;
-%     end
-%   end
-% end
 
 summary.scale.valid = ...
   isfinite(summary.scale.estimate) && ...
@@ -230,7 +171,6 @@ summary.scale.valid = ...
 
 save(summaryFile, 'summary', 'sessionHeader', 'sessionProbeHeader');
 end
-
 
 function dt = localDateFromHeaderOrFile(header, baseName)
 dt = NaT;

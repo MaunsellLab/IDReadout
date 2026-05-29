@@ -1,4 +1,4 @@
-function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
+function acrossOffsetSummary = updateAcrossOffsetSummaries(dataDir, varargin)
 % REQUIRED SESSION-LEVEL CONTRACT
 %   This function operates on per-session kernel summary files produced by
 %   compileKernelSessionSummary.
@@ -38,21 +38,25 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(summaryDir, varargin)
 % model across probe offsets.
 % -------------------------------------------------------------------------
     
-if nargin < 1 || isempty(summaryDir)
-  summaryDir = fullfile(folderPath(), 'Data');
+if nargin < 1 || isempty(dataDir)
+  dataDir = fullfile(folderPath(), 'Data');
 end
-opts = parseInputs(summaryDir, varargin{:});
+opts = parseInputs(dataDir, varargin{:});
 
-if ~isempty(opts.RandomSeed)
-    rng(opts.RandomSeed);
+% get info about all kernel files meeting criteria
+files = {};
+fileInfo = table();
+for iDir = 1:numel(opts.kernelsDir)
+  thisDir = opts.kernelsDir{iDir};
+  selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
+  [theFiles, theFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
+  files = [files; theFiles]; %#ok<AGROW>
+  fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
 end
 
-% if opts.Verbose
-%     fprintf('updateAcrossOffsetSummaries: scanning %s\n', summaryDir);
-% end
 
 % get a list of all session summaries
-[sessionList, fileInfo] = loadSessionSummaries(opts);
+[sessionList] = loadSessionSummaries(files, fileInfo, opts);
 % create an empty acrossOffsetSummary
 acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList);
 acrossOffsetSummary.fileInfo = fileInfo;
@@ -131,17 +135,13 @@ acrossOffsetSummary.readoutModel = readoutModels.signedDOG;
 acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
 
 saveAcrossOffsetSummary(opts, acrossOffsetSummary);
+if opts.MakePlots
+  makeAcrossOffsetPlots(acrossOffsetSummary, opts);
+end
 if opts.Verbose
-    fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
+  fprintf('updateAcrossOffsetSummaries: done. Saved summary to %s\n', opts.SaveFile);
 end
 
-if opts.MakePlots
-    try
-        makeAcrossOffsetPlots(acrossOffsetSummary, opts);
-    catch ME
-        warning('Plot generation failed: %s', ME.message);
-    end
-end
 end
 
 % ========================================================================
@@ -290,27 +290,31 @@ end
 end
 
 % ========================================================================
-function opts = parseInputs(summaryDir, varargin)
+function opts = parseInputs(dataDir, varargin)
 
-if iscell(summaryDir)
-    assert(~isempty(summaryDir), 'summaryDir cell array cannot be empty.');
-elseif isstring(summaryDir)
-    summaryDir = cellstr(summaryDir);
-elseif ischar(summaryDir)
-    % keep as char for now
-else
-    error('summaryDir must be a char, string, or cell array of paths.');
+% locate all the potential summary directories
+d = char(cellstr(dataDir));
+kernelDirs = {};
+probeDirs = dir(fullfile(d, 'probe*'));
+probeDirs = probeDirs([probeDirs.isdir]);
+for p = 1:numel(probeDirs)
+  candidate = fullfile(probeDirs(p).folder, probeDirs(p).name, 'Kernels');
+  if exist(candidate, 'dir')
+    kernelDirs{end+1} = candidate; %#ok<AGROW>
+  end
 end
+kernelDirs = unique(kernelDirs, 'stable');
+
 p = inputParser;
 p.FunctionName = mfilename;
 
-addRequired(p, 'summaryDir', @(x) ischar(x) || isstring(x) || iscell(x));
+addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
 defaultSaveFile = fullfile(folderPath(), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'ReadoutFits'), @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
@@ -321,92 +325,93 @@ addParameter(p, 'ScaleSideType', 'change', @(x) ischar(x) || isstring(x) || isnu
 addParameter(p, 'ScaleStepType', 'inc', @(x) ischar(x) || isstring(x) || isnumeric(x));
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
+addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
 
-parse(p, summaryDir, varargin{:});
+parse(p, dataDir, varargin{:});
 opts = p.Results;
-opts.summaryDir = normalizeSummaryDirs(summaryDir);
+opts.kernelsDir = kernelDirs;
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
 opts.FilePattern = char(opts.FilePattern);
-opts.FileSelectionArgs = opts.FileSelectionArgs;
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
 opts.ScaleMode = char(opts.ScaleMode);
+
+
 if ~exist(fileparts(opts.SaveFile), 'dir')
-    mkdir(fileparts(opts.SaveFile));
+  mkdir(fileparts(opts.SaveFile));
 end
 if opts.MakePlots && ~exist(opts.PlotDir, 'dir')
-    mkdir(opts.PlotDir);
+  mkdir(opts.PlotDir);
 end
 
+%inset a convenience flag for whether we are binning 179° with 180°
+names = opts.FileSelectionArgs(1:2:end);
+values = opts.FileSelectionArgs(2:2:end);
+isMatch = cellfun(@(x) (ischar(x) || isstring(x)) && strcmpi(char(x), 'Bin179With180'), names);
+if any(isMatch)
+  opts.Bin179With180 = values{find(isMatch, 1, 'last')};
+end
+
+if ~isempty(opts.RandomSeed)
+  rng(opts.RandomSeed);
+end
 end
 
 % ========================================================================
-function [sessionList, fileInfo] = loadSessionSummaries(opts)
+function [sessionList] = loadSessionSummaries(files, fileInfo, opts)
 % Load per-session summaries and apply exclusion logic.
 
-files = [];
-fileInfo = table();
-
-for iDir = 1:numel(opts.summaryDir)
-    thisDir = opts.summaryDir{iDir};
-    selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
-    [thisFiles, thisFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
-    files = [files; pathsToDirStruct(thisFiles)]; %#ok<AGROW>
-    fileInfo = [fileInfo; thisFileInfo]; %#ok<AGROW>
-end
-
-sessionList = repmat(emptySessionStruct(), 0, 1);
+% files = [];
+% fileInfo = table();
+% 
+% for iDir = 1:numel(opts.kernelsDir)
+%     thisDir = opts.kernelsDir{iDir};
+%     selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
+%     [thisFiles, thisFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
+%     files = [files; pathsToDirStruct(thisFiles)]; %#ok<AGROW>
+%     fileInfo = [fileInfo; thisFileInfo]; %#ok<AGROW>
+% end
 
 if opts.Verbose
     fprintf('  Found %d selected session summary files across %d folders.\n', ...
-        numel(files), numel(opts.summaryDir));
+        numel(files), numel(opts.kernelsDir));
 end
+sessionList = repmat(emptySessionStruct(), 0, 1);
 for iFile = 1:numel(files)
-    thisFile = fullfile(files(iFile).folder, files(iFile).name);
-
-    try
-        S = load(thisFile, 'summary', 'sessionHeader', 'sessionProbeHeader');
-    catch ME
-        warning('Could not load %s: %s', thisFile, ME.message);
-        continue;
-    end
-
-    sessionRecord = makeSessionRecordFromSummaryFile(S, thisFile, opts);
+    thisFile = files{iFile};
+    % S = load(thisFile, 'sessionHeader', 'sessionProbeHeader');
+    sessionRecord = makeSessionRecordFromSummaryFile(thisFile, opts);
 
     if ~isempty(fileInfo) && height(fileInfo) >= iFile
         sessionRecord.fileInfo = fileInfo(iFile, :);
     end
 
-    [tfExclude, reasonStr] = excludeFromReadoutFit( ...
-        sessionRecord.probeOffsetDeg, ...
-        sessionRecord.sessionProbeHeader.probeCohNoisePC);
-
+    [tfExclude, reasonStr] = excludeFromReadoutFit(sessionRecord.probeOffsetDeg, ...
+              sessionRecord.sessionProbeHeader.probeCohNoisePC, opts.Bin179With180);
     sessionRecord.isExcluded = tfExclude;
     sessionRecord.excludeReason = reasonStr;
-
-    sessionList(end+1,1) = sessionRecord; %#ok<AGROW>
+    sessionList(end+1, 1) = sessionRecord; %#ok<AGROW>
 end
-
 if opts.Verbose
-    nExcluded = sum([sessionList.isExcluded]);
-    fprintf('  Loaded %d session summaries (%d excluded, %d included).\n', ...
-        numel(sessionList), nExcluded, numel(sessionList) - nExcluded);
-    if ~isempty(sessionList)
-        fprintf('  Session diagnostics:\n');
-        for iS = 1:numel(sessionList)
-            incTxt = 'IN';
-            if sessionList(iS).isExcluded
-                incTxt = 'OUT';
-            end
-            fprintf('    %-3s  %-24s  offset=%6.1f  nTrials=%5g', ...
-                incTxt, sessionList(iS).sessionName, sessionList(iS).probeOffsetDeg, sessionList(iS).nTrialsTotal);
-            if sessionList(iS).isExcluded && ~isempty(sessionList(iS).excludeReason)
-                fprintf('  reason=%s', sessionList(iS).excludeReason);
-            end
-            fprintf('\n');
-        end
+  nExcluded = sum([sessionList.isExcluded]);
+  fprintf('  Loaded %d session summaries (%d excluded, %d included).\n', ...
+    numel(sessionList), nExcluded, numel(sessionList) - nExcluded);
+  if ~isempty(sessionList)
+    fprintf('  Session diagnostics:\n');
+    for iS = 1:numel(sessionList)
+      incTxt = 'In';
+      if sessionList(iS).isExcluded
+        incTxt = 'Out';
+      end
+      fprintf('    %-3s  %-36s  offset=%6.1f  nTrials=%5g', ...
+        incTxt, sessionList(iS).sessionName, sessionList(iS).probeOffsetDeg, sessionList(iS).nTrials);
+      if sessionList(iS).isExcluded && ~isempty(sessionList(iS).excludeReason)
+        fprintf('  reason = %s', sessionList(iS).excludeReason);
+      end
+      fprintf('\n');
     end
+  end
 end
 
 end
@@ -427,15 +432,16 @@ s = struct( ...
     'hitStats', struct(), ...
     'rawSummary', struct(), ...
     'scalePointEstimate', NaN, ...
-    'nTrialsTotal', NaN, ...
+    'nTrials', NaN, ...
+    'nTrialsByStep', NaN, ...
     'isExcluded', false, ...
     'excludeReason', '', ...
     'sourceFile', '', ...
     'fileInfo', table() );
 end
 
-function [exclude, reason] = excludeFromReadoutFit(probeDirDeg, probeCohNoisePC)
-% excludeFromReadoutFit  Exclude sessions not eligible for paired-probe readout fitting.
+function [exclude, reason] = excludeFromReadoutFit(probeDirDeg, probeCohNoisePC, Bin179With180)
+%excludeFromReadoutFit  Exclude sessions not eligible for paired-probe readout fitting.
 %
 % These exclusions are specific to the across-offset readout model. They do
 % not imply that the session should be excluded from kernel generation,
@@ -449,7 +455,12 @@ reason = '';
 
 % Paired-probe offsets are strictly between 0 and 180 deg.
 % Exact 0 and exact 180 are single-stream probes.
-if ~(isfinite(probeDirDeg) && probeDirDeg > 1 && probeDirDeg <= 180)
+if Bin179With180
+  limitDeg = 180;
+else 
+  limitDeg = 179;
+end
+if ~(isfinite(probeDirDeg) && probeDirDeg > 1 && probeDirDeg <= limitDeg)
     exclude = true;
     reason = sprintf('probeDirDeg %.6g is not a paired-probe offset', probeDirDeg);
     return;
@@ -473,7 +484,7 @@ function acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList)
 acrossOffsetSummary = struct();
 acrossOffsetSummary.meta = struct( ...
     'analysisDate', datetime('now'), ...
-    'summaryDirs', {opts.summaryDir}, ...
+    'summaryDirs', {opts.kernelsDir}, ...
     'summaryFilesUsed', {{}}, ...
     'nCandidateFiles', numel(sessionList), ...
     'scaleMetric', opts.ScaleMode, ...
@@ -492,13 +503,11 @@ acrossOffsetSummary.empirical  = struct([]);
 acrossOffsetSummary.bootstrap  = struct();
 acrossOffsetSummary.history    = struct([]);
 acrossOffsetSummary.modelFits = struct();
-acrossOffsetSummary.modelFitsNote = ...
-    ['Legacy offset-space modelFits removed. Primary interpretation uses ' ...
-     'acrossOffsetSummary.readoutModel.'];
+acrossOffsetSummary.modelFitsNote = 'Primary interpretation uses acrossOffsetSummary.readoutModel.';
 end
 
 % ========================================================================
-function [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, ~)
+function [offsetData, offsetKeys, usedFiles] = buildOffsetData(sessionList, opts)
 % Group sessions by probe offset and retain both included and excluded items.
 
 allOffsets = [sessionList.probeOffsetDeg];
@@ -506,38 +515,70 @@ allOffsets = allOffsets(isfinite(allOffsets));
 offsetKeys = unique(allOffsets(:)');
 offsetData = repmat(emptyOffsetStruct(), numel(offsetKeys), 1);
 for k = 1:numel(offsetKeys)
-    thisOffset = offsetKeys(k);
-    idx = [sessionList.probeOffsetDeg] == thisOffset;
-    these = sessionList(idx);
-    includeMask = ~[these.isExcluded];
-    included = these(includeMask);
+  thisOffset = offsetKeys(k);
+  idx = [sessionList.probeOffsetDeg] == thisOffset;
+  these = sessionList(idx);
+  includeMask = ~[these.isExcluded];
+  included = these(includeMask);
 
-    offsetData(k).probeOffsetDeg = thisOffset;
-    offsetData(k).sessionNames = {these.sessionName};
-    offsetData(k).sessionDates = [these.sessionDate];
-    offsetData(k).nSessions = sum(includeMask);
-    offsetData(k).nSessionsTotal = numel(these);
-    offsetData(k).nTrialsBySession = [included.nTrialsTotal];
-    offsetData(k).nTrialsTotal = sum(offsetData(k).nTrialsBySession, 'omitnan');
-    offsetData(k).scaleBySession = [included.scalePointEstimate];
-    offsetData(k).scaleSEMBySession = nan(size(offsetData(k).scaleBySession));
-    offsetData(k).scaleCILoBySession = nan(size(offsetData(k).scaleBySession));
-    offsetData(k).scaleCIHiBySession = nan(size(offsetData(k).scaleBySession));
-    offsetData(k).prefEnergyBySession = nan(size(offsetData(k).scaleBySession));
-    offsetData(k).fitR2BySession = nan(size(offsetData(k).scaleBySession));
-    offsetData(k).includeMask = includeMask;
-    offsetData(k).excludeReasons = {these.excludeReason};
-    offsetData(k).sourceSummaryFiles = {these.sourceFile};
-    offsetData(k).sessionStructs = included;
+  offsetData(k).probeOffsetDeg = thisOffset;
+  offsetData(k).sessionNames = {these.sessionName};
+  offsetData(k).sessionDates = [these.sessionDate];
+  offsetData(k).nSessions = sum(includeMask);
+  offsetData(k).nSessionsTotal = numel(these);
+  offsetData(k).nTrialsBySession = [included.nTrials];
+  offsetData(k).nTrialsByStep = sum(vertcat(included.nTrialsByStep), 1, 'omitnan');
+  offsetData(k).nTrials = sum(offsetData(k).nTrialsBySession, 'omitnan');
+  offsetData(k).scaleBySession = [included.scalePointEstimate];
+  offsetData(k).scaleSEMBySession = nan(size(offsetData(k).scaleBySession));
+  offsetData(k).scaleCILoBySession = nan(size(offsetData(k).scaleBySession));
+  offsetData(k).scaleCIHiBySession = nan(size(offsetData(k).scaleBySession));
+  offsetData(k).prefEnergyBySession = nan(size(offsetData(k).scaleBySession));
+  offsetData(k).fitR2BySession = nan(size(offsetData(k).scaleBySession));
+  offsetData(k).includeMask = includeMask;
+  offsetData(k).excludeReasons = {these.excludeReason};
+  offsetData(k).sourceSummaryFiles = {these.sourceFile};
+  offsetData(k).sessionStructs = included;
+end
+
+% if we are binning 179° with 180°, combine them if both are preset
+if opts.Bin179With180
+  index179 = find(offsetKeys == 179, 1);
+  index180 = find(offsetKeys == 180, 1);
+  if ~isempty(index179) && ~isempty(index180)
+    offsetData(index179).sessionNames = [offsetData(index179).sessionNames, offsetData(index180).sessionNames];
+    offsetData(index179).sessionDates = [offsetData(index179).sessionDates, offsetData(index180).sessionDates];
+    offsetData(index179).nSessions = offsetData(index179).nSessions + offsetData(index180).nSessions;
+    offsetData(index179).nSessionsTotal = offsetData(index179).nSessionsTotal + offsetData(index180).nSessionsTotal;
+    offsetData(index179).nTrialsBySession = [offsetData(index179).nTrialsBySession, offsetData(index180).nTrialsBySession];
+    offsetData(index179).nTrialsByStep = ...
+          offsetData(index179).nTrialsByStep + offsetData(index180).nTrialsByStep;
+    offsetData(index179).nTrials = offsetData(index179).nSessionsTotal + offsetData(index180).nTrials;
+    offsetData(index179).scaleBySession = [offsetData(index179).scaleBySession, offsetData(index180).scaleBySession];
+
+    offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
+    offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
+    offsetData(index179).scaleCILoBySession = nan(size(offsetData(index179).scaleBySession));
+    offsetData(index179).scaleCIHiBySession = nan(size(offsetData(index179).scaleBySession));
+    offsetData(index179).prefEnergyBySession = nan(size(offsetData(index179).scaleBySession));
+    offsetData(index179).fitR2BySession = nan(size(offsetData(index179).scaleBySession));
+
+    offsetData(index179).includeMask = [offsetData(index179).includeMask, offsetData(index180).includeMask];
+    offsetData(index179).excludeReasons = [offsetData(index179).excludeReasons, offsetData(index180).excludeReasons];
+    offsetData(index179).sourceSummaryFiles = [offsetData(index179).sourceSummaryFiles, offsetData(index180).sourceSummaryFiles];
+    offsetData(index179).sessionStructs = [offsetData(index179).sessionStructs; offsetData(index180).sessionStructs];
+
+    offsetData(index180) = [];
+    offsetKeys(index180) = [];
+  end
 end
 
 % update summary file list with included files only
 includedMask = ~[sessionList.isExcluded];
 usedFiles = {sessionList(includedMask).sourceFile};
 if ~isempty(usedFiles)
-    usedFiles = unique(usedFiles, 'stable');
+  usedFiles = unique(usedFiles, 'stable');
 end
-
 end
 
 % ========================================================================
@@ -550,7 +591,8 @@ s = struct( ...
     'nSessions', 0, ...
     'nSessionsTotal', 0, ...
     'nTrialsBySession', [], ...
-    'nTrialsTotal', 0, ...
+    'nTrials', 0, ...
+    'nTrialsByStep', [], ...
     'scaleBySession', [], ...
     'scaleSEMBySession', [], ...
     'scaleCILoBySession', [], ...
@@ -569,6 +611,7 @@ function empirical = computeEmpiricalSummaries(offsetData, opts)
 
 empirical = repmat(struct( ...
     'probeOffsetDeg', NaN, ...
+    'stepType', NaN, ...
     'pooledScale', NaN, ...
     'meanSessionScale', NaN, ...
     'medianSessionScale', NaN, ...
@@ -576,13 +619,15 @@ empirical = repmat(struct( ...
     'boot68', [NaN NaN], ...
     'boot95', [NaN NaN], ...
     'nSessions', 0, ...
-    'nTrialsTotal', 0, ...
+    'nTrials', 0, ...
+    'nTrialsByStep', [NaN NaN], ...
     'sessionWeighting', 'inverse_variance_kernel_pool', ...
     'distributionSkew', NaN), numel(offsetData), 1);
 
 for k = 1:numel(offsetData)
     x = offsetData(k).scaleBySession;
     empirical(k).probeOffsetDeg   = offsetData(k).probeOffsetDeg;
+    empirical(k).stepType         = 1 + strcmp(opts.ScaleStepType, 'inc');
     empirical(k).pooledScale      = computeOffsetPooledScale(offsetData(k), opts, false);
     empirical(k).meanSessionScale = mean(x, 'omitnan');
     empirical(k).medianSessionScale = median(x, 'omitnan');
@@ -590,7 +635,8 @@ for k = 1:numel(offsetData)
     empirical(k).sessionScale68 = percentileCI(x, 68);
     empirical(k).sessionScale95 = percentileCI(x, 95);
     empirical(k).nSessions        = offsetData(k).nSessions;
-    empirical(k).nTrialsTotal     = offsetData(k).nTrialsTotal;
+    empirical(k).nTrials     = offsetData(k).nTrials;
+    empirical(k).nTrialsByStep  = offsetData(k).nTrialsByStep;
     empirical(k).distributionSkew = localSkewness(x);
 
     % Backward compatibility with earlier field names.
@@ -606,7 +652,7 @@ for k = 1:numel(empirical)
         empirical(k).(fname) = percentileCI(offsetData(k).scaleBySession, lvl);
     end
     fprintf('      offset %.1f: included %d/%d sessions, %d trials\n', offsetData(k).probeOffsetDeg, ...
-                  offsetData(k).nSessions, offsetData(k).nSessionsTotal, offsetData(k).nTrialsTotal);
+                  offsetData(k).nSessions, offsetData(k).nSessionsTotal, offsetData(k).nTrials);
 end
 
 end
@@ -722,8 +768,7 @@ if isempty(sessionRecord.noiseFile) || ~exist(sessionRecord.noiseFile, 'file')
 end
 
 sessionData = load(sessionRecord.noiseFile);
-
-[kernels, kVars, ~, ~, compStats] = computeSessionKernels(sessionData, []);
+[~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, []);
 
 if isfield(compStats, 'normScale')
     scaleVal = selectCompStatsEntry(compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
@@ -820,47 +865,6 @@ switch templateMode
     otherwise
         error('Unknown MT template mode: %s', templateMode);
 end
-end
-
-% ========================================================================
-function summaryDirs = normalizeSummaryDirs(summaryDir)
-
-if ischar(summaryDir) || isstring(summaryDir)
-    summaryDir = cellstr(summaryDir);
-end
-
-summaryDirs = {};
-for i = 1:numel(summaryDir)
-    d = char(summaryDir{i});
-
-    % If the user passed Data/, discover Data/probe*/KernelSummaries.
-    probeDirs = dir(fullfile(d, 'probe*'));
-    probeDirs = probeDirs([probeDirs.isdir]);
-
-    if ~isempty(probeDirs)
-        for p = 1:numel(probeDirs)
-            candidate = fullfile(probeDirs(p).folder, probeDirs(p).name, 'KernelSummaries');
-            if exist(candidate, 'dir')
-                summaryDirs{end+1} = candidate; %#ok<AGROW>
-            end
-        end
-
-    % If the user passed a probe folder, append KernelSummaries.
-    elseif exist(fullfile(d, 'KernelSummaries'), 'dir')
-        summaryDirs{end+1} = fullfile(d, 'KernelSummaries'); %#ok<AGROW>
-
-    % If the user passed KernelSummaries directly, use it.
-    elseif exist(d, 'dir')
-        summaryDirs{end+1} = d; %#ok<AGROW>
-
-    else
-        warning('updateAcrossOffsetSummaries:MissingSummaryDir', ...
-            'Summary directory not found: %s', d);
-    end
-end
-
-summaryDirs = unique(summaryDirs, 'stable');
-
 end
 
 % ========================================================================
@@ -1190,7 +1194,7 @@ end
 % end
 
 % ========================================================================
-function plotReadoutDiagnostics(acrossOffsetSummary, opts)
+function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
 % Plot fitted readout, MT templates, and their products to visualize how
 % overlap determines predicted normalized scale.
 
@@ -1239,7 +1243,7 @@ function plotReadoutDiagnostics(acrossOffsetSummary, opts)
   end
 
   % -- set up figure to plot three panels
-  fig = figure(301); clf;
+  fig = figure(figNum); clf;
   tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
   lineCol = lines(nOffsets);
   
@@ -1723,29 +1727,7 @@ function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
 emp = acrossOffsetSummary.empirical;
 offsets = [emp.probeOffsetDeg];
 obsScale = [emp.pooledScale];
-% ci68 = vertcat(emp.boot68);   % fallback only
-ci95 = vertcat(emp.boot95);   % fallback only
-
-if isfield(acrossOffsetSummary, 'bootstrap') && ...
-        isfield(acrossOffsetSummary.bootstrap, 'offsetBootstrap') && ...
-        numel(acrossOffsetSummary.bootstrap.offsetBootstrap) == numel(emp)
-    % ci68 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot68);
-    ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
-end
-
-hasModelCollection = isfield(acrossOffsetSummary, 'readoutModels');
-if hasModelCollection
-    signedRM = acrossOffsetSummary.readoutModels.signedDOG;
-    rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
-else
-    signedRM = acrossOffsetSummary.readoutModel;
-    rectRM   = struct();
-end
-
-hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...
-    isfield(signedRM.fit, 'fitSuccess') && signedRM.fit.fitSuccess;
-hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
-    isfield(rectRM.fit, 'fitSuccess') && rectRM.fit.fitSuccess;
+ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
 
 % ---- Plot 1: observed and fit scale by offset ----
 fig1 = figure(300); clf; hold on;
@@ -1756,106 +1738,59 @@ legendHandles = hObs;
 legendLabels = {'Observed Scale (95% CI)'};
 signedRM = acrossOffsetSummary.readoutModels.signedDOG;
 rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
-% signedLoss = NaN;
-% rectLoss = NaN;
-% if hasSignedFit
-%     signedLoss = signedRM.fit.goodnessOfFit.weightedLoss;
-% end
-% if hasRectFit
-%     rectLoss = rectRM.fit.goodnessOfFit.weightedLoss;
-% end
+hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...
+  isfield(signedRM.fit, 'fitSuccess') && signedRM.fit.fitSuccess;
 if hasSignedFit
-    signedRM = acrossOffsetSummary.readoutModels.signedDOG;
-    hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, 'm-', 'LineWidth', 1.2);
-    legendHandles(end+1) = hSigned;
-    legendLabels{end+1} = 'Fitted Signed DOG';
+  hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, 'm-', 'LineWidth', 1.2);
+  DOGFitText(0.35, 0.98, 'Signed DOG', signedRM);
+  legendHandles(end+1) = hSigned;
+  legendLabels{end+1} = 'Fitted Signed DOG';
 end
+hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
+  isfield(rectRM.fit, 'fitSuccess') && rectRM.fit.fitSuccess;
 if hasRectFit
-    rectRM = acrossOffsetSummary.readoutModels.rectifiedDOG;
-    hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, 'b-', 'LineWidth', 1.2);
-    legendHandles(end+1) = hRect;
-    legendLabels{end+1} = 'Fitted Rectified DOG';
+  hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, 'b-', 'LineWidth', 1.2);
+  DOGFitText(0.60, 0.98, 'Rectified DOG', rectRM);
+  legendHandles(end+1) = hRect;
+  legendLabels{end+1} = 'Fitted Rectified DOG';
 end
-if hasSignedFit || hasRectFit
-    fitText = formatDOGFitText(signedRM, hasSignedFit, rectRM, hasRectFit);
-    text(0.98, 0.02, fitText, ...
-      'Units', 'normalized', ...
-      'VerticalAlignment', 'bottom', ...
-      'HorizontalAlignment', 'right', ...
-      'FontSize', 8, ...
-      'BackgroundColor', 'w', ...
-      'EdgeColor', [0.7 0.7 0.7], ...
-      'Margin', 4, ...
-      'Interpreter', 'none');
-end
-
 legend(legendHandles, legendLabels, 'Location', 'northeast');
 if hasSignedFit || hasRectFit
     title(sprintf('DOG Fits to Normalized Scales (%d bootstraps)', opts.NBoot));
 else
     title(sprintf('Normalized Scales (No Fit Over %d bootstraps)', opts.NBoot));
 end
+scaleText(0.98, 0.88, offsets, obsScale, ci95, emp);
 xlabel('Probe Offset (deg)');
 ylabel('Normalized Scale');
 xlim([0, 180]);
 box off;
 saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
-% ---- Plot 2: fitted readout over MT preferred direction ----
+% ---- Plots 2/3: fitted readout over MT preferred direction ----
+
 if hasSignedFit
     tmpSummary = acrossOffsetSummary;
     tmpSummary.readoutModel = signedRM;
-    plotReadoutDiagnostics(tmpSummary, opts);
+    plotReadoutDiagnostics(301, tmpSummary, opts);
 end
 if hasRectFit
-    tmpSummary = acrossOffsetSummary;
-    tmpSummary.readoutModel = rectRM;
-    plotReadoutDiagnostics(tmpSummary, opts);
+  tmpSummary = acrossOffsetSummary;
+  tmpSummary.readoutModel = rectRM;
+  plotReadoutDiagnostics(302, tmpSummary, opts);
 end
-
 end
 
 % ========================================================================
-function fitText = formatDOGFitText(signedRM, hasSignedFit, rectRM, hasRectFit)
-% Format DOG fit parameters for display on the scale-fit summary figure.
-
-lines = {};
-
-if hasSignedFit
-    lines{end+1} = formatOneDOGFitText('Signed DOG', signedRM); 
-end
-
-if hasRectFit
-    if ~isempty(lines)
-        lines{end+1} = ''; 
-    end
-    lines{end+1} = formatOneDOGFitText('Rectified DOG', rectRM); 
-end
-
-fitText = strjoin(lines, newline);
-end
-
-% ========================================================================
-function txt = formatOneDOGFitText(label, rm)
+function DOGFitText(x, y, label, rm)
 % One-model parameter/goodness-of-fit text block.
 
 lines = {label};
-
-if ~isfield(rm, 'params') || isempty(rm.params) || ...
-        ~isfield(rm, 'paramNames') || isempty(rm.paramNames)
-    txt = sprintf('%s: no usable fit', label);
-    return;
-end
-
 for p = 1:min(numel(rm.params), numel(rm.paramNames))
     lines{end+1} = sprintf('  %s = %.4g', rm.paramNames{p}, rm.params(p)); %#ok<AGROW>
 end
-
-if isfield(rm, 'fit') && ~isempty(rm.fit) && ...
-        isfield(rm.fit, 'goodnessOfFit') && isstruct(rm.fit.goodnessOfFit)
-
+if isfield(rm, 'fit') && ~isempty(rm.fit) && isfield(rm.fit, 'goodnessOfFit') && isstruct(rm.fit.goodnessOfFit)
     g = rm.fit.goodnessOfFit;
-
     if isfield(g, 'weightedLoss') && isfinite(g.weightedLoss)
         lines{end+1} = sprintf('  loss = %.4g', g.weightedLoss); 
     end
@@ -1866,171 +1801,50 @@ if isfield(rm, 'fit') && ~isempty(rm.fit) && ...
         lines{end+1} = sprintf('  AICc = %.4g', g.aicc); 
     end
 end
-
 txt = strjoin(lines, newline);
+text(x, y, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', 'FontSize', 8, ...
+  'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], 'Margin', 4, 'Interpreter', 'none');
 end
+
+% ========================================================================
+function y = valueOrNaN(x)
+if isempty(x)
+  y = [NaN NaN];
+else
+  y = double(x);
+end
+end
+
+% ========================================================================
+function scaleText(x, y, offsets, obsScale, ci95, emp)
+% One-model parameter/goodness-of-fit text block.
+
+C = arrayfun(@(x) valueOrNaN(x.nTrialsByStep), emp, 'UniformOutput', false);
+nTrialsByStep = vertcat(C{:});
+stepTypes = [emp.stepType];
+lines = {};
+for index = 1:numel(offsets)
+  if isnan(obsScale(index))
+    continue;
+  end
+  nTrials = nTrialsByStep(index, stepTypes(index));
+  lines{end+1} = sprintf('%3d°: scale %.2f, %.2f-%.2f 95%% CI (n = %5d)', ...
+    offsets(index), obsScale(index), ci95(index, 1),  ci95(index, 2), nTrials); %#ok<AGROW>
+end
+txt = strjoin(lines, newline);
+text(x, y, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', 'FontSize', 8, ...
+  'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], 'Margin', 4, 'Interpreter', 'none');
+end
+
 % ========================================================================
 function val = getFieldOrDefault(S, fieldName, defaultVal)
 
 if isfield(S, fieldName)
-    val = S.(fieldName);
+  val = S.(fieldName);
 else
-    val = defaultVal;
+  val = defaultVal;
 end
-
 end
-
-% % ========================================================================
-% function name = extractSessionName(inStruct, sourceFile, sessionNameField)
-% 
-% name = '';
-% 
-% if isfield(inStruct, sessionNameField)
-%     try
-%         name = char(string(inStruct.(sessionNameField)));
-%     catch
-%     end
-% end
-% 
-% if isempty(name) && isfield(inStruct, 'sessionID')
-%     name = char(string(inStruct.sessionID));
-% end
-% 
-% if isempty(name)
-%     [~, name, ~] = fileparts(sourceFile);
-% end
-% 
-% end
-
-% ========================================================================
-% function scaleVal = extractSessionScaleEstimate(inStruct, opts)
-% % Project-specific adaptor. Tries common fields and then falls back.
-% 
-% scaleVal = NaN;
-% 
-% if isfield(inStruct, 'scalePointEstimate') && isfinite(inStruct.scalePointEstimate)
-%     scaleVal = inStruct.scalePointEstimate;
-%     return;
-% end
-% if isfield(inStruct, 'scale') && isstruct(inStruct.scale)
-%     if isfield(inStruct.scale, 'normEstimate') && isfinite(inStruct.scale.normEstimate)
-%         scaleVal = inStruct.scale.normEstimate;
-%         return;
-%     end
-%     if isfield(inStruct.scale, 'estimate') && isfinite(inStruct.scale.estimate)
-%         scaleVal = inStruct.scale.estimate;
-%         return;
-%     end
-% end
-% if isfield(inStruct, 'summary') && isstruct(inStruct.summary)
-%     if isfield(inStruct.summary, 'scalePointEstimate') && isfinite(inStruct.summary.scalePointEstimate)
-%         scaleVal = inStruct.summary.scalePointEstimate;
-%         return;
-%     end
-% end
-% if isfield(inStruct, 'compStats') && isstruct(inStruct.compStats)
-%     cs = inStruct.compStats;
-%     if isfield(cs, 'normScale') && isnumeric(cs.normScale)
-%         try
-%             scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
-%             return;
-%         catch
-%         end
-%     end
-%     if isfield(cs, 'scale') && isnumeric(cs.scale)
-%         try
-%             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
-%             return;
-%         catch
-%         end
-%     end
-% end
-% if isfield(inStruct, 'avgCompStats') && isstruct(inStruct.avgCompStats)
-%     cs = inStruct.avgCompStats;
-%     if isfield(cs, 'normScale') && isnumeric(cs.normScale)
-%         try
-%             scaleVal = selectCompStatsEntry(cs.normScale, opts.ScaleSideType, opts.ScaleStepType);
-%             return;
-%         catch
-%         end
-%     end
-%     if isfield(cs, 'scale') && isnumeric(cs.scale)
-%         try
-%             scaleVal = selectCompStatsEntry(cs.scale, opts.ScaleSideType, opts.ScaleStepType);
-%             return;
-%         catch
-%         end
-%     end
-% end
-% end
-
-% % ========================================================================
-% function nTrials = extractSessionTrialCount(inStruct)
-% 
-% nTrials = NaN;
-% 
-% if isfield(inStruct, 'metrics') && isstruct(inStruct.metrics)
-%     if isfield(inStruct.metrics, 'nTrials') && isnumeric(inStruct.metrics.nTrials)
-%         nTrials = inStruct.metrics.nTrials;
-%         return;
-%     end
-% end
-% 
-% if isfield(inStruct, 'nTrialsTotal') && isnumeric(inStruct.nTrialsTotal)
-%     nTrials = inStruct.nTrialsTotal;
-%     return;
-% end
-% 
-% if isfield(inStruct, 'avgHitStats') && isstruct(inStruct.avgHitStats)
-%     hs = inStruct.avgHitStats;
-%     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-%         nTrials = sum(hs.nTrials(:), 'omitnan');
-%         return;
-%     end
-% end
-% 
-% if isfield(inStruct, 'hitStats') && isstruct(inStruct.hitStats)
-%     hs = inStruct.hitStats;
-%     if isfield(hs, 'nTrials') && isnumeric(hs.nTrials)
-%         nTrials = sum(hs.nTrials(:), 'omitnan');
-%         return;
-%     end
-% end
-% 
-% end
-% 
-% % ========================================================================
-% function dt = extractSessionDate(inStruct, sourceFile)
-% 
-% dt = NaT;
-% 
-% if isfield(inStruct, 'date')
-%     try
-%         dt = datetime(inStruct.date);
-%         return;
-%     catch
-%     end
-% end
-% 
-% if isfield(inStruct, 'sessionDate')
-%     try
-%         dt = datetime(inStruct.sessionDate);
-%         return;
-%     catch
-%     end
-% end
-% 
-% % try parsing YYYYMMDD from filename
-% expr = '(20\d{6})';
-% tok = regexp(sourceFile, expr, 'tokens', 'once');
-% if ~isempty(tok)
-%     try
-%         dt = datetime(tok{1}, 'InputFormat', 'yyyyMMdd');
-%     catch
-%     end
-% end
-% 
-% end
 
 % ========================================================================
 function v = selectCompStatsEntry(arr, sideType, stepType)
@@ -2256,63 +2070,79 @@ for i = 1:numel(filePaths)
 end
 end
 
-function sessionRecord = makeSessionRecordFromSummaryFile(S, sourceFile, opts)
+
+%%--
+ function sessionRecord = makeSessionRecordFromSummaryFile(sourceFile, opts)
 % makeSessionRecordFromSummaryFile  Build canonical per-session record.
 %
-% Required top-level variables in each KernelSummary file:
-%   summary
-%   sessionHeader
-%   sessionProbeHeader
-
-if ~isfield(S, 'summary') || ~isstruct(S.summary)
-  error('updateAcrossOffsetSummaries:MissingSummary', ...
-    'KernelSummary file lacks top-level summary: %s', sourceFile);
-end
-
-if ~isfield(S, 'sessionHeader') || ~isstruct(S.sessionHeader)
-  error('updateAcrossOffsetSummaries:MissingSessionHeader', ...
-    'KernelSummary file lacks top-level sessionHeader: %s', sourceFile);
-end
-
-if ~isfield(S, 'sessionProbeHeader') || ~isstruct(S.sessionProbeHeader)
-  error('updateAcrossOffsetSummaries:MissingSessionProbeHeader', ...
-    'KernelSummary file lacks top-level sessionProbeHeader: %s', sourceFile);
-end
-
-summary = S.summary;
-
+% summary = S.summary;
+S = load(sourceFile);
 sessionRecord = emptySessionStruct();
 
-sessionRecord.summary = summary;
+% sessionRecord.summary = summary;
 sessionRecord.sessionHeader = S.sessionHeader;
 sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
-
 sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
-sessionRecord.sessionName = summary.sessionID;
-sessionRecord.sessionDate = summary.date;
-sessionRecord.kernelFile = summary.kernelFile;
-sessionRecord.noiseFile  = summary.noiseFile;
+sessionRecord.sessionName = S.sessionHeader.fileName;
+% sessionRecord.sessionDate = summary.date;
+% sessionRecord.kernelFile = summary.kernelFile;
+% sessionRecord.noiseFile  = summary.noiseFile;
 
-sessionRecord.compStats = getFieldOrDefault(summary, 'compStats', struct());
-sessionRecord.hitStats  = getFieldOrDefault(summary, 'hitStats', struct());
-
+sessionRecord.compStats = S.compStats;
+sessionRecord.hitStats  = S.hitStats;
 sessionRecord.sourceFile = sourceFile;
-sessionRecord.rawSummary = summary;
-
+% sessionRecord.rawSummary = summary;
+% 
 % sessionRecord.scalePointEstimate = summary.scalePointEstimate;
 
-try
-  sessionRecord.scalePointEstimate = recomputeSessionScalePointEstimate(sessionRecord, opts);
-catch
-end
+% if isfield(compStats, 'rawIntegrals')
+%   summary.integral.raw = squeeze(compStats.rawIntegrals(R.trackSideType, R.trackStepType, :))';
+%   summary.ratio.raw    = compStats.rawR(R.trackSideType, R.trackStepType);
+% else
+%   summary.integral.raw = squeeze(compStats.kIntegrals(R.trackSideType, R.trackStepType, :))';
+%   summary.ratio.raw    = compStats.R(R.trackSideType, R.trackStepType);
+% end
+% 
+% if isfield(compStats, 'normIntegrals')
+%   summary.integral.norm = squeeze(compStats.normIntegrals(R.trackSideType, R.trackStepType, :))';
+%   summary.ratio.norm    = compStats.normR(R.trackSideType, R.trackStepType);
+% else
+%   summary.integral.norm = summary.integral.raw;
+%   summary.ratio.norm    = summary.ratio.raw;
+% end
+% % 
+% if isfield(compStats, 'normInfo')
+%   summary.normInfo = compStats.normInfo;
+% else
+%   summary.normInfo = struct();
+% end
+% 
+% % Primary aliases used by downstream code.
+% summary.scale.estimate = summary.scale.normEstimate;
+% summary.scale.sem      = summary.scale.normSEM;
+% % 
+% % summary.scale.valid      = false;
+% % kPref = squeeze(kernels(R.trackSideType, R.trackStepType, 1, iIndices));
+% summary.pref = struct;
+% summary.pref.energy   = sum(kPref(:).^2);
+% summary.pref.integral = sum(kPref(:)) * msPerVFrame;
+% summary.pref.nBins    = numel(iIndices);
 
-sessionRecord.nTrialsTotal = summary.metrics.nTrials;
-if isfield(summary, 'flags') && isstruct(summary.flags)
-  if isfield(summary.flags, 'excluded') && islogical(summary.flags.excluded)
-    sessionRecord.isExcluded = summary.flags.excluded;
-    if sessionRecord.isExcluded
-      sessionRecord.excludeReason = 'summary.flags.excluded';
-    end
-  end
-end
+sessionRecord.scalePointEstimate = selectCompStatsEntry(S.compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
+
+% try
+%   sessionRecord.scalePointEstimate = recomputeSessionScalePointEstimate(sessionRecord, opts);
+% catch
+% end
+
+sessionRecord.nTrials = sum(S.hitStats.nTrials);
+sessionRecord.nTrialsByStep = S.hitStats.nTrials;
+% if isfield(summary, 'flags') && isstruct(summary.flags)
+%   if isfield(summary.flags, 'excluded') && islogical(summary.flags.excluded)
+%     sessionRecord.isExcluded = summary.flags.excluded;
+%     if sessionRecord.isExcluded
+%       sessionRecord.excludeReason = 'summary.flags.excluded';
+%     end
+%   end
+% end
 end

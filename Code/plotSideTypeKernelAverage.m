@@ -38,15 +38,9 @@ plotData = cell(1, nProbes);
 
 for p = 1:nProbes
   probeTag = sprintf('probe%d', round(probeDirs(p)));
-  dataFile = fullfile(baseFolder, 'Data', probeTag, ...
-    'AverageKernels', sideType, 'AverageKernelPlotData.mat');
-  assert(isfile(dataFile), 'plotSideTypeKernelAverage:MissingAverageKernelPlotData', ...
-    'Missing AverageKernelPlotData.mat for %s sideType "%s": %s', probeTag, sideType, dataFile);
+  dataFile = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideType, 'AverageKernelPlotData.mat');
 
   S = load(dataFile);
-  assert(isfield(S, 'averageKernelPlotData'), 'plotSideTypeKernelAverage:MissingStruct', ...
-    'File does not contain averageKernelPlotData: %s', dataFile);
-
   D = S.averageKernelPlotData;
   assert(isfield(D, 'summarySideType'), 'plotSideTypeKernelAverage:MissingSideType', ...
     'averageKernelPlotData.summarySideType missing in %s', dataFile);
@@ -85,8 +79,8 @@ assert(nSteps == 2, 'plotSideTypeKernelAverage:UnexpectedStepCount', 'Expected 2
 assert(nStreams == 2, 'plotSideTypeKernelAverage:UnexpectedStreamCount', 'Expected 2 stream types, found %d.', nStreams);
 
 % ---- Common y-limits, including SEM patches ----
-overallYMin = 0;
-overallYMax = 0;
+overallYMin = zeros(1, nProbes);
+overallYMax = zeros(1, nProbes);
 
 for p = 1:nProbes
   D = plotData{p};
@@ -107,14 +101,12 @@ for p = 1:nProbes
       finiteVals = finiteVals(isfinite(finiteVals));
 
       if ~isempty(finiteVals)
-        overallYMin = min(overallYMin, min(finiteVals));
-        overallYMax = max(overallYMax, max(finiteVals));
+        overallYMin(p) = min(overallYMin(p), min(finiteVals));
+        overallYMax(p) = max(overallYMax(p), max(finiteVals));
       end
     end
   end
 end
-
-assert(overallYMax > overallYMin, 'plotSideTypeKernelAverage:BadYLimits', 'Could not determine valid y-limits.');
 
 % ---- Timing for x-axis and gray patches ----
   D0 = plotData{1};  
@@ -143,21 +135,22 @@ assert(overallYMax > overallYMin, 'plotSideTypeKernelAverage:BadYLimits', 'Could
     sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)};
 
 % ---- Plot ----
-fig = figure(303);
+fig = figure(200);
 t = tiledlayout(fig, nProbes, nSteps, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 ax = gobjects(nProbes, nSteps);
 prefLine = gobjects(1, nSteps);
 probeLine = gobjects(1, nSteps);
 plotTitles = {'Decrement', 'Increment'};
-% newYL = [overallYMin overallYMax];
 
 for p = 1:nProbes
+  newYL = [overallYMin(p) overallYMax(p)];
   D = plotData{p};
   for s = 1:nSteps
-
     % Match plotKernels convention: dec/inc are indexed 1/2 but displayed
-    % with decrement on the left and increment on the right.
+    % with increment on the left and decrement on the right.  We flip the
+    % column locations here, but everything else should stay straight
+    % indexing
     ax(p, s) = nexttile((p - 1) * nSteps + 3 - s);
     hold on;
     [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(D.kernels(s, 1, :)), sqrt(D.kVars(s, 1)), [0, 0, 1]);
@@ -167,35 +160,32 @@ for p = 1:nProbes
     yline(1, ':', 'Color', [0.5 0.5 0.5]);
     yline(-1, ':', 'Color', [0.5 0.5 0.5]);
     % Gray patches.
-    newYL = ylim();
     patch([preStepVF trialDurVF trialDurVF preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
       [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none');
     patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
       [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none');
 
     textStr = makeKernelStatsText(D, s);
-    text(0.02, 0.98, textStr, 'units', 'normalized',  'VerticalAlignment', 'top',  'fontSize', 9);
+    text(0.02, 0.98, textStr, 'units', 'normalized',  'VerticalAlignment', 'top',  'fontSize', 6);
 
-    % ylim(newYL);
+    ylim(newYL);
     xlim([1 xValues(end)]);
     xticks(xTickVals);
     xticklabels(xTickLabels);
     xlabel("Time (ms)");
     ylabel("Coherence (%)");
-    nTrials = D.avgHitStats.nTrials(3-s);
-    title(sprintf('%s Probe, %s. Steps (n=%d)', probeDirString(D.probeDirDeg), plotTitles{s}(1:3), nTrials));
+    title(sprintf('%s Probe %s. (%d Sessions, %d Trials)', D.titlePrefix, plotTitles{s}(1:3), D.nSessions, ...
+      D.avgHitStats.nTrials(s)));
     box on;
   end
 end
 
+upperSideType = [upper(sideType(1)) sideType(2:end)];
 legend([prefLine(1), probeLine(1)], {"0° ±SEM", "Probe"}, 'location', 'southwest');
-upperSideType = sideType;
-upperSideType(1) = upper(sideType(1));
-
 title(t, sprintf('\\bf%s Side Average Kernels by Probe Direction', upperSideType));
 
 % ---- Export ----
-outFolder = fullfile(baseFolder, 'Plots', 'AverageKernels', sideType);
+outFolder = fullfile(baseFolder, 'Plots', 'AverageKernels', upperSideType);
 validFolder(outFolder);
 
 outFile = fullfile(outFolder, sprintf('SideTypeKernelAverage_%s.pdf', sideType));
@@ -316,13 +306,11 @@ scaleVal      = displayScale(sideTypeNum, stepType);
 scaleSEM      = displayScaleSEM(sideTypeNum, stepType);
 
 if ~isempty(displayScaleCI)
-  textStr = sprintf(['\\fontsize{6}%s: 0°: %.2f%%, %s: %.2f%%\n' ...
-    '\\fontsize{6}(%s: %.2f; %s: %.2f [SEM: %.2f; 68%% CI: %.2f, %.2f])'], ...
+  textStr = sprintf(['%s: 0°: %.2f%%, %s: %.2f%%\n' '(%s: %.2f; %s: %.2f [SEM: %.2f; 68%% CI: %.2f, %.2f])'], ...
     valueLabel, prefIntegral, probeDirString(probeDirDeg), probeIntegral, ratioLabel, integralRatio, scaleLabel, ...
     scaleVal, scaleSEM, displayScaleCI.lo(sideTypeNum, stepType), displayScaleCI.hi(sideTypeNum, stepType));
 else
-  textStr = sprintf(['\\fontsize{6}%s: 0°: %.2f%%, %s: %.2f%%\n' ...
-    '\\fontsize{6}(%s: %.2f; %s: %.2f)'], ...
+  textStr = sprintf(['%s: 0°: %.2f%%, %s: %.2f%%\n' '%s: %.2f; %s: %.2f)'], ...
     valueLabel, prefIntegral, probeDirString(probeDirDeg), probeIntegral, ratioLabel, integralRatio, ...
     scaleLabel, scaleVal);
 end

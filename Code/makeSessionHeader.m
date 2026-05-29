@@ -20,7 +20,6 @@ sessionHeader.nNoiseTrials = getMetaField(trialMeta, 'nNoiseTrials', NaN);
 
 % Stable fields used by downstream analyses or provenance displays.
 copyFields = { ...
-  'fileName', ...
   'date', ...
   'subject', ...
   'taskName', ...
@@ -38,6 +37,8 @@ for k = 1:numel(copyFields)
     sessionHeader.(f) = localDataValue(header.(f));
   end
 end
+
+[~, sessionHeader.fileName] = fileparts(header.fileName);
 
 % Modern files often store the coherence-noise amplitudes in blockStatus.
 % Bring the preferred-stream amplitude into sessionHeader using the standard

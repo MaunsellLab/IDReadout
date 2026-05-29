@@ -13,7 +13,7 @@ if nargin < 1 || isempty(doBootstrap)
   doBootstrap = false;
 end
 if nargin < 2 || isempty(nBoot)
-  nBoot = 1000;
+  nBoot = 500;
 end
 
 P = inputParser;
@@ -22,11 +22,11 @@ addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
 addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
+addParameter(P, 'verbose', false, @islogical);
 parse(P, varargin{:});
 R = P.Results;
-R.FileSectionArgs = {};
 
-summarySideType = char(R.SummarySideType);
+summarySideType = R.SummarySideType;
 summarySideTypeNum = sideTypeIndex(summarySideType);
 
 baseFolder = folderPath();
@@ -41,9 +41,18 @@ if ~exist(dataFolder, 'dir')
 end
 plotFolder = validFolder(plotFolder);
 
-[selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, 'RequireSessionProbeHeader', true, ...
-    R.FileSelectionArgs{:});
-[firstPreStepMS] = integralWindowMS();
+[selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, R.FileSelectionArgs{:});
+if R.verbose
+  nFiles = numel(fileInfo.fileName);
+  if nFiles > 0
+    fprintf('  Found %d sessions:\n', nFiles);
+    fileNames = fileInfo.("fileName");
+    for f = 1:nFiles
+      fprintf('     %s\n', fileNames{f});
+    end
+    fprintf('     Total of %d sessions\n', nFiles);
+  end
+end
 
 % ---- Load valid sessions and recompute per-session kernels ----
 sessionDataList  = {};
@@ -57,18 +66,12 @@ sessionCompStats = {};
 sessionProbeHeaders = {};
 initialized = false;
 nSessions = 0;
+[firstPreStepMS] = integralWindowMS();
 
 for f = 1:numel(selectedFiles)
   filePath = selectedFiles{f};
-  [~, fileName, ext] = fileparts(filePath);
-  fileName = [fileName ext]; %#ok<AGROW>
   sessionData = load(filePath);
   sessionHeader = sessionData.sessionHeader;
-  sessionProbeHeader = sessionData.sessionProbeHeader;
-  
-  assert(isfield(sessionData, 'sessionProbeHeader'), 'kernelAverage:MissingSessionProbeHeader', ...
-    'Expected sessionProbeHeader in %s.', fileName);
-  
   sessionProbeHeader = sessionData.sessionProbeHeader;
   
   [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
@@ -154,7 +157,7 @@ if doBootstrap
   bootNormScale     = nan([size(avgCompStats.normScale), nBoot]);
   bootNormIntegrals = nan([size(avgCompStats.normIntegrals), nBoot]);
   for b = 1:nBoot
-    if mod(b, 25) == 0
+    if b == 1 || mod(b, 25) == 0
       fprintf('      bootstrap %d of %d\n', b, nBoot);
     end
     bootSessionIdx = randi(nSessions, [1 nSessions]);
@@ -169,7 +172,7 @@ if doBootstrap
       nTrials = size(thisSession.prefNoiseByPatch, 3);
       trialIdx = randi(nTrials, [1 nTrials]);
       [bootKernels, bootKVars] = computeSessionKernels(thisSession, trialIdx);
-      [bootKernelsNorm, bootKVarsNorm, bootNormInfo] = normalizeProbeKernelsToPrefAmplitude(bootKernels, bootKVars, ...
+      [bootKernelsNorm, bootKVarsNorm, ~] = normalizeProbeKernelsToPrefAmplitude(bootKernels, bootKVars, ...
         thisSession.sessionHeader, thisSession.sessionProbeHeader);
       bootSessionKernels{j} = bootKernels;
       bootSessionKVars{j}   = bootKVars;
@@ -200,24 +203,37 @@ if doBootstrap
     bootNormScale(:,:,b)       = bootCompStats.normScale;
     bootNormIntegrals(:,:,:,b) = bootCompStats.normIntegrals;
   end
+
+  x = bootNormScale(:);
+  x = x(isfinite(x));
+
+  % fprintf('Bootstrap diagnostics:\n');
+  % fprintf('  nBoot requested: %d\n', nBoot);
+  % fprintf('  finite values:   %d\n', numel(x));
+  % fprintf('  mean:            %.4f\n', mean(x));
+  % fprintf('  sd:              %.4f\n', std(x));
+  % fprintf('  min/max:         %.4f / %.4f\n', min(x), max(x));
+  % fprintf('  CI95:            %.4f / %.4f\n', prctile(x, 2.5), prctile(x, 97.5));
+  % fprintf('  CI68:            %.4f / %.4f\n', prctile(x, 15.865), prctile(x, 84.135));
+
   avgCompStats.bootRawScale = bootRawScale;
-  avgCompStats.rawScaleCI.lo = prctile(bootRawScale, 15.865, 3);
-  avgCompStats.rawScaleCI.hi = prctile(bootRawScale, 84.135, 3);
+  avgCompStats.rawScaleCI.lo = prctile(bootRawScale, 2.5, 3);
+  avgCompStats.rawScaleCI.hi = prctile(bootRawScale, 97.5, 3);
   avgCompStats.rawScaleBootSD = std(bootRawScale, 0, 3);
 
   avgCompStats.bootRawIntegrals = bootRawIntegrals;
-  avgCompStats.rawIntegralCI.lo = prctile(bootRawIntegrals, 15.865, 4);
-  avgCompStats.rawIntegralCI.hi = prctile(bootRawIntegrals, 84.135, 4);
+  avgCompStats.rawIntegralCI.lo = prctile(bootRawIntegrals, 2.5, 4);
+  avgCompStats.rawIntegralCI.hi = prctile(bootRawIntegrals, 97.5, 4);
   avgCompStats.rawIntegralBootSD = std(bootRawIntegrals, 0, 4);
 
   avgCompStats.bootNormScale = bootNormScale;
-  avgCompStats.normScaleCI.lo = prctile(bootNormScale, 15.865, 3);
-  avgCompStats.normScaleCI.hi = prctile(bootNormScale, 84.135, 3);
+  avgCompStats.normScaleCI.lo = prctile(bootNormScale, 2.5, 3);
+  avgCompStats.normScaleCI.hi = prctile(bootNormScale, 97.5, 3);
   avgCompStats.normScaleBootSD = std(bootNormScale, 0, 3);
 
   avgCompStats.bootNormIntegrals = bootNormIntegrals;
-  avgCompStats.normIntegralCI.lo = prctile(bootNormIntegrals, 15.865, 4);
-  avgCompStats.normIntegralCI.hi = prctile(bootNormIntegrals, 84.135, 4);
+  avgCompStats.normIntegralCI.lo = prctile(bootNormIntegrals, 2.5, 4);
+  avgCompStats.normIntegralCI.hi = prctile(bootNormIntegrals, 97.5, 4);
   avgCompStats.normIntegralBootSD = std(bootNormIntegrals, 0, 4);
 
   % Legacy aliases remain raw for now.
@@ -230,38 +246,50 @@ if doBootstrap
   avgCompStats.kIntegralBootSD = avgCompStats.rawIntegralBootSD;
 end
 
-% ---- Determine probe direction for naming ----
-if isempty(R.probeDirDeg)
-  if isfield(sessionProbeHeader, 'probeDirDeg')
-    probeDirDeg = sessionProbeHeader.probeDirDeg;
-  else
-    probeDirDeg = [];
+fprintf('      plotting kernels\n');
+
+% check whether this needs to be flagged as combining 179 and 180
+probeDirStr = sprintf('%d°', R.probeDirDeg);
+if R.probeDirDeg == 179 || R.probeDirDeg == 180 && isfield(R, 'FileSelectionArgs') && ~isempty(R.FileSelectionArgs)
+  args = R.FileSelectionArgs;
+  names = args(1:2:end);
+  values = args(2:2:end);
+  isMatch = cellfun(@(x) (ischar(x) || isstring(x)) && strcmpi(char(x), 'Bin179With180'), names);
+  if any(isMatch)
+    value = values{find(isMatch, 1, 'last')};
+    if value
+      probeDirStr = '179°/180°';
+    end
   end
-else
-  probeDirDeg = R.probeDirDeg;
 end
 
-if isempty(probeDirDeg)
-  plotName = '_AverageKernel.pdf';
-  plotTitle = sprintf('%d Session Average', nSessions);
+% check whether this needs to be flagged as restricted to single- or multi-offset sessions
+if any(strcmpi(R.FileSelectionArgs, 'MultipleProbeDirections'))
+  titleSuffix = ' (multiple probe offset files)';
+elseif any(strcmpi(R.FileSelectionArgs, 'SingleProbeDirection'))
+  titleSuffix = ' (single probe offset files)';
 else
-  probeTag = sprintf('probe%d', round(probeDirDeg));
-  plotName = sprintf('AverageKernel_%s.pdf', probeTag);
-  plotTitle = sprintf('\\bf%d° Probe Kernels %d Session Average', probeDirDeg, nSessions);
+  titleSuffix = '';
 end
+
+probeTag = sprintf('probe%d', round(R.probeDirDeg));
+plotName = sprintf('AverageKernel_%s.pdf', probeTag);
+plotTitle = sprintf('\\bf%s Probe Kernels %d Session Average%s', probeDirStr, nSessions, titleSuffix);
 
 % ---- Plot/export averaged kernels ----
 plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
-  avgKVars(1:5,:,:), avgCompStats, avgHitStats, probeDirDeg);
+  avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
+fprintf('      plotting done\n');
 
 % ---- Save kernel data for summary display of one side type across probe directions ----
+fprintf('      saving data\n');
 averageKernelPlotData = struct();
 
 averageKernelPlotData.summarySideType = summarySideType;
 averageKernelPlotData.sideTypeNum = summarySideTypeNum;
-averageKernelPlotData.probeDirDeg = probeDirDeg;
+averageKernelPlotData.probeDirDeg = R.probeDirDeg;
 
 averageKernelPlotData.kernels = squeeze(avgKernels(summarySideTypeNum,:,:,:));
 averageKernelPlotData.kVars   = squeeze(avgKVars(summarySideTypeNum,:,:,:));
@@ -279,11 +307,13 @@ averageKernelPlotData.avgCompStats = avgCompStats;
 averageKernelPlotData.avgHitStats = avgHitStats;
 averageKernelPlotData.nSessions = nSessions;
 averageKernelPlotData.fileInfo = fileInfo;
+averageKernelPlotData.titlePrefix = probeDirStr;
+averageKernelPlotData.titleSuffix = titleSuffix;
 
-averageKernelPlotData.meta = struct();
-averageKernelPlotData.meta.createdDate = datetime('now');
+averageKernelPlotData.createdDate = datetime('now');
 
-summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', summarySideType);
+summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', ...
+                [upper(summarySideType(1)) summarySideType(2:end)]);
 validFolder(summaryDataFolder);
 
 save(fullfile(summaryDataFolder, 'AverageKernelPlotData.mat'), 'averageKernelPlotData');
@@ -406,10 +436,6 @@ end
 
 %%
 function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
-
-assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
-  'kernelAverage:MissingProbeDir', ...
-  'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
 
 probeDirDeg = abs(double(sessionProbeHeader.probeDirDeg));
 

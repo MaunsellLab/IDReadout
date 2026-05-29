@@ -11,7 +11,6 @@ function dailyUpdate()
   replace = false;
   doBootstrap = false;
   nBoot = 500;
-  path = folderPath();
 
   fprintf('>>> dailyUpdate start\n');
 
@@ -43,7 +42,7 @@ function dailyUpdate()
     sessionsDirs = probeDirsToSessionDirs(refreshProbeDirs);
 
     fprintf('  >> makeKernelSessionSummaries start\n');
-    makeKernelSessionSummaries('sessionsDirs', sessionsDirs, 'replace', replace, 'doBootstrap', doBootstrap);
+    makeKernelSessionSummaries('sessionsDirs', sessionsDirs, 'replace', replace);
     fprintf('  << makeKernelSessionSummaries complete\n');
 
     % ---- Average-kernel plots ----
@@ -67,7 +66,9 @@ function dailyUpdate()
   % ---- Across-offset summary update ----
   if anythingChanged || doBootstrap
     fprintf('  >> updateAcrossOffsetSummaries start\n');
-    acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1); %#ok<NASGU>
+    acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 5, 'RandomSeed', 1, ...
+      'FileSelectionArgs', {'Bin179With180', true}); %#ok<NASGU>
+    % acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', 5, 'RandomSeed', 1); %#ok<NASGU>
     fprintf('  << updateAcrossOffsetSummaries complete\n');
   else
     fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');

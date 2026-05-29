@@ -9,287 +9,283 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolder, varargin)
 % exclusions before loading metadata.
 %
 % Supported selection arguments:
+%   Bin179With180                     count 179° and 180° as a single offset
 %   FilePattern                       default '*.mat'
 %   FileSelectionArgs                 cell array of additional args
-%   RequireSessionHeader              require sessionHeader variable
-%   RequireSessionProbeHeader         require sessionProbeHeader variable
-%   ProbeDirDeg                       require this derived probe direction
-%   ParentNProbeDirections            exact parent n-probe-direction match
-%   MinParentNProbeDirections         minimum parent n-probe-directions
-%   MaxParentNProbeDirections         maximum parent n-probe-directions
-%   ApplyExperimentalValidityChecks   call applyExperimentalValidityChecks
-%   IncludeExcluded                   return excluded rows too
 %   HardExcludeFileNames              filenames excluded before loading
+%   MaxParentNProbeDirections         maximum parent n-probe-directions
+%   MinParentNProbeDirections         minimum parent n-probe-directions
+%   MultipleProbeDirections           >1 parent probe direction
+%   ParentNProbeDirections            exact parent n-probe-direction match
+%   ProbeDirDeg                       require this derived probe direction
+%   ReportExcluded                    print excluded files and reasons
+%   SingleProbeDirection              maximum 1 parent probe direction
 
-% Parse the input arguments
-% P = makeParser();
-P = inputParser;
-P.FunctionName = mfilename;
-addRequired(P, 'dataFolder', @(x) ischar(x) || isstring(x));
-addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
-addParameter(P, 'RequireSessionHeader', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'RequireSessionProbeHeader', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'ProbeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'ParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'ApplyExperimentalValidityChecks', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'IncludeExcluded', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'HardExcludeFileNames', ...
-  { ...
-  'IDReadout_Meetz_20260114.dat', ...
-  'IDReadout_Meetz_20260114_2.dat', ...
-  'IDReadout_Meetz_20260114_3.dat', ...
-  'IDReadout_Meetz_20260304.dat', ...
-  'IDReadout_Meetz_20260305.dat', ...
-  'IDReadout_Meetz_20260306.dat', ...
-  'IDReadout_Meetz_20260309.dat', ...
-  'IDReadout_Meetz_20260310.dat', ...
-  'IDReadout_Meetz_20260311.dat', ...
-  'IDReadout_Meetz_20260312.dat', ...
-  }, @(x) iscellstr(x) || isstring(x));
+P = makeParser();
 parse(P, dataFolder, varargin{:});
 R0 = P.Results;
+% check for nested file selection arguments and include them if they exist
 if ~isempty(R0.FileSelectionArgs)
-  topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-  nestedArgs = R0.FileSelectionArgs;
-  P = makeParser();
-  parse(P, dataFolder, topArgs{:}, nestedArgs{:});
-  R = P.Results;
+    topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
+    nestedArgs = R0.FileSelectionArgs;
+    P = makeParser();
+    parse(P, dataFolder, topArgs{:}, nestedArgs{:});
+    R = P.Results;
 else
-  R = R0;
+    R = R0;
 end
-% R = parseSelectionArgs(dataFolder, varargin{:});
 
 dataFolder = char(R.dataFolder);
 if ~exist(dataFolder, 'dir')
-  error('selectAnalysisFiles:MissingFolder', 'Data folder not found: %s', dataFolder);
+    error('selectAnalysisFiles:MissingFolder', 'Data folder not found: %s', dataFolder);
 end
 
 D = dir(fullfile(dataFolder, char(R.FilePattern)));
 D = D(~[D.isdir]);
 
 hardExcludeNames = cellstr(R.HardExcludeFileNames);
-rows = {};
+
+selectedRows = {};
+excludedRows = {};
 
 for k = 1:numel(D)
-  fileName = D(k).name;
-  if endsWith(fileName, '_fileInfo.mat')
-    continue;
-  end
+    fileName = D(k).name;
 
-  filePath = fullfile(D(k).folder, fileName);
-
-  % Hard filename exclusions happen before loading metadata.
-  if any(strcmp(fileName, hardExcludeNames))
-    row = makeHardExcludedRow(filePath, 'hard filename exclusion');
-    rows{end+1} = row; %#ok<AGROW>
-    continue;
-  end
-
-  row = fileInfoFromAnalysisFile(filePath);
-
-  if R.RequireSessionHeader && ~row.hasSessionHeader
-    error('selectAnalysisFiles:MissingSessionHeader', ...
-      'Selection requires sessionHeader, but %s does not contain it.', filePath);
-  end
-
-  if R.RequireSessionProbeHeader && ~row.hasSessionProbeHeader
-    error('selectAnalysisFiles:MissingSessionProbeHeader', ...
-      'Selection requires sessionProbeHeader, but %s does not contain it.', filePath);
-  end
-
-  if ~isempty(R.ProbeDirDeg)
-    if ~row.hasSessionProbeHeader || ~isfinite(row.probeDirDeg)
-      error('selectAnalysisFiles:MissingProbeDirDeg', ...
-        'Selection by ProbeDirDeg requires sessionProbeHeader.probeDirDeg in %s.', filePath);
+    if endsWith(fileName, '_fileInfo.mat')
+        continue;
     end
-    if abs(row.probeDirDeg - R.ProbeDirDeg) > 1e-9
-      row = addExcludeReason(row, sprintf('probeDirDeg %.6g != %.6g', row.probeDirDeg, R.ProbeDirDeg));
-    end
-  end
 
-  if ~isempty(R.ParentNProbeDirections)
-    requireParentNProbeDirections(row, filePath, 'ParentNProbeDirections');
-    if row.parentNProbeDirections ~= R.ParentNProbeDirections
-      row = addExcludeReason(row, sprintf('parentNProbeDirections %.6g != %.6g', ...
-        row.parentNProbeDirections, R.ParentNProbeDirections));
-    end
-  end
+    filePath = fullfile(D(k).folder, fileName);
 
-  if ~isempty(R.MinParentNProbeDirections)
-    requireParentNProbeDirections(row, filePath, 'MinParentNProbeDirections');
-    if row.parentNProbeDirections < R.MinParentNProbeDirections
-      row = addExcludeReason(row, sprintf('parentNProbeDirections %.6g < %.6g', ...
-        row.parentNProbeDirections, R.MinParentNProbeDirections));
+    % Hard filename exclusions happen before loading metadata.
+    if any(startsWith(fileName, hardExcludeNames, 'IgnoreCase', true))
+        excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
+        continue;
     end
-  end
 
-  if ~isempty(R.MaxParentNProbeDirections)
-    requireParentNProbeDirections(row, filePath, 'MaxParentNProbeDirections');
-    if row.parentNProbeDirections > R.MaxParentNProbeDirections
-      row = addExcludeReason(row, sprintf('parentNProbeDirections %.6g > %.6g', ...
-        row.parentNProbeDirections, R.MaxParentNProbeDirections));
+    row = fileInfoFromAnalysisFile(filePath);
+    row = stripExclusionColumns(row);
+
+    excludeReasons = {};
+
+    if ~isempty(R.ProbeDirDeg)
+        if ~row.hasSessionProbeHeader || ~isfinite(row.probeDirDeg)
+            error('selectAnalysisFiles:MissingProbeDirDeg', ...
+                'Selection by ProbeDirDeg requires sessionProbeHeader.probeDirDeg in %s.', filePath);
+        end
+
+        if abs(row.probeDirDeg - R.ProbeDirDeg) > 1e-9
+            excludeReasons{end+1} = sprintf('probeDirDeg %.6g != %.6g', ...
+                row.probeDirDeg, R.ProbeDirDeg); %#ok<AGROW>
+        end
     end
-  end
 
-  if R.ApplyExperimentalValidityChecks
-    S = load(filePath, 'sessionProbeHeader', 'sessionHeader');
-    if isfield(S, 'sessionProbeHeader')
-      metadata = S.sessionProbeHeader;
-    elseif isfield(S, 'sessionHeader')
-      metadata = S.sessionHeader;
+    if ~isempty(R.ParentNProbeDirections)
+        requireParentNProbeDirections(row, filePath, 'ParentNProbeDirections');
+
+        if row.parentNProbeDirections ~= R.ParentNProbeDirections
+            excludeReasons{end+1} = sprintf('parentNProbeDirections %.6g != %.6g', ...
+                row.parentNProbeDirections, R.ParentNProbeDirections); %#ok<AGROW>
+        end
+    end
+
+    if ~isempty(R.MinParentNProbeDirections)
+        requireParentNProbeDirections(row, filePath, 'MinParentNProbeDirections');
+
+        if row.parentNProbeDirections < R.MinParentNProbeDirections
+            excludeReasons{end+1} = sprintf('parentNProbeDirections %.6g < %.6g', ...
+                row.parentNProbeDirections, R.MinParentNProbeDirections); %#ok<AGROW>
+        end
+    end
+
+    if ~isempty(R.MaxParentNProbeDirections)
+        requireParentNProbeDirections(row, filePath, 'MaxParentNProbeDirections');
+
+        if row.parentNProbeDirections > R.MaxParentNProbeDirections
+            excludeReasons{end+1} = sprintf('parentNProbeDirections %.6g > %.6g', ...
+                row.parentNProbeDirections, R.MaxParentNProbeDirections); %#ok<AGROW>
+        end
+    end
+
+    if ~isempty(R.SingleProbeDirection) && R.SingleProbeDirection
+      if (~isempty(R.MultipleProbeDirections) && R.MultipleProbeDirections)
+        error('selectAnalysisFiles: cannot specify both singleProbeDireciton and multipleProbeDirections');
+      end
+      requireParentNProbeDirections(row, filePath, 'SingleProbeDirection');
+      if row.parentNProbeDirections > 1
+        excludeReasons{end+1} = sprintf('parentNProbeDirections %.6g > 1', row.parentNProbeDirections); %#ok<AGROW>
+      end
+    end
+
+    if ~isempty(R.MultipleProbeDirections) && R.MultipleProbeDirections
+      if (~isempty(R.SingleProbeDirection) && R.SingleProbeDirection)
+        error('selectAnalysisFiles: cannot specify both singleProbeDireciton and multipleProbeDirections');
+      end
+      requireParentNProbeDirections(row, filePath, 'MultipleProbeDirections');
+      if row.parentNProbeDirections < 2
+        excludeReasons{end+1} = sprintf('parentNProbeDirections %.6g == 1', row.parentNProbeDirections); %#ok<AGROW>
+      end
+    end
+    if isempty(excludeReasons)
+        selectedRows{end+1} = row; %#ok<AGROW>
     else
-      error('selectAnalysisFiles:MissingValidityMetadata', ...
-        'Experimental validity checks require sessionProbeHeader or sessionHeader in %s.', filePath);
+        excludedRows{end+1} = makeExcludedReportRow(filePath, excludeReasons); %#ok<AGROW>
     end
-    [tfExclude, reasons] = applyExperimentalValidityChecks(metadata);
-    if tfExclude
-      row = addExcludeReasons(row, reasons);
-    end
-  end
-
-  rows{end+1} = row; %#ok<AGROW>
 end
 
-if isempty(rows)
-  fileInfo = emptyFileInfoTable();
+if isempty(selectedRows)
+    fileInfo = emptyFileInfoTable();
 else
-  fileInfo = vertcat(rows{:});
-end
-
-if ~R.IncludeExcluded && ~isempty(fileInfo)
-  fileInfo = fileInfo(~fileInfo.isExcluded, :);
+    fileInfo = vertcat(selectedRows{:});
 end
 
 if isempty(fileInfo)
-  files = {};
+    files = {};
 else
-  files = fileInfo.filePath;
+    files = fileInfo.filePath;
+end
+
+if R.ReportExcluded
+    reportExcludedFiles(excludedRows);
+end
+
+% If binning 179 with 180, check whether either offset is selected
+if R.Bin179With180
+  [path, name] = fileparts(dataFolder);
+  otherDataFolder = [];
+  if endsWith(path, 'probe179')
+    otherDataFolder = [path(1:end-numel('probe179')) 'probe180/' name];
+    otherProbeDir = 180;
+  elseif endsWith(path, 'probe180')
+    otherDataFolder = [path(1:end-numel('probe180')) 'probe179/' name];
+    otherProbeDir = 179;
+  end
+  % If 179 or 180 has been selected, concatenate entries for the other;
+  if ~isempty(otherDataFolder)
+    modifiedArgs = removeParameterPair(varargin, 'Bin179With180');
+    modifiedArgs = [modifiedArgs, {'Bin179With180', false, 'ProbeDirDeg', otherProbeDir}];
+    [otherFiles, otherFileInfo] = selectAnalysisFiles(otherDataFolder, modifiedArgs{:});
+    files = [files; otherFiles];
+    fileInfo = [fileInfo; otherFileInfo];
+  end
 end
 end
 
-% % -------------------------------------------------------------------------
-% function R = parseSelectionArgs(dataFolder, varargin)
-% % Parse once, then reparse with nested FileSelectionArgs appended. This lets
-% % callers pass selection criteria through without needing to flatten them.
-% P = makeParser();
-% parse(P, dataFolder, varargin{:});
-% R0 = P.Results;
-% 
-% if ~isempty(R0.FileSelectionArgs)
-%   topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-%   nestedArgs = R0.FileSelectionArgs;
-%   P = makeParser();
-%   parse(P, dataFolder, topArgs{:}, nestedArgs{:});
-%   R = P.Results;
-% else
-%   R = R0;
-% end
-% end
+% -------------------------------------------------------------------------
+function P = makeParser()
+P = inputParser;
+P.FunctionName = mfilename;
 
-% % -------------------------------------------------------------------------
-% function P = makeParser()
-% P = inputParser;
-% P.FunctionName = mfilename;
-% addRequired(P, 'dataFolder', @(x) ischar(x) || isstring(x));
-% addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
-% addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
-% addParameter(P, 'RequireSessionHeader', false, @(x) islogical(x) && isscalar(x));
-% addParameter(P, 'RequireSessionProbeHeader', false, @(x) islogical(x) && isscalar(x));
-% addParameter(P, 'ProbeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-% addParameter(P, 'ParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-% addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-% addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-% addParameter(P, 'ApplyExperimentalValidityChecks', false, @(x) islogical(x) && isscalar(x));
-% addParameter(P, 'IncludeExcluded', false, @(x) islogical(x) && isscalar(x));
-% addParameter(P, 'HardExcludeFileNames', ...
-%                       { ...
-%                       'IDReadout_Meetz_20260114.dat', ...
-%                       'IDReadout_Meetz_20260114_2.dat', ...
-%                       'IDReadout_Meetz_20260114_3.dat', ...
-%                       'IDReadout_Meetz_20260304.dat', ...
-%                       'IDReadout_Meetz_20260305.dat', ...
-%                       'IDReadout_Meetz_20260306.dat', ...
-%                       'IDReadout_Meetz_20260309.dat', ...
-%                       'IDReadout_Meetz_20260310.dat', ...
-%                       'IDReadout_Meetz_20260311.dat', ...
-%                       'IDReadout_Meetz_20260312.dat', ...
-%                       }, @(x) iscellstr(x) || isstring(x));
-% end
+addRequired(P,  'dataFolder', @(x) ischar(x) || isstring(x));
+
+addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
+addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
+addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'MultipleProbeDirections', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'ParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'ProbeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'ReportExcluded', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'SingleProbeDirection', false, @(x) islogical(x) && isscalar(x));
+
+addParameter(P, 'HardExcludeFileNames', { ...
+    'IDReadout_Meetz_20260114', ...
+    'IDReadout_Meetz_20260114_2', ...
+    'IDReadout_Meetz_20260114_3', ...
+    'IDReadout_Meetz_20260304', ...
+    'IDReadout_Meetz_20260305', ...
+    'IDReadout_Meetz_20260306', ...
+    'IDReadout_Meetz_20260309', ...
+    'IDReadout_Meetz_20260310', ...
+    'IDReadout_Meetz_20260311', ...
+    'IDReadout_Meetz_20260312', ...
+    }, @(x) iscellstr(x) || isstring(x));
+end
 
 % -------------------------------------------------------------------------
 function argsOut = removeParameterPair(argsIn, paramName)
 argsOut = {};
 k = 1;
+
 while k <= numel(argsIn)
-  if (ischar(argsIn{k}) || isstring(argsIn{k})) && strcmpi(char(argsIn{k}), paramName)
-    k = k + 2;
-  else
-    argsOut{end+1} = argsIn{k}; %#ok<AGROW>
-    k = k + 1;
-  end
+    if (ischar(argsIn{k}) || isstring(argsIn{k})) && strcmpi(char(argsIn{k}), paramName)
+        k = k + 2;
+    else
+        argsOut{end+1} = argsIn{k}; %#ok<AGROW>
+        k = k + 1;
+    end
 end
 end
 
 % -------------------------------------------------------------------------
 function requireParentNProbeDirections(row, filePath, criterionName)
 if ~isfinite(row.parentNProbeDirections)
-  error('selectAnalysisFiles:MissingParentNProbeDirections', ...
-    ['Selection by %s requires parentNProbeDirections metadata in %s. ' ...
-     'For probe-session files this should come from sessionProbeHeader.parentNProbeDirections; ' ...
-     'for parent/session files this should come from sessionHeader.nProbeDirections.'], ...
-     criterionName, filePath);
+    error('selectAnalysisFiles:MissingParentNProbeDirections', ...
+        ['Selection by %s requires parentNProbeDirections metadata in %s. ' ...
+        'For probe-session files this should come from sessionProbeHeader.parentNProbeDirections; ' ...
+        'for parent/session files this should come from sessionHeader.nProbeDirections.'], ...
+        criterionName, filePath);
 end
 end
 
 % -------------------------------------------------------------------------
-function row = makeHardExcludedRow(filePath, reason)
-[folder, fileName, ext] = fileparts(filePath);
+function row = stripExclusionColumns(row)
+% Protect the selector contract: returned fileInfo must describe selected
+% files only, and must not carry stale exclusion bookkeeping columns.
+
+varsToDrop = intersect({'isExcluded', 'excludeReasons'}, row.Properties.VariableNames);
+
+if ~isempty(varsToDrop)
+    row(:, varsToDrop) = [];
+end
+end
+
+% -------------------------------------------------------------------------
+function row = makeExcludedReportRow(filePath, reasons)
+[~, fileName, ext] = fileparts(filePath);
+
 row = table( ...
-  {filePath}, {folder}, {[fileName ext]}, ...
-  false, false, ...
-  NaN, {''}, NaN, {[]}, ...
-  false, false, ...
-  NaN, NaN, NaN, NaN, {''}, ...
-  true, {{reason}}, ...
-  'VariableNames', {'filePath','folder','fileName', ...
-                    'hasSessionHeader','hasSessionProbeHeader', ...
-                    'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
-                    'parentIsSingleProbe','parentIsInterleavedProbe', ...
-                    'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', ...
-                    'isExcluded','excludeReasons'});
+    {[fileName ext]}, ...
+    {filePath}, ...
+    {reasons(:)'}, ...
+    'VariableNames', {'fileName', 'filePath', 'excludeReasons'});
+end
+
+% -------------------------------------------------------------------------
+function reportExcludedFiles(excludedRows)
+if isempty(excludedRows)
+    fprintf('selectAnalysisFiles: no files were excluded.\n');
+    return;
+end
+
+excludedInfo = vertcat(excludedRows{:});
+
+fprintf('\nselectAnalysisFiles excluded %d file(s):\n', height(excludedInfo));
+
+for ii = 1:height(excludedInfo)
+    fprintf('  %s\n', excludedInfo.fileName{ii});
+
+    reasons = excludedInfo.excludeReasons{ii};
+    for rr = 1:numel(reasons)
+        fprintf('    - %s\n', reasons{rr});
+    end
+end
+
+fprintf('\n');
 end
 
 % -------------------------------------------------------------------------
 function T = emptyFileInfoTable()
 T = table( ...
-  cell(0,1), cell(0,1), cell(0,1), ...
-  false(0,1), false(0,1), ...
-  zeros(0,1), cell(0,1), zeros(0,1), cell(0,1), ...
-  false(0,1), false(0,1), ...
-  zeros(0,1), zeros(0,1), zeros(0,1), zeros(0,1), cell(0,1), ...
-  false(0,1), cell(0,1), ...
-  'VariableNames', {'filePath','folder','fileName', ...
-                    'hasSessionHeader','hasSessionProbeHeader', ...
-                    'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
-                    'parentIsSingleProbe','parentIsInterleavedProbe', ...
-                    'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', ...
-                    'isExcluded','excludeReasons'});
-end
-
-% -------------------------------------------------------------------------
-function row = addExcludeReason(row, reason)
-row = addExcludeReasons(row, {reason});
-end
-
-% -------------------------------------------------------------------------
-function row = addExcludeReasons(row, reasons)
-if isempty(reasons)
-  return;
-end
-oldReasons = row.excludeReasons{1};
-row.excludeReasons{1} = [oldReasons(:)' reasons(:)'];
-row.isExcluded = true;
+    cell(0,1), cell(0,1), cell(0,1), ...
+    false(0,1), false(0,1), ...
+    zeros(0,1), cell(0,1), zeros(0,1), cell(0,1), ...
+    false(0,1), false(0,1), ...
+    zeros(0,1), zeros(0,1), zeros(0,1), zeros(0,1), cell(0,1), ...
+    'VariableNames', {'filePath','folder','fileName', ...
+    'hasSessionHeader','hasSessionProbeHeader', ...
+    'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
+    'parentIsSingleProbe','parentIsInterleavedProbe', ...
+    'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
 end
