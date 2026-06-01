@@ -74,10 +74,11 @@ probeSessions = repmat(struct( ...
 for p = 1:numel(probeDirs)
   probeDirDeg = probeDirs(p);
   idx = find(trialHasNoise & trialProbeDirs == probeDirDeg);
-  probeTag = sprintf('probe%d', round(probeDirDeg));
+  probeTag = sprintf('Probe%d', round(probeDirDeg));
   probeTrials = trials(idx);
 
-  sessionProbeHeader = makeSessionProbeHeader(header, parentSessionHeader, probeTrials, probeDirDeg, probeTag, nTrials, idx, probeDirs);
+  sessionProbeHeader = makeSessionProbeHeader(header, parentSessionHeader, probeTrials, probeDirDeg, probeTag, ...
+          nTrials, idx, probeDirs);
 
   probeSessions(p).probeDirDeg = probeDirDeg;
   probeSessions(p).probeTag = probeTag;

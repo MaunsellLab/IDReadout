@@ -1,25 +1,22 @@
 IDReadout To Do:
 
-Incorporate makeKernelSessionsSummaries into makeKernels
+Update code/folder structures to separate kernel from regression analysis
+
+Duplicate makeKernels into makeProbeSessions
+  Make noiseFiles, but call them probeSessions
+
+Do makeKernels later, but mostly by loading probeSessions and using them
+Do makeRegression later, but mostly by loading probeSessions and using them.
 
 Current:
-  Move all construction of sessionProbeHeader to splitTrialsByProbeDirection
-  updateOverKernelSessionSummaries isn't finding kernel or noise file names
 
 Revise:
-  updateAcrossOffsetSummaries 
-    stop using summary files and start using kernel files.
-    update documentation at the top to reflect new input files.
   makeKernels
     strip parsing out of compileKernelSummary
     eliminate the stub: recomputeSessionKernelStruct
   
 Eliminate: 
-  makeKernelSessionsSummaries as a free standing file.
-  compileKernelSessionSummary as a free standing file.
   updateAcrossOffsetSummaries -- remove selectCompStatsEntry
-  lots of asserts in plotSideTypeKernelAverage
-
 
 IDReadout Analysis Overview:
 ============================
@@ -49,7 +46,7 @@ Converts the .dat files into a standard .mat file.  By convention, that
 file contains a header structure and a trials structure.  convertIDRData
 also does a bit of clean up correcting some mis-assignment of events that
 occurred in early IDR files.  The converted .mat files are placed int 
-$PATH/Data/Converted, with the same name as the base .dat file (e.g.,
+$PATH/Data/Sessions, with the same name as the base .dat file (e.g.,
 baseName.mat). An additional information files is also spun off in that 
 sub-folder, with the name baseName_info.mat, but it is not used in 
 analysis.   
@@ -70,9 +67,6 @@ confirmation of their contents.
 The Kernels subfolder contains extracted kernels. There is a kernel for the
 preferred direction and a kernel for the probed direction.  Ancillary data are
 included.
-
-The KernelSummaries subfolder contains details on the saved kernels (why do
-we need a separate file???).
 
 The NoiseMatrices subfolder contains files with individual noise traces on which the
 kernels were constructed. These are needed for analyses that do bootstraps across

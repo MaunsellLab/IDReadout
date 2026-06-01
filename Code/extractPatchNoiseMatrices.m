@@ -1,5 +1,5 @@
 function [prefNoise, probeNoise, trialOutcomes, changeSides, changeIndices] = ...
-  extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, trials, stepTypes)
+  extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, stepTypes)
 % extractPatchNoiseMatrices
 % Return patchwise noise matrices for all valid trials.
 %
@@ -13,6 +13,7 @@ function [prefNoise, probeNoise, trialOutcomes, changeSides, changeIndices] = ..
 %   changeSides    : 1 x nTrials       (0=RF changed, 1=Opp changed)
 %   changeIndices  : 1 x nTrials       (1=DEC, 2=INC)
 
+trials = sessionProbeHeader.probeTrials;
 nTrials = numel(trials);
 if nTrials == 0
   error('extractPatchNoiseMatrices:EmptyInput', 'Input "trials" is empty.');

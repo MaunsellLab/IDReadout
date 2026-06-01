@@ -1,20 +1,16 @@
 function acrossOffsetSummary = updateAcrossOffsetSummaries(dataDir, varargin)
-% REQUIRED SESSION-LEVEL CONTRACT
-%   This function operates on per-session kernel summary files produced by
-%   compileKernelSessionSummary.
-%
-%   Each summary should contain:
-%       sessionProbeHeader       authoritative metadata for this derived
-%                                probe-offset session
-%       probeOffsetDeg           numeric scalar probe direction / offset
-%       sessionID/sessionName    session identifier
-%       compStats                kernel comparison statistics
-%       hitStats                 trial/hit counts
-%       kernelFile               path to kernel file
-%       noiseFile                path to noise-matrix file
-%
-%   The noiseFile should contain the resampling-ready fields accepted by
-%   computeSessionKernels:
+% This function constructs explicit per-session records from those objects,
+% applies readout-fit eligibility rules, performs hierarchical bootstrap
+% resampling from the source noise-matrix files, and fits the MT-readout
+% model across probe offsets.
+%   The required data are in the kernel files, which are separated by probe
+%   direction.  
+% Kernel file contains:
+%   summary
+%   sessionHeader
+%   sessionProbeHeader% 
+% Each kernel file has an associated noise file that provide the
+% data needed to do bootstraps in computeSessionKernels:
 %       sessionProbeHeader
 %       prefNoiseByPatch
 %       probeNoiseByPatch
@@ -24,18 +20,6 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(dataDir, varargin)
 %       lr
 %       sideTypeNames
 %
-%   % updateAcrossOffsetSummaries
-%
-% Consumes KernelSummary files produced by compileKernelSessionSummary /
-% makeKernels. Each KernelSummary file must contain top-level variables:
-%   summary
-%   sessionHeader
-%   sessionProbeHeader
-%
-% This function constructs explicit per-session records from those objects,
-% applies readout-fit eligibility rules, performs hierarchical bootstrap
-% resampling from the source noise-matrix files, and fits the MT-readout
-% model across probe offsets.
 % -------------------------------------------------------------------------
     
 if nargin < 1 || isempty(dataDir)
@@ -53,7 +37,9 @@ for iDir = 1:numel(opts.kernelsDir)
   files = [files; theFiles]; %#ok<AGROW>
   fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
 end
-
+% Make sure there are no duplicates
+[files, ia] = unique(files, 'stable');
+fileInfo = fileInfo(ia, :);
 
 % get a list of all session summaries
 [sessionList] = loadSessionSummaries(files, fileInfo, opts);
@@ -362,17 +348,6 @@ end
 function [sessionList] = loadSessionSummaries(files, fileInfo, opts)
 % Load per-session summaries and apply exclusion logic.
 
-% files = [];
-% fileInfo = table();
-% 
-% for iDir = 1:numel(opts.kernelsDir)
-%     thisDir = opts.kernelsDir{iDir};
-%     selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
-%     [thisFiles, thisFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
-%     files = [files; pathsToDirStruct(thisFiles)]; %#ok<AGROW>
-%     fileInfo = [fileInfo; thisFileInfo]; %#ok<AGROW>
-% end
-
 if opts.Verbose
     fprintf('  Found %d selected session summary files across %d folders.\n', ...
         numel(files), numel(opts.kernelsDir));
@@ -380,9 +355,21 @@ end
 sessionList = repmat(emptySessionStruct(), 0, 1);
 for iFile = 1:numel(files)
     thisFile = files{iFile};
-    % S = load(thisFile, 'sessionHeader', 'sessionProbeHeader');
-    sessionRecord = makeSessionRecordFromSummaryFile(thisFile, opts);
 
+    S = load(thisFile);
+    sessionRecord = emptySessionStruct();
+    sessionRecord.sessionHeader = S.sessionHeader;
+    sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
+    sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
+    sessionRecord.sessionName = S.sessionHeader.fileName;
+    sessionRecord.kernelFile = S.sessionProbeHeader.kernelFile;
+    sessionRecord.noiseFile  = S.sessionProbeHeader.noiseFile;
+    sessionRecord.compStats = S.compStats;
+    sessionRecord.hitStats  = S.hitStats;
+    sessionRecord.sourceFile = thisFile;
+    sessionRecord.scalePointEstimate = selectCompStatsEntry(S.compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
+    sessionRecord.nTrials = sum(S.hitStats.nTrials);
+    sessionRecord.nTrialsByStep = S.hitStats.nTrials;
     if ~isempty(fileInfo) && height(fileInfo) >= iFile
         sessionRecord.fileInfo = fileInfo(iFile, :);
     end
@@ -780,24 +767,18 @@ else
 end
 end
 
-% ========================================================================
-function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionRecord, ~, doTrialBootstrap)
-% Recompute full session kernel outputs from source noise matrices.
-
-if isempty(sessionRecord.noiseFile) || ~exist(sessionRecord.noiseFile, 'file')
-    error('Missing noiseFile for session %s.', sessionRecord.sessionName);
-end
-
-sessionData = load(sessionRecord.noiseFile);
-
-trialIdx = [];
-if doTrialBootstrap
-    nTrials = size(sessionData.prefNoiseByPatch, 3);
-    trialIdx = randi(nTrials, [1 nTrials]);
-end
-
-[kernels, kVars, ~, hitStats, compStats] = computeSessionKernels(sessionData, trialIdx);
-end
+% % ========================================================================
+% function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionRecord, ~, doTrialBootstrap)
+% % Recompute full session kernel outputs from source noise matrices.
+% 
+% sessionData = load(sessionRecord.noiseFile);
+% trialIdx = [];
+% if doTrialBootstrap
+%     nTrials = size(sessionData.prefNoiseByPatch, 3);
+%     trialIdx = randi(nTrials, [1 nTrials]);
+% end
+% [kernels, kVars, ~, hitStats, compStats] = computeSessionKernels(sessionData, trialIdx);
+% end
 
 % ========================================================================
 function deltaM = computeMTSymmetrizedDeltaM(phiDeg, deltaDeg, mtModel)
@@ -893,7 +874,13 @@ refNFrames = NaN;
 
 for j = 1:numel(sessIdx)
     src = sessions(sessIdx(j));
-    [kernels, kVars, ~, ~] = recomputeSessionKernelStruct(src, opts, doBootstrap);
+    sessionData = load(src.noiseFile);
+    trialIdx = [];
+    if doBootstrap
+      nTrials = size(sessionData.prefNoiseByPatch, 3);
+      trialIdx = randi(nTrials, [1 nTrials]);
+    end
+    [kernels, kVars] = computeSessionKernels(sessionData, trialIdx);
     [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude( ...
       kernels, kVars, src.sessionHeader, src.sessionProbeHeader);
 
@@ -951,96 +938,6 @@ mtModel.Gbar = Gbar;
 mtModel.note = ['Delta m(phi;delta) is defined as G(phi-delta) minus the ' ...
     'discrete mean of G on the same phi-grid.'];
 end
-
-% ========================================================================
-% function diag = diagnoseReadoutDOGReachabilityN(offsetsDeg, targetScale, fitVars, varargin)
-% 
-% p = inputParser;
-% addParameter(p, 'SigmaCenterDeg', [0.001 0.01 0.1 0.3 1 2 5 10 20 40 80 120], @(x) isnumeric(x) && isvector(x));
-% addParameter(p, 'SigmaSurroundDeg', 1:2:300, @(x) isnumeric(x) && isvector(x));
-% addParameter(p, 'SurroundGain', 0:0.01:2.0, @(x) isnumeric(x) && isvector(x));
-% addParameter(p, 'SigmaMTDeg', 37.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
-% addParameter(p, 'PhiDeg', -180:1:179, @(x) isnumeric(x) && isvector(x));
-% parse(p, varargin{:});
-% opts = p.Results;
-% 
-% offsetsDeg = offsetsDeg(:)';
-% targetScale = targetScale(:)';
-% 
-% mtModel = makeMTReadoutForwardModel( ...
-%     'sigmaMTDeg', opts.SigmaMTDeg, ...
-%     'phiDeg', opts.PhiDeg);
-% 
-% sC = opts.SigmaCenterDeg(:)';
-% sS = opts.SigmaSurroundDeg(:)';
-% aS = opts.SurroundGain(:)';
-% 
-% bestLoss = Inf;
-% bestParams = [];
-% bestPred = [];
-% 
-% for i = 1:numel(sC)
-%     for j = 1:numel(sS)
-%         if sS(j) < 1.25 * sC(i)
-%             continue;
-%         end
-% 
-%         for k = 1:numel(aS)
-%             params = [sC(i), sS(j), aS(k)];
-%             pred = predictNormalizedScaleFromReadout(params, offsetsDeg, mtModel);
-% 
-%             if ~all(isfinite(pred))
-%                 continue;
-%             end
-% 
-%             loss = sum(((pred - targetScale).^2) ./ fitVars);
-%             if loss < bestLoss
-%                 bestLoss = loss;
-%                 bestParams = params;
-%                 bestPred = pred;
-%             end
-%         end
-%     end
-% end
-% 
-% diag = struct();
-% diag.offsetsDeg = offsetsDeg;
-% diag.targetScale = targetScale;
-% diag.bestParams = bestParams;
-% diag.bestPrediction = bestPred;
-% diag.bestLoss = bestLoss;
-% diag.bestRMSE = sqrt(bestLoss / numel(targetScale));
-% 
-% fprintf('\nDOG reachability diagnostic:\n');
-% disp(table(offsetsDeg(:), targetScale(:), bestPred(:), ...
-%     'VariableNames', {'offsetDeg','target','bestDOG'}));
-% fprintf('best params: sigmaC %.4g, sigmaS %.4g, As %.4g\n', bestParams);
-% fprintf('best RMSE: %.4g\n', diag.bestRMSE);
-% end
-
-% ========================================================================
-% function predScale = predictReadoutDOGScale(params, offsetsDeg, mtModel, baselineMode, fixedBaseline)
-% 
-% if nargin < 4 || isempty(baselineMode)
-%     baselineMode = 'fixed';
-% end
-% 
-% if nargin < 5 || isempty(fixedBaseline) || ~isfinite(fixedBaseline)
-%     fixedBaseline = 0;
-% end
-% 
-% baselineMode = lower(char(string(baselineMode)));
-% 
-% dogParams = params(1:3);
-% 
-% if strcmp(baselineMode, 'fit')
-%     baseline = params(4);
-% else
-%     baseline = fixedBaseline;
-% end
-% 
-% predScale = predictNormalizedScaleFromReadout(dogParams, offsetsDeg, mtModel) + baseline;
-% end
 
 % ========================================================================
 function [aPhi, paramStruct] = evaluateReadoutDOG(phiDeg, params)
@@ -1158,40 +1055,6 @@ for i = 1:numel(offsetsDeg)
     end
 end
 end
-
-% ========================================================================
-% function predScale = predictNormalizedScaleFromExplicitReadout(offsetsDeg, mtModel, aPhi)
-% % Predict normalized scale from an explicit readout vector a(phi).
-% %
-% % The probe template follows the stimulus construction:
-% %   - delta = 0 deg: single-channel template
-% %   - 0 < delta < 180 deg: symmetrized template for equal probe-noise
-% %     contributions at +delta and -delta
-% %   - delta = 180 deg: single-channel template
-% 
-% phiDeg = mtModel.phiDeg(:)';
-% aPhi   = aPhi(:)';
-% 
-% if numel(aPhi) ~= numel( ...
-%     phiDeg)
-%     error('predictNormalizedScaleFromExplicitReadout: aPhi must match mtModel.phiDeg in length.');
-% end
-% 
-% refVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, 0, mtModel));
-% tol = 1e-10;
-% 
-% offsetsDeg = offsetsDeg(:)';
-% predScale = nan(size(offsetsDeg));
-% 
-% for i = 1:numel(offsetsDeg)
-%     probeVal = sum(aPhi .* computeMTSymmetrizedDeltaM(phiDeg, offsetsDeg(i), mtModel));
-%     if isfinite(refVal) && abs(refVal) > tol
-%         predScale(i) = probeVal / refVal;
-%     else
-%         predScale(i) = NaN;
-%     end
-% end
-% end
 
 % ========================================================================
 function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
@@ -2068,81 +1931,4 @@ for i = 1:numel(filePaths)
     files(i).folder = folderName;
     files(i).name = [baseName ext];
 end
-end
-
-
-%%--
- function sessionRecord = makeSessionRecordFromSummaryFile(sourceFile, opts)
-% makeSessionRecordFromSummaryFile  Build canonical per-session record.
-%
-% summary = S.summary;
-S = load(sourceFile);
-sessionRecord = emptySessionStruct();
-
-% sessionRecord.summary = summary;
-sessionRecord.sessionHeader = S.sessionHeader;
-sessionRecord.sessionProbeHeader = S.sessionProbeHeader;
-sessionRecord.probeOffsetDeg = S.sessionProbeHeader.probeDirDeg;
-sessionRecord.sessionName = S.sessionHeader.fileName;
-% sessionRecord.sessionDate = summary.date;
-sessionRecord.kernelFile = S.sessionProbeHeader.kernelFile;
-sessionRecord.noiseFile  = S.sessionProbeHeader.noiseFile;
-
-sessionRecord.compStats = S.compStats;
-sessionRecord.hitStats  = S.hitStats;
-sessionRecord.sourceFile = sourceFile;
-% sessionRecord.rawSummary = summary;
-% 
-% sessionRecord.scalePointEstimate = summary.scalePointEstimate;
-
-% if isfield(compStats, 'rawIntegrals')
-%   summary.integral.raw = squeeze(compStats.rawIntegrals(R.trackSideType, R.trackStepType, :))';
-%   summary.ratio.raw    = compStats.rawR(R.trackSideType, R.trackStepType);
-% else
-%   summary.integral.raw = squeeze(compStats.kIntegrals(R.trackSideType, R.trackStepType, :))';
-%   summary.ratio.raw    = compStats.R(R.trackSideType, R.trackStepType);
-% end
-% 
-% if isfield(compStats, 'normIntegrals')
-%   summary.integral.norm = squeeze(compStats.normIntegrals(R.trackSideType, R.trackStepType, :))';
-%   summary.ratio.norm    = compStats.normR(R.trackSideType, R.trackStepType);
-% else
-%   summary.integral.norm = summary.integral.raw;
-%   summary.ratio.norm    = summary.ratio.raw;
-% end
-% % 
-% if isfield(compStats, 'normInfo')
-%   summary.normInfo = compStats.normInfo;
-% else
-%   summary.normInfo = struct();
-% end
-% 
-% % Primary aliases used by downstream code.
-% summary.scale.estimate = summary.scale.normEstimate;
-% summary.scale.sem      = summary.scale.normSEM;
-% % 
-% % summary.scale.valid      = false;
-% % kPref = squeeze(kernels(R.trackSideType, R.trackStepType, 1, iIndices));
-% summary.pref = struct;
-% summary.pref.energy   = sum(kPref(:).^2);
-% summary.pref.integral = sum(kPref(:)) * msPerVFrame;
-% summary.pref.nBins    = numel(iIndices);
-
-sessionRecord.scalePointEstimate = selectCompStatsEntry(S.compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
-
-% try
-%   sessionRecord.scalePointEstimate = recomputeSessionScalePointEstimate(sessionRecord, opts);
-% catch
-% end
-
-sessionRecord.nTrials = sum(S.hitStats.nTrials);
-sessionRecord.nTrialsByStep = S.hitStats.nTrials;
-% if isfield(summary, 'flags') && isstruct(summary.flags)
-%   if isfield(summary.flags, 'excluded') && islogical(summary.flags.excluded)
-%     sessionRecord.isExcluded = summary.flags.excluded;
-%     if sessionRecord.isExcluded
-%       sessionRecord.excludeReason = 'summary.flags.excluded';
-%     end
-%   end
-% end
 end

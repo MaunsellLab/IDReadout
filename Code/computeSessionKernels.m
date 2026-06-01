@@ -191,15 +191,6 @@ compStats.normInfo.method = ...
   ['probeNoiseByPatch stores effective yoked probe noise; probe kernels are ' ...
    'normalized by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 ' ...
    'before computing normalized ratios/scales'];
-% Legacy aliases: preserve old downstream behavior for now.
-% compStats.kIntegrals = compStats.rawIntegrals;
-% compStats.R          = compStats.rawR;
-% compStats.RVar       = compStats.rawRVar;
-% compStats.scale      = compStats.rawScale;
-% compStats.scaleSEM   = compStats.rawScaleSEM;
-% compStats.fitR2      = compStats.rawFitR2;
-% compStats.sse        = compStats.rawSSE;
-
 end
 
 %%

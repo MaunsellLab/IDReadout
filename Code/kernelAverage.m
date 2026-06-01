@@ -5,9 +5,6 @@ function kernelAverage(doBootstrap, nBoot, varargin)
 % Each session is reprocessed through computeSessionKernels(), then pooled
 % across sessions using inverse-variance weighting.
 %
-%   kernelAverage(folderPath, false, 1000, ...
-%       'dataFolder', fullfile(folderPath, 'Data', 'probe45', 'NoiseMatrices'), ...
-%       'plotFolder', fullfile(folderPath, 'Plots', 'AverageKernels'));
 
 if nargin < 1 || isempty(doBootstrap)
   doBootstrap = false;
@@ -17,7 +14,6 @@ if nargin < 2 || isempty(nBoot)
 end
 
 P = inputParser;
-addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
 addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
@@ -30,14 +26,14 @@ summarySideTypeNum = sideTypeIndex(summarySideType);
 
 baseFolder = folderPath();
 
-dataFolder = fullfile(baseFolder, 'Data', sprintf('probe%d', R.probeDirDeg), 'NoiseMatrices');
+dataFolder = fullfile(baseFolder, 'Data', 'ProbeSessions', sprintf('Probe%d', R.probeDirDeg), 'NoiseMatrices');
 % If no kernels exist, notify user and return
 if ~exist(dataFolder, 'dir')
   fprintf('      data folder not found: %s\n', dataFolder);
   return;
 end
 
-plotFolder = validFolder(fullfile(baseFolder, 'Plots', 'AverageKernels'));
+plotFolder = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'Kernels'));
 
 [selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, R.FileSelectionArgs{:});
 if R.verbose
@@ -205,15 +201,6 @@ if doBootstrap
   x = bootNormScale(:);
   x = x(isfinite(x));
 
-  % fprintf('Bootstrap diagnostics:\n');
-  % fprintf('  nBoot requested: %d\n', nBoot);
-  % fprintf('  finite values:   %d\n', numel(x));
-  % fprintf('  mean:            %.4f\n', mean(x));
-  % fprintf('  sd:              %.4f\n', std(x));
-  % fprintf('  min/max:         %.4f / %.4f\n', min(x), max(x));
-  % fprintf('  CI95:            %.4f / %.4f\n', prctile(x, 2.5), prctile(x, 97.5));
-  % fprintf('  CI68:            %.4f / %.4f\n', prctile(x, 15.865), prctile(x, 84.135));
-
   avgCompStats.bootRawScale = bootRawScale;
   avgCompStats.rawScaleCI.lo = prctile(bootRawScale, 2.5, 3);
   avgCompStats.rawScaleCI.hi = prctile(bootRawScale, 97.5, 3);
@@ -270,13 +257,13 @@ else
   titleSuffix = '';
 end
 
-probeTag = sprintf('probe%d', round(R.probeDirDeg));
+probeTag = sprintf('Probe%d', round(R.probeDirDeg));
 plotName = sprintf('AverageKernel_%s.pdf', probeTag);
 plotTitle = sprintf('\\bf%s Probe Kernels %d Session Average%s', probeDirStr, nSessions, titleSuffix);
 
 % ---- Plot/export averaged kernels ----
 plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
-  avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
+        avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 fprintf('      plotting done\n');
@@ -310,7 +297,7 @@ averageKernelPlotData.titleSuffix = titleSuffix;
 
 averageKernelPlotData.createdDate = datetime('now');
 
-summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', ...
+summaryDataFolder = fullfile(baseFolder, 'Data', 'ProbeSessions', probeTag, 'AverageKernels', ...
                 [upper(summarySideType(1)) summarySideType(2:end)]);
 validFolder(summaryDataFolder);
 

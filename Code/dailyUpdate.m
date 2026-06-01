@@ -19,7 +19,12 @@ function dailyUpdate()
   convertIDRData;
   fprintf('  << convertIDRData complete\n');
 
-  % ---- Session-level probe-specific kernels/noise matrices ----
+  % ---- Session-level probe-specific data files ----
+  fprintf('  >> makeProbeSessions start\n');
+  makeProbeSessions(false);
+  fprintf('  << makeProbeSessions complete\n');
+
+  % ---- Make probe session kernels and kernel plots ----
   fprintf('  >> makeKernels start\n');
   [allProbeDirs, staleProbeDirs] = makeKernels(replace);
   anythingChanged = replace || ~isempty(staleProbeDirs);
@@ -35,21 +40,13 @@ function dailyUpdate()
     refreshProbeDirs = staleProbeDirs;
   end
 
-  % ---- Per-session summaries ----
+  % ---- Average Kernels ----
   if isempty(refreshProbeDirs)
     fprintf('      no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
   else
-    sessionsDirs = probeDirsToSessionDirs(refreshProbeDirs);
-
-    fprintf('  >> makeKernelSessionSummaries start\n');
-    makeKernelSessionSummaries('sessionsDirs', sessionsDirs, 'replace', replace);
-    fprintf('  << makeKernelSessionSummaries complete\n');
-
-    % ---- Average-kernel plots ----
     fprintf('  >> kernelAverage start\n');
     for p = refreshProbeDirs(:).'
-      probeTag = sprintf('probe%d', round(p));
-      fprintf('      updating average for %s\n', probeTag);
+      fprintf('      updating average for probe %d\n', p);
       kernelAverage(true, 50, 'probeDirDeg', p);
     end
     fprintf('  << kernelAverage complete\n');
@@ -74,14 +71,4 @@ function dailyUpdate()
     fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');
   end
   fprintf('<<< daily update complete\n');
-end
-
-%% probeDirsToSessionDirs()
-function sessionsDirs = probeDirsToSessionDirs(probeDirs)
-
-sessionsDirs = cell(1, numel(probeDirs));
-for i = 1:numel(probeDirs)
-  sessionsDirs{i} = sprintf('probe%d', round(probeDirs(i)));
-end
-
 end

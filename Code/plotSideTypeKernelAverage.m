@@ -38,8 +38,9 @@ plotData = cell(1, nProbes);
 missingIndices = [];
 
 for p = 1:nProbes
-  probeTag = sprintf('probe%d', probeDirs(p));
-  dataFile = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideType, 'AverageKernelPlotData.mat');
+  probeTag = sprintf('Probe%d', probeDirs(p));
+  dataFile = fullfile(baseFolder, 'Data', 'ProbeSessions', probeTag, 'AverageKernels', sideType, ...
+          'AverageKernelPlotData.mat');
   if ~isfile(dataFile)
     missingIndices = [missingIndices, p]; %#ok<AGROW>
     fprintf('      no kernels for probe %3d°\n', probeDirs(p));
@@ -77,17 +78,13 @@ refTMS = plotData{1}.tMS(:).';
 for p = 2:nProbes
   assert(isequal(plotData{p}.stepTypeNames, refStepTypeNames), ...
     'plotSideTypeKernelAverage:StepTypeMismatch', 'stepTypeNames differ across probe directions.');
-
   assert(isequal(plotData{p}.streamTypeNames, refStreamTypeNames), ...
     'plotSideTypeKernelAverage:StreamTypeMismatch', 'streamTypeNames differ across probe directions.');
-
   assert(numel(plotData{p}.tMS) == numel(refTMS) &&  all(abs(plotData{p}.tMS(:).' - refTMS) < 1e-9), ...
     'plotSideTypeKernelAverage:TimeMismatch', 'tMS differs across probe directions.');
 end
 nSteps = numel(refStepTypeNames);
 nStreams = numel(refStreamTypeNames);
-assert(nSteps == 2, 'plotSideTypeKernelAverage:UnexpectedStepCount', 'Expected 2 step types, found %d.', nSteps);
-assert(nStreams == 2, 'plotSideTypeKernelAverage:UnexpectedStreamCount', 'Expected 2 stream types, found %d.', nStreams);
 
 % ---- Common y-limits, including SEM patches ----
 overallYMin = zeros(1, nProbes);
@@ -121,9 +118,6 @@ end
 
 % ---- Timing for x-axis and gray patches ----
   D0 = plotData{1};  
-  assert(isfield(D0, 'msPerVFrame') && isfield(D0, 'firstPreStepMS') && isfield(D0, 'firstStepMS'), ...
-    'plotSideTypeKernelAverage:MissingTimingFields', ...
-    'AverageKernelPlotData must contain msPerVFrame, firstPreStepMS, and firstStepMS.');
   msPerVFrame = D0.msPerVFrame;
   preStepMS   = D0.firstPreStepMS;
   stepMS      = D0.firstStepMS;
@@ -237,13 +231,6 @@ end
 
 %% Make statistics for one kernel plots
 function textStr = makeKernelStatsText(D, stepType)
-
-assert(isfield(D, 'avgCompStats'), 'plotSideTypeKernelAverage:MissingCompStats', ...
-  'averageKernelPlotData.avgCompStats is missing.');
-assert(isfield(D, 'sideTypeNum') && ~isempty(D.sideTypeNum), 'plotSideTypeKernelAverage:MissingSideTypeNum', ...
-  'averageKernelPlotData.sideTypeNum is missing.');
-assert(isfield(D, 'probeDirDeg') && ~isempty(D.probeDirDeg), ...
-  'plotSideTypeKernelAverage:MissingProbeDirDeg', 'averageKernelPlotData.probeDirDeg is missing.');
 
 compStats = D.avgCompStats;
 sideTypeNum = D.sideTypeNum;

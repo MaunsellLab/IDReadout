@@ -13,10 +13,9 @@ if ~existed
   return;
 end
 [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
-convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'Converted'));
+convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'Sessions'));
 
 % Convert any unconverted .dat files
-numSkipped = 0;
 for fi = 1:numel(paths)
   datPath = string(paths(fi));
   datName = string(names(fi));
@@ -25,7 +24,6 @@ for fi = 1:numel(paths)
   infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % .mat headerfile name for .dat file
   outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % .mat data file name for .dat file
   if isfile(infoFileName) && isfile(outFileName)                    % Skip if *_fileInfo.mat already exists
-    numSkipped = numSkipped + 1;
     continue;
   end
   if isfile(infoFileName) && ~isfile(outFileName)                   % Skip only *_fileInfo.mat exists, re-read
@@ -42,20 +40,8 @@ for fi = 1:numel(paths)
   fprintf('       converting %s\n', datName);
   for t = 1:nTrials
     trials{t} = readLLFile('t', t);
-    % trialMeta = updateTrialMeta(trialMeta, trials{t});
-    % if ~(isfield(trial, 'trial') && isfield(trial.trial, 'data'))
-    %   return
-    % end
     D = trials{t}.trial.data;
     if D.cohNoise
-      % if isfield(D, 'cohNoise')
-      %   hasNoise = logical(D.cohNoise);
-      % else
-      %   hasNoise = true;   % old-file compatibility
-      % end
-      % if ~hasNoise
-      %   return
-      % end
       trialMeta.nNoiseTrials = trialMeta.nNoiseTrials + 1;
       if isfield(D, 'probeDirDeg')
         probeDirDeg = double(D.probeDirDeg);
@@ -126,51 +112,3 @@ else
   end
 end
 end
-
-% function trialMeta = initializeTrialMeta()
-% 
-% trialMeta.probeDirectionsDeg = [];
-% trialMeta.nProbeDirections = 0;
-% trialMeta.nNoiseTrials = 0;
-% 
-% end
-
-% function trialMeta = updateTrialMeta(trialMeta, trial)
-% 
-% if ~(isfield(trial, 'trial') && isfield(trial.trial, 'data'))
-%   return
-% end
-% D = trial.trial.data;
-% if isfield(D, 'cohNoise')
-%   hasNoise = logical(D.cohNoise);
-% else
-%   hasNoise = true;   % old-file compatibility
-% end
-% if ~hasNoise
-%   return
-% end
-% 
-% trialMeta.nNoiseTrials = trialMeta.nNoiseTrials + 1;
-% 
-% if isfield(D, 'probeDirDeg')
-%   probeDirDeg = double(D.probeDirDeg);
-%   if isfinite(probeDirDeg) && probeDirDeg ~= -1
-%     trialMeta.probeDirectionsDeg(end+1) = probeDirDeg; %#ok<AGROW>
-%   end
-% end
-% 
-% end
-
-% function trialMeta = finalizeTrialMeta(trialMeta, header)
-% 
-% probeDirs = unique(round(trialMeta.probeDirectionsDeg, 6));
-% 
-% % Old-format fallback: no per-trial probeDirDeg, but parent header has one.
-% if isempty(probeDirs) && isfield(header, 'probeDirDeg') && isfield(header.probeDirDeg, 'data')
-%   probeDirs = double(header.probeDirDeg.data);
-% end
-% 
-% trialMeta.probeDirectionsDeg = probeDirs(:)';
-% trialMeta.nProbeDirections = numel(probeDirs);
-% 
-% end
