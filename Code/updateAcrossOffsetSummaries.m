@@ -297,7 +297,8 @@ p.FunctionName = mfilename;
 addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
 defaultSaveFile = fullfile(folderPath(), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'ReadoutFits'), @(x) ischar(x) || isstring(x));
+addParameter(p, 'PlotDir',  fullfile(dataFolderPath(), '..', 'Plots', 'AcrossProbes', 'ReadoutFits'), ...
+                  @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
 addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));

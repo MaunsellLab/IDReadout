@@ -26,7 +26,7 @@ summarySideTypeNum = sideTypeIndex(summarySideType);
 
 baseFolder = folderPath();
 
-dataFolder = fullfile(baseFolder, 'Data', 'ProbeSessions', sprintf('Probe%d', R.probeDirDeg), 'NoiseMatrices');
+dataFolder = fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions');
 % If no kernels exist, notify user and return
 if ~exist(dataFolder, 'dir')
   fprintf('      data folder not found: %s\n', dataFolder);
@@ -297,7 +297,7 @@ averageKernelPlotData.titleSuffix = titleSuffix;
 
 averageKernelPlotData.createdDate = datetime('now');
 
-summaryDataFolder = fullfile(baseFolder, 'Data', 'ProbeSessions', probeTag, 'AverageKernels', ...
+summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', ...
                 [upper(summarySideType(1)) summarySideType(2:end)]);
 validFolder(summaryDataFolder);
 

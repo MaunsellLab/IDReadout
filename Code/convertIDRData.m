@@ -13,7 +13,7 @@ if ~existed
   return;
 end
 [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
-convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'Sessions'));
+convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'FullSessions'));
 
 % Convert any unconverted .dat files
 for fi = 1:numel(paths)

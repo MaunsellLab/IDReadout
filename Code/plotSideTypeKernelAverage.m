@@ -24,7 +24,7 @@ sideType = char(R.SideType);
 sideTypeIndex(sideType);  % validate sideType name; index not otherwise needed here
 
 if isempty(R.ProbeDirs)
-  probeDirs = findProbeDirsWithAverageData(baseFolder, sideType);
+  probeDirs = findProbeDirsWithAverageData(sideType);
 else
   probeDirs = R.ProbeDirs(:).';
 end
@@ -39,7 +39,7 @@ missingIndices = [];
 
 for p = 1:nProbes
   probeTag = sprintf('Probe%d', probeDirs(p));
-  dataFile = fullfile(baseFolder, 'Data', 'ProbeSessions', probeTag, 'AverageKernels', sideType, ...
+  dataFile = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideType, ...
           'AverageKernelPlotData.mat');
   if ~isfile(dataFile)
     missingIndices = [missingIndices, p]; %#ok<AGROW>
@@ -198,10 +198,10 @@ exportgraphics(fig, outFile, 'ContentType', 'vector');
 end
 
 %% Find probe directions with saved average-kernel data for requested side type.
-function probeDirs = findProbeDirsWithAverageData(baseFolder, sideType)
+function probeDirs = findProbeDirsWithAverageData(sideType)
 
-dataFolder = fullfile(baseFolder, 'Data');
-probeFolders = dir(fullfile(dataFolder, 'probe*'));
+dataFolder = fullfile(folderPath(), 'Data');
+probeFolders = dir(fullfile(dataFolder, 'Probe*'));
 
 probeDirs = [];
 

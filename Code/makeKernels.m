@@ -2,7 +2,7 @@
 % makeKernels  Build and plot probe-session kernels
 %
 % Derived per-probe files written by makeKernels contain both headers:
-%   Data/ProbeSessions/ProbeXX/Kernels
+%   Data/ProbeXX/Kernels
 %
 
 if nargin < 1 || isempty(replace)
@@ -12,7 +12,7 @@ staleProbeDirs = [];
 allProbeDirs = [];
 
 % ---- Find all relevant .mat data files ----
-sessionDataFolder = fullfile(folderPath(), 'Data', 'Sessions');
+sessionDataFolder = fullfile(folderPath(), 'Data', 'FullSessions');
 allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
 if isempty(allMatFiles)
   fprintf('No .mat files found in %s\n', sessionDataFolder);
@@ -60,7 +60,7 @@ for k = 1:numel(dataFiles)
   for p = 1:numel(probeSessions)
     probeTag = probeTags{p};
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
-    probeDataPath = fullfile(folderPath(), 'Data', 'ProbeSessions', probeTag, ...
+    probeDataPath = fullfile(folderPath(), 'Data', probeTag, 'ProbeSessions', ...
                       sprintf('%s_%s.mat', baseName, probeTag));
 
     load(probeDataPath, 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
@@ -148,7 +148,7 @@ function [kernelPath, plotPath] = makeFilePaths(probeTag, baseName)
 path = folderPath();
 
 analysisBaseName = sprintf('%s_%s', baseName, probeTag);
-plotRoot = validFolder(fullfile(path, 'Plots', 'Kernels'));
+plotRoot = validFolder(fullfile(path, 'Plots', 'Probes'));
 probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
 plotPath = fullfile(probePlotFolder, sprintf('%s.pdf', analysisBaseName));
 

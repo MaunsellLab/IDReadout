@@ -12,13 +12,6 @@ fprintf('  >> makeKernels start\n');
 makeKernels(false);
 fprintf('  << makeKernels complete\n');
 
-%% ---- Average-kernel plots for just the selected probes ----
-
-fprintf('  >> kernelAverage start\n');
-p = 179;
-fprintf('      updating average for probe %d\n', p);
-kernelAverage(true, 5, 'probeDirDeg', p, 'Verbose', true, 'FileSelectionArgs', {'Bin179With180', true});
-fprintf('  << kernelAverage complete\n');
 %% ---- Average-kernel plots ----
 
 fprintf('  >> kernelAverage start\n');
@@ -37,6 +30,6 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 
 %% updateAcrossOffsetSummaries
 
-acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 1000, 'RandomSeed', 1, ...
+acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 2, 'RandomSeed', 1, ...
     'FileSelectionArgs', {'Bin179With180', true});
 

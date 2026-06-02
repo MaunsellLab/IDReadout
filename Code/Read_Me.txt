@@ -46,7 +46,7 @@ Converts the .dat files into a standard .mat file.  By convention, that
 file contains a header structure and a trials structure.  convertIDRData
 also does a bit of clean up correcting some mis-assignment of events that
 occurred in early IDR files.  The converted .mat files are placed int 
-$PATH/Data/Sessions, with the same name as the base .dat file (e.g.,
+$PATH/Data/FullSessions, with the same name as the base .dat file (e.g.,
 baseName.mat). An additional information files is also spun off in that 
 sub-folder, with the name baseName_info.mat, but it is not used in 
 analysis.   

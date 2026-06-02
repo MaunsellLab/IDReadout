@@ -16,14 +16,14 @@ function makeProbeSessions(replace)
 %       probe-session trial counts.
 %
 % Derived per-probe files written by makeProbeSessions contain both headers:
-%   Data/ProbeSessions/ProbeXX/ProbeSessions
+%   Data/ProbeXX/ProbeSessions
 
 if nargin < 1 || isempty(replace)
   replace = false;
 end
 
 % ---- Find all relevant session data files ----
-sessionDataFolder = fullfile(folderPath(), 'Data', 'Sessions');
+sessionDataFolder = fullfile(folderPath(), 'Data', 'FullSessions');
 allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
 if isempty(allMatFiles)
   fprintf('No session files found\n');
@@ -58,7 +58,7 @@ for k = 1:numel(dataFiles)
   if ~needsProbeSessions
     for p = 1:numel(probeDirectionsDeg)
       probeTag = probeTags{p};
-      probeDataFolder = validFolder(fullfile(folderPath(), 'Data', 'ProbeSessions', probeTag));
+      probeDataFolder = validFolder(fullfile(folderPath(), 'Data', probeTag, 'ProbeSession'));
       probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
       if isfile(probeSessionPath) && ~replace
         continue;
@@ -78,7 +78,7 @@ for k = 1:numel(dataFiles)
   for p = 1:numel(probeSessions)
     probeTag = probeSessions(p).probeTag;
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
-    probeDataFolder = validFolder(fullfile(folderPath(), 'Data', 'ProbeSessions', probeTag));
+    probeDataFolder = validFolder(fullfile(folderPath(), 'Data', probeTag, 'ProbeSessions'));
     probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
     if isfile(probeSessionPath) && ~replace
       continue;
@@ -183,7 +183,7 @@ end
 % probePlotFolder = validFolder(fullfile(plotRoot, probeTag));
 % plotPath = fullfile(probePlotFolder, sprintf('%s.pdf', analysisBaseName));
 % 
-% probeDataFolder = validFolder(fullfile(path, 'Data', 'ProbeSessions', probeTag));
+% probeDataFolder = validFolder(fullfile(path, 'Data', probeTag));
 % kernelFolder = validFolder(fullfile(probeDataFolder, 'Kernels'));
 % matrixFolder = validFolder(fullfile(probeDataFolder, 'ProbeSessions'));
 % kernelPath = fullfile(kernelFolder, [analysisBaseName '.mat']);
@@ -278,7 +278,7 @@ parentNTrials, trialIdx, parentProbeDirectionsDeg)
 
 [~, baseName] = fileparts(parentHeader.fileName);
 probeDataFolder = fullfile(folderPath, 'Data', probeTag);
-probeSessionFolder = fullfile(probeDataFolder, 'NoiseMatrices');
+probeSessionFolder = fullfile(probeDataFolder, 'ProbeSessions');
 
 H = struct();
 
