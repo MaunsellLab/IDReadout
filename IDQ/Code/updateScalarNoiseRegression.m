@@ -29,7 +29,7 @@ function batch = updateScalarNoiseRegression(replace, varargin)
 % Output
 %   batch : summary struct saved to Data/scalarNoiseRegression_batchSummary.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(replace)
     replace = false;
 end
@@ -40,7 +40,7 @@ p.addParameter('WinDurMS', 250, @isscalar);
 p.addParameter('NBins', 10, @isscalar);
 p.parse(varargin{:});
 
-pathRoot = folderPath();
+pathRoot = domainFolder(mfilename('fullpath'));
 dataRoot = fullfile(pathRoot, 'Data');
 plotRoot = fullfile(pathRoot, 'Plots', 'Probes');
 

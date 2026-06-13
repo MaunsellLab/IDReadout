@@ -20,7 +20,7 @@ function summary = checkPrefProbeNoiseCorrelation(dataRoot)
 %     summary = checkPrefProbeNoiseCorrelation('/path/to/Data');
 
 if nargin < 1 || isempty(dataRoot)
-    dataRoot = fullfile(folderPath(), 'Data');
+    dataRoot = fullfile(domainFolder(mfilename('fullpath')), 'Data');
 end
 
 assert(isfolder(dataRoot), 'Data root does not exist: %s', dataRoot);

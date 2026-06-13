@@ -8,7 +8,7 @@ function kernelMagVsMiss(baseFolder)
 excludedFiles = {};
 
 if nargin < 1 || isempty(baseFolder)
-    baseFolder = folderPath();
+    baseFolder = domainFolder(mfilename('fullpath'));
 end
 
 dataFolder = baseFolder + "/Kernels/";

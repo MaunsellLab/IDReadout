@@ -1,9 +1,9 @@
 
 %% makeProbeSessions
 clc;
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 fprintf('  >> makeProbeSessions start\n');
-makeProbeSessions(true);
+makeProbeSessions(false);
 fprintf('  << makeProbeSessions complete\n');
 
 %% makeKernels
@@ -18,7 +18,7 @@ clc
 fprintf('  >> kernelAverage start\n');
 for p = [10, 25, 45, 90, 135, 179, 180]
   fprintf('      updating average for probe %d\n', p);
-  kernelAverage(true, 5, 'probeDirDeg', p, 'FileSelectionArgs', {'Bin179With180', true});
+  kernelAverage(true, 1, 'probeDirDeg', p, 'FileSelectionArgs', {'Bin179With180', true});
 end
 fprintf('  << kernelAverage complete\n');
 
@@ -34,7 +34,7 @@ fprintf('  << kernelAverage complete\n');
 %% plotSideTypeKernelAverage
 % Summary plot of kernels from increment/change side
 
-cleanupObj = initProjectPath();
+% cleanupObj = initProjectPath();
 fprintf('  >> plotSideTypeKernelAverage start\n');
 plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179]);
 fprintf('  << plotSideTypeKernelAverage complete\n');

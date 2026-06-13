@@ -18,7 +18,7 @@ function kernelAverageByProbe(baseFolder, probeDirDeg, doBootstrap, nBoot)
 % The plotted scale CIs, when requested, are bootstrap percentile intervals.
 
 if nargin < 1 || isempty(baseFolder)
-  baseFolder = folderPath();
+  baseFolder = domainFolder(mfilename('fullpath'));
 end
 if nargin < 2 || isempty(probeDirDeg)
   error('kernelAverageByProbe:MissingProbeDir', 'probeDirDeg must be specified.');

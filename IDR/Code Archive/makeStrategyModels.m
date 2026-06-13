@@ -3,7 +3,7 @@ function makeStrategyModels(replace, path)
 % for all Lablib .mat data files.
 %
 %   makeStrategyModels()
-%       Uses folderPath() to get the base path.
+%       Uses domainFolder(mfilename('fullpath')) to get the base path.
 %
 %   makeStrategyModels(replace)
 %       If replace is true, recomputes model files even if they exist.
@@ -24,7 +24,7 @@ function makeStrategyModels(replace, path)
     replace = false;
   end
   if nargin < 2 || isempty(path)
-    path = folderPath();   % user-defined helper
+    path = domainFolder(mfilename('fullpath'));   % user-defined helper
   end
   if isstring(path)        % Ensure path is char for compatibility
     path = char(path);

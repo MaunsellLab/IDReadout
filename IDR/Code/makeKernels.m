@@ -4,7 +4,7 @@
 % Derived per-probe files written by makeKernels contain both headers:
 %   Data/ProbeXX/Kernels
 %
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(replace)
   replace = false;
 end
@@ -12,7 +12,7 @@ staleProbeDirs = [];
 allProbeDirs = [];
 
 % ---- Find all relevant .mat data files ----
-sessionDataFolder = fullfile(folderPath(), 'Data', 'FullSessions');
+sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
 allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
 if isempty(allMatFiles)
   fprintf('No .mat files found in %s\n', sessionDataFolder);
@@ -60,7 +60,7 @@ for k = 1:numel(dataFiles)
   for p = 1:numel(probeSessions)
     probeTag = probeTags{p};
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
-    probeDataPath = fullfile(folderPath(), 'Data', probeTag, 'ProbeSessions', ...
+    probeDataPath = fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions', ...
                       sprintf('%s_%s.mat', baseName, probeTag));
 
     load(probeDataPath, 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
@@ -95,7 +95,7 @@ staleProbeDirs = unique(staleProbeDirs);
 
 function [kernelPath, plotPath] = makeFilePaths(probeTag, baseName)
 
-path = folderPath();
+path = domainFolder(mfilename('fullpath'));
 
 analysisBaseName = sprintf('%s_%s', baseName, probeTag);
 plotRoot = validFolder(fullfile(path, 'Plots', 'Probes'));

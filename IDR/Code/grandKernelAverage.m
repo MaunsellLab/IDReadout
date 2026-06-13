@@ -7,7 +7,7 @@ function grandKernelAverage(doBootstrap, nBoot, varargin)
 % across all sessions using inverse-variance weighting.
 %
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(doBootstrap)
   doBootstrap = true;
 end
@@ -32,7 +32,7 @@ end
 
 files = {};
 fileInfo = table();
-probeSessionDirs = dir([folderPath(), '/Data/Probe*']);
+probeSessionDirs = dir([domainFolder(mfilename('fullpath')), '/Data/Probe*']);
 for p = 1:numel(probeSessionDirs)
     probeSessionDir = [probeSessionDirs(p).folder, '/', probeSessionDirs(p).name, '/ProbeSessions/'];
   [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, fileSelectionArgs{:});
@@ -255,7 +255,7 @@ plotTitle = sprintf('\\bfGrand Kernel Averages Over %d Probe Directions, %d Prob
 % ---- Plot/export averaged kernels ----
 plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
         avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
-plotFolder = validFolder(fullfile(folderPath(), 'Plots', 'AcrossProbes', 'Kernels'));
+plotFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'Kernels'));
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 

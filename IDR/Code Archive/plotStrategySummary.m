@@ -7,7 +7,7 @@ function plotStrategySummary(S, basePath)
 %
 % Input:
 %   S         struct returned by summarizeStrategyModels()
-%   basePath  project root (default folderPath())
+%   basePath  project root (default domainFolder(mfilename('fullpath')))
 %
 % Output files:
 %   <basePath>/Summaries/strategy_summary.pdf
@@ -27,7 +27,7 @@ function plotStrategySummary(S, basePath)
   end
 
   if nargin < 2 || isempty(basePath)
-    basePath = folderPath();
+    basePath = domainFolder(mfilename('fullpath'));
   end
   if isstring(basePath)
     basePath = char(basePath);

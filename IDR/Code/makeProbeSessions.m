@@ -16,7 +16,7 @@ function [allProbeDirs, staleProbeDirs] = makeProbeSessions(replace)
 %
 % Derived per-probe files written by makeProbeSessions contain both headers:
 %   Data/ProbeXX/ProbeSessions
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(replace)
   replace = false;
 end
@@ -24,7 +24,7 @@ staleProbeDirs = [];
 allProbeDirs = [];
 
 % ---- Find all relevant session data files ----
-sessionDataFolder = fullfile(folderPath(), 'Data', 'FullSessions');
+sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
 allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
 if isempty(allMatFiles)
   fprintf('No session files found\n');
@@ -59,7 +59,7 @@ for k = 1:numel(dataFiles)
       probeDirDeg = probeDirectionsDeg(p);
       allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
       probeTag = probeTags{p};
-      probeDataFolder = validFolder(fullfile(folderPath(), 'Data', probeTag, 'ProbeSessions'));
+      probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
       probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
       if isfile(probeSessionPath) && ~replace
         continue;
@@ -79,7 +79,7 @@ for k = 1:numel(dataFiles)
   for p = 1:numel(probeSessions)
     probeTag = probeSessions(p).probeTag;
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
-    probeDataFolder = validFolder(fullfile(folderPath(), 'Data', probeTag, 'ProbeSessions'));
+    probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
     probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
     if isfile(probeSessionPath) && ~replace
       continue;

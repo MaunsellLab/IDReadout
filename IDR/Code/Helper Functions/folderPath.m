@@ -1,4 +1,4 @@
-function rootPath = folderPath()
+function rootPath = domainFolder(mfilename('fullpath'))
 % folderPath  Return the repository root path.
 %
 % Assumes this file is two folder levels below the repository root.

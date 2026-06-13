@@ -16,7 +16,7 @@ if nargin < 2 || isempty(nBoot)
   nBoot = 1000;
 end
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 P = inputParser;
 addParameter(P, 'dataFolder', '', @(x) ischar(x) || isstring(x));
 addParameter(P, 'plotFolder', '', @(x) ischar(x) || isstring(x));

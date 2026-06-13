@@ -17,7 +17,7 @@ addParameter(P, 'trackSideType', 1, @(x) isnumeric(x) && isscalar(x));
 addParameter(P, 'trackStepType', 2, @(x) isnumeric(x) && isscalar(x));
 parse(P, varargin{:});
 R = P.Results;
-R.path = folderPath();
+R.path = domainFolder(mfilename('fullpath'));
 
 sessionsDirs = normalizeSessionsDirs(R.sessionsDirs, R.path);
 

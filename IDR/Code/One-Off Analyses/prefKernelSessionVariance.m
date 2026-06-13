@@ -31,7 +31,7 @@ function results = prefKernelSessionVariance(baseFolder)
 
 cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(baseFolder)
-  baseFolder = folderPath();
+  baseFolder = domainFolder(mfilename('fullpath'));
 end
 
 % Kernel array conventions used by computeSessionKernels:

@@ -19,7 +19,7 @@ else
   wildcardExtension = sprintf('*.%s', extension);
 end
 validSubfolders = {'Data', 'Data/DatFiles','Plots'};
-rootFolder = folderPath();
+rootFolder = domainFolder(mfilename('fullpath'));
 
 if isstring(target)
   target = char(target);

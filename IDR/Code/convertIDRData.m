@@ -1,6 +1,6 @@
 function convertIDRData()
 %   Convert Lablib .dat files to .mat format
-%   convertIDRData() uses the default folder specified by folderPath().
+%   convertIDRData() uses the default folder specified by domainFolder(mfilename('fullpath')).
 %   convertIDRData(dataFolder) uses the specified folder.
 %
 %   For each  .dat file in dataFolder, this function checks for a
@@ -8,13 +8,13 @@ function convertIDRData()
 %   file is read with readLLFile and the trials/header are saved.
 
 cleanupObj = initProjectPath(); %#ok<NASGU>
-[dataFolder, existed] = validFolder(fullfile(folderPath(), 'Data', 'DatFiles'));
+[dataFolder, existed] = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'DatFiles'));
 if ~existed 
   fprintf('  convertIDRData -- failed to find data to convert in %s', dataFolder);
   return;
 end
 [names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
-convertedFolder = validFolder(fullfile(folderPath(), 'Data', 'FullSessions'));
+convertedFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 
 % Convert any unconverted .dat files
 for fi = 1:numel(paths)

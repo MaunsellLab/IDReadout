@@ -22,9 +22,9 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(dataDir, varargin)
 %
 % -------------------------------------------------------------------------
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(dataDir)
-  dataDir = fullfile(folderPath(), 'Data');
+  dataDir = fullfile(domainFolder(mfilename('fullpath')), 'Data');
 end
 opts = parseInputs(dataDir, varargin{:});
 
@@ -296,9 +296,9 @@ p = inputParser;
 p.FunctionName = mfilename;
 
 addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
-defaultSaveFile = fullfile(folderPath(), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
+defaultSaveFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir',  fullfile(folderPath(), 'Plots', 'AcrossProbes', 'ReadoutFits'), ...
+addParameter(p, 'PlotDir',  fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits'), ...
                   @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));

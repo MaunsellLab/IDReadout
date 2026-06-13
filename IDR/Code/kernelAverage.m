@@ -5,7 +5,7 @@ function kernelAverage(doBootstrap, nBoot, varargin)
 % Each session is reprocessed through computeSessionKernels(), then pooled
 % across sessions using inverse-variance weighting.
 %
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(doBootstrap)
   doBootstrap = false;
 end
@@ -31,7 +31,7 @@ end
 summarySideType = R.SummarySideType;
 summarySideTypeNum = sideTypeIndex(summarySideType);
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 
 dataFolder = fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions');
 % If no kernels exist, notify user and return

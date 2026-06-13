@@ -8,7 +8,7 @@ function dailyUpdate()
 %     4) refresh average-kernel plots for affected probe directions
 %     5) refresh across-offset summaries/plots
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 fprintf('>>> dailyUpdate start\n');
 replace = false;
 doBootstrap = false;

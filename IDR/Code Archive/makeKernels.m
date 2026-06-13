@@ -20,7 +20,7 @@ if nargin < 1 || isempty(replace)
   replace = false;
 end
 if nargin < 2 || isempty(path)
-  path = folderPath();
+  path = domainFolder(mfilename('fullpath'));
 end
 path = char(path);                % older MATLABs are happier with char for fullfile
 staleProbeDirs = [];

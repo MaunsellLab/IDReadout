@@ -2,7 +2,7 @@ function S = summarizeStrategyModels(basePath)
 
 % ---- basePath handling ----
 if nargin < 1 || isempty(basePath)
-    basePath = folderPath();
+    basePath = domainFolder(mfilename('fullpath'));
 end
 if isstring(basePath)
     basePath = char(basePath);

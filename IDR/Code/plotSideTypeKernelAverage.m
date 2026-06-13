@@ -12,8 +12,8 @@ function plotSideTypeKernelAverage(varargin)
 %   plotSideTypeKernelAverage('SideType', 'noChange')
 %   plotSideTypeKernelAverage('ProbeDirs', [45 90 135 180])
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
-baseFolder = folderPath();
+% cleanupObj = initProjectPath(); %#ok<NASGU>
+baseFolder = domainFolder(mfilename('fullpath'));
 
 P = inputParser;
 addParameter(P, 'SideType', 'change', @(x) ischar(x) || isstring(x));
@@ -199,7 +199,7 @@ end
 %% Find probe directions with saved average-kernel data for requested side type.
 function probeDirs = findProbeDirsWithAverageData(sideType)
 
-dataFolder = fullfile(folderPath(), 'Data');
+dataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data');
 probeFolders = dir(fullfile(dataFolder, 'Probe*'));
 
 probeDirs = [];

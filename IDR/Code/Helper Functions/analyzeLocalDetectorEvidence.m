@@ -75,7 +75,7 @@ ip.parse(noiseFile, varargin{:});
 P = ip.Results;
 
 % ---------------- Load data ----------------
-S = load([folderPath(), '/Data', '/FullSessions/', noiseFile]);
+S = load([domainFolder(mfilename('fullpath')), '/Data', '/FullSessions/', noiseFile]);
 
 reqFields = {'prefNoiseByPatch','probeNoiseByPatch','changeSidesAll', ...
              'changeIndicesAll','trialOutcomesAll','header'};

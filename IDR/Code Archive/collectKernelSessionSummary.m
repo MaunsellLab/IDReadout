@@ -35,7 +35,7 @@ function summary = collectKernelSessionSummary(baseFolder)
 % John can later add extra columns if useful.
 
 if nargin < 1 || isempty(baseFolder)
-  baseFolder = folderPath();
+  baseFolder = domainFolder(mfilename('fullpath'));
 end
 
 dataFolder = fullfile(baseFolder, 'Data', 'NoiseMatrices');

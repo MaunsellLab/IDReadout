@@ -12,14 +12,14 @@ function out = analyzeLocalDetectorEvidenceAverage(alpha, winMS)
 %   - retain session identity for later diagnostics if needed
 %
 % INPUTS
-%   baseFolder : root folder (default folderPath())
+%   baseFolder : root folder (default domainFolder(mfilename('fullpath')))
 %   alpha      : probe weight relative to pref (default 0.19)
 %   winMS      : [start stop] relative to step onset in ms (default [0 125])
 %
 % OUTPUT
 %   out : struct containing pooled trialwise data and summaries
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 if nargin < 1 || isempty(alpha)
     alpha = 0.25;
 end

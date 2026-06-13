@@ -6,9 +6,9 @@ function summaryTable = summarizeScalarNoiseRegression(varargin)
 % Searches Data/Probe*/Regression/*_scalarNoiseRegression.mat and returns a
 % table with the main raw and standardized coefficients.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 p = inputParser;
-p.addParameter('RootFolder', folderPath(), @(x) ischar(x) || isstring(x));
+p.addParameter('RootFolder', domainFolder(mfilename('fullpath')), @(x) ischar(x) || isstring(x));
 p.parse(varargin{:});
 
 rootFolder = char(p.Results.RootFolder);
