@@ -14,9 +14,7 @@ function weightData = makeBetaWeights()
 % Leave-one-session-out kernels are reconstructed exactly from the saved
 % per-session correct/error means and trial counts.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
-
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'AcrossSessions');
 

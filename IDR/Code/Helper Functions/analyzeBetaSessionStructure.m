@@ -21,9 +21,9 @@ function structureAnalysis = analyzeBetaSessionStructure()
 % Saves:
 %   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaSessionStructureAnalysis.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...

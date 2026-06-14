@@ -16,7 +16,7 @@ function [allProbeDirs, staleProbeDirs] = makeProbeSessions(replace)
 %
 % Derived per-probe files written by makeProbeSessions contain both headers:
 %   Data/ProbeXX/ProbeSessions
-% cleanupObj = initProjectPath(); %#ok<NASGU>
+
 if nargin < 1 || isempty(replace)
   replace = false;
 end
@@ -189,7 +189,7 @@ parentNTrials, parentProbeDirectionsDeg)
 % direction in a session
 
 [~, baseName] = fileparts(parentHeader.fileName);
-probeDataFolder = fullfile(folderPath, 'Data', probeTag);
+probeDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag);
 probeSessionFolder = fullfile(probeDataFolder, 'ProbeSessions');
 
 H = struct();

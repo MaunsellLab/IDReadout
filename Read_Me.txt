@@ -1,7 +1,6 @@
 IDReadout To Do:
 
-Update code/folder structures to separate kernel from regression analysis
-
+Chosen Unchosen Kernels
 
 Revise:
   makeKernels
@@ -18,17 +17,27 @@ IDReadout (IDR) and IDReadout2 (IDT) are the Knot plugins that created the
 .dat files for this project. IDR was a single probe direction per file. IDT
 allowed for randomly interleaved probe directions
 
+Matlab Project:
+
+All the analysis files are maintained in a Matlab Project
+
 Folder Hierarchy:
-================+
+=================
 
 All analyses files access data files that lie within subfolder of a folder
-whose path is returned from folderPath.m. This makes it simple to create
-parallel test folder hierarchies by changing the path returned by folderPath.m
+whose path is returned by calling domainFolder(mfilename('fullpath')). This makes it 
+simple to create parallel test folder hierarchies by changing the path returned by 
+folderPath.m
 
 By convention, all the Matlab files specific to IDReadout are in
 $PATH/Code, and all the data are in $PATH/Data.  .dat files are in
 $PATH/Data/DatFiles.  Derived .mat files are stored in assigned locations. 
 Plot output from the analyses are placed in $PATH/Plots.
+
+Matlab Project:
+=================
+
+All the analysis files are maintained in a Matlab Project
 
 Standard Analysis:
 ==================

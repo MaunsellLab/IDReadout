@@ -24,7 +24,7 @@ function precisionSim = simulateBetaPrecisionByTrialCount(trialCounts, nSim, see
 % Saves:
 %   BetaPrecisionByTrialCount.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(trialCounts)
   trialCounts = [250 500 750 1000];
@@ -39,7 +39,7 @@ end
 trialCounts = double(trialCounts(:)');
 rng(seed);
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionFolder = fullfile(baseFolder,'Data','FullSessions', ...
   'BetaAnalysis','SessionData');
 acrossFolder = fullfile(baseFolder,'Data','FullSessions', ...

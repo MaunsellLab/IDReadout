@@ -15,13 +15,13 @@ function kernelData = makeBetaKernel(omitSession)
 %   kernelData = makeBetaKernel(3);
 %   kernelData = makeBetaKernel("IDReadout2_Meetz_20260610.mat");
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+/
 
 if nargin < 1
   omitSession = [];
 end
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 outputFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...

@@ -30,7 +30,7 @@ function commonBetaSim = simulateCommonBetaSessionHeterogeneity(nSim, seed)
 % Saves:
 %   BetaCommonSlopeSimulation.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(nSim)
   nSim = 1000;
@@ -46,7 +46,7 @@ validateattributes(seed, {'numeric'}, ...
 
 rng(seed);
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...

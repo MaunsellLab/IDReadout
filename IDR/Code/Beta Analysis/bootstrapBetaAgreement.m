@@ -18,7 +18,7 @@ function agreement = bootstrapBetaAgreement(nBoot, seed)
 % Saves:
 %   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaAgreementBootstrap.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(nBoot)
   nBoot = 1000;
@@ -29,7 +29,7 @@ end
 
 rng(seed);
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 acrossFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...

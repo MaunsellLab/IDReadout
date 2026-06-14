@@ -3,9 +3,9 @@ function sessionBetaAnalysis = analyzeBetaSessionFits()
 % Summarize session beta distribution, heterogeneity, and dependence on
 % trial count, error count, performance, and beta uncertainty.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'AcrossSessions');
 inputPath = fullfile(acrossFolder, 'BetaNoiseSessionFits.mat');

@@ -7,9 +7,9 @@ function [sessionTable, issueTable] = validateBetaSessionData()
 % Supports sessionNoise.version >= 2, containing all valid increment trials,
 % including both preferred-noise and no-preferred-noise trials.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
-dataFolder = fullfile(folderPath(), 'Data', 'FullSessions', ...
+dataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 
 files = dir(fullfile(dataFolder, '*.mat'));

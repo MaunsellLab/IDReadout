@@ -17,14 +17,14 @@ function [nCreated, nSkipped] = makeBetaSessionData(replace)
 %   nCreated  Number of session files written
 %   nSkipped  Number of existing session files skipped
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+cleanupObj = /initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(replace)
   replace = false;
 end
 validateattributes(replace, {'logical'}, {'scalar'});
 
-% sessionFolder = fullfile(folderPath(), 'Data', 'FullSessions');
+% sessionFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
 % outputFolder = validFolder(fullfile(sessionFolder, ...
 %   'BetaAnalysis', 'SessionData'));
 % 
@@ -38,7 +38,7 @@ validateattributes(replace, {'logical'}, {'scalar'});
 %   return;
 % end
 
-sessionFolder = fullfile(folderPath(), 'Data', 'FullSessions');
+sessionFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
 betaFolder = fullfile(sessionFolder, 'BetaAnalysis');
 outputFolder = fullfile(betaFolder, 'SessionData');
 acrossFolder = fullfile(betaFolder, 'AcrossSessions');

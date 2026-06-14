@@ -97,7 +97,7 @@ parentNTrials, trialIdx, parentProbeDirectionsDeg)
 % direction in a session
 
 [~, baseName] = fileparts(parentHeader.fileName);
-probeDataFolder = fullfile(folderPath, 'Data', probeTag);
+probeDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag);
 kernelFolder = fullfile(probeDataFolder, 'Kernels');
 noiseFolder = fullfile(probeDataFolder, 'NoiseMatrices');
 
@@ -134,7 +134,7 @@ end
 
 trialProbeDirs = unique(trialProbeDirs);
 
-assert(numel(trialProbeDirs) == 1 && trialProbeDirs == probeDirDeg, ...
+assert(isscalar(trialProbeDirs) && trialProbeDirs == probeDirDeg, ...
   'makeSessionProbeHeader:MixedProbeDirDeg', ...
   'Derived probe session contains inconsistent probeDirDeg values.');
 

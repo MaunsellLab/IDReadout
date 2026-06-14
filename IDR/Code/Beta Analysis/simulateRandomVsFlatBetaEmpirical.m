@@ -47,7 +47,7 @@ function sim = simulateRandomVsFlatBetaEmpirical(nSessions, nTrialsPerSession, n
 %   Data/FullSessions/BetaAnalysis/AcrossSessions/
 %       RandomVsFlatBetaEmpiricalSimulation.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 P = inputParser;
 addParameter(P, 'TargetPerformance', 0.75, ...
@@ -70,7 +70,7 @@ validateattributes(nSim, {'numeric'}, ...
 
 rng(R.Seed);
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...

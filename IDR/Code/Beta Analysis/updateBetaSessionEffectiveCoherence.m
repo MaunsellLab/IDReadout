@@ -7,13 +7,13 @@ function updateBetaSessionEffectiveCoherence(replace)
 % No-preferred-noise trials receive effectiveNoisePC = 0.
 % All trials receive effectiveCohPC = signalCohPC + effectiveNoisePC.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(replace)
   replace = false;
 end
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 weightPath = fullfile(baseFolder, 'Data', 'FullSessions', ...

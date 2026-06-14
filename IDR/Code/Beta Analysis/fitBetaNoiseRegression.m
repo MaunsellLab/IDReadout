@@ -17,9 +17,9 @@ function noiseFit = fitBetaNoiseRegression()
 % Saves:
 %   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaNoiseRegressionFit.mat
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
-baseFolder = folderPath();
+baseFolder = domainFolder(mfilename('fullpath'));
 sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
   'BetaAnalysis', 'SessionData');
 outputFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...

@@ -7,7 +7,7 @@ function convertIDRData()
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 [dataFolder, existed] = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'DatFiles'));
 if ~existed 
   fprintf('  convertIDRData -- failed to find data to convert in %s', dataFolder);

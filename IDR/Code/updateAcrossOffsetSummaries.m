@@ -22,7 +22,6 @@ function acrossOffsetSummary = updateAcrossOffsetSummaries(dataDir, varargin)
 %
 % -------------------------------------------------------------------------
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(dataDir)
   dataDir = fullfile(domainFolder(mfilename('fullpath')), 'Data');
 end
@@ -48,7 +47,7 @@ fileInfo = fileInfo(ia, :);
 acrossOffsetSummary = initializeAcrossOffsetSummary(opts, sessionList);
 acrossOffsetSummary.fileInfo = fileInfo;
 if isempty(sessionList)
-    warning('No usable session summaries found in %s.', summaryDir);
+    warning('No usable session summaries found in %s.', dataDir);
     saveAcrossOffsetSummary(opts, acrossOffsetSummary);
     return;
 end

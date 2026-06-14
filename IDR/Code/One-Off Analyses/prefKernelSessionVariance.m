@@ -29,7 +29,7 @@ function results = prefKernelSessionVariance(baseFolder)
 % Example:
 %   results = prefKernelSessionVariance();
 
-cleanupObj = initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 if nargin < 1 || isempty(baseFolder)
   baseFolder = domainFolder(mfilename('fullpath'));
 end
