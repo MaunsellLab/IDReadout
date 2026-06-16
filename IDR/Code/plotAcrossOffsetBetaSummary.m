@@ -1,0 +1,266 @@
+function betaSummary = plotAcrossOffsetBetaSummary(varargin)
+% plotAcrossOffsetBetaSummary  Regenerate beta across-offset plots only.
+%
+% Loads the saved betaSummary and writes plots without refitting or
+% repeating the hierarchical bootstrap.
+%
+% Name-value options:
+%   'SummaryFile'      saved IDR_acrossOffsetBetaSummary.mat file
+%   'PlotDir'          output directory
+%   'MakeRatioPlot'    regenerate BetaRatiosByOffset.pdf (default true)
+%   'MakeReadoutPlot'  regenerate BetaReadoutFit.pdf (default true)
+%   'MakeDiagnosticPlots' generate shared readout diagnostics (default true)
+%   'Visible'          figure visibility: 'on' or 'off' (default 'on')
+%
+% Example:
+%   plotAcrossOffsetBetaSummary();
+
+baseFolder = domainFolder(mfilename('fullpath'));
+defaultSummaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', ...
+  'IDR_acrossOffsetBetaSummary.mat');
+defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', ...
+  'ReadoutFits', 'Beta');
+
+p = inputParser;
+p.FunctionName = mfilename;
+addParameter(p, 'SummaryFile', defaultSummaryFile, ...
+  @(x) ischar(x) || isstring(x));
+addParameter(p, 'PlotDir', defaultPlotDir, ...
+  @(x) ischar(x) || isstring(x));
+addParameter(p, 'MakeRatioPlot', true, ...
+  @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakeReadoutPlot', true, ...
+  @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakeDiagnosticPlots', true, ...
+  @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Visible', 'on', ...
+  @(x) any(strcmpi(string(x), ["on","off"])));
+parse(p, varargin{:});
+opts = p.Results;
+opts.SummaryFile = char(opts.SummaryFile);
+opts.PlotDir = char(opts.PlotDir);
+opts.Visible = char(lower(string(opts.Visible)));
+
+if ~isfile(opts.SummaryFile)
+  error('plotAcrossOffsetBetaSummary:MissingSummary', ...
+    'Summary file not found: %s', opts.SummaryFile);
+end
+
+S = load(opts.SummaryFile, 'betaSummary');
+if ~isfield(S, 'betaSummary')
+  error('plotAcrossOffsetBetaSummary:MissingVariable', ...
+    '%s does not contain betaSummary.', opts.SummaryFile);
+end
+betaSummary = S.betaSummary;
+
+required = {'offsetFits','measurements','readoutFitSummary','meta'};
+missing = required(~isfield(betaSummary, required));
+if ~isempty(missing)
+  error('plotAcrossOffsetBetaSummary:MissingFields', ...
+    'betaSummary is missing: %s', strjoin(missing, ', '));
+end
+
+if ~isfolder(opts.PlotDir)
+  mkdir(opts.PlotDir);
+end
+
+if opts.MakeRatioPlot
+  plotBetaRatiosByOffset(betaSummary, ...
+    fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'), opts.Visible);
+end
+
+if opts.MakeReadoutPlot
+  plotBetaReadoutFit(betaSummary, ...
+    fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'), opts.Visible);
+end
+
+if opts.MakeDiagnosticPlots
+  R = betaSummary.readoutFitSummary.readoutModels;
+  if isfield(R, 'signedDOG')
+    plotReadoutDiagnostics(R.signedDOG, ...
+      'NBoot', bootstrapCount(betaSummary), ...
+      'PlotDir', opts.PlotDir, ...
+      'FileName', 'Beta_ReadoutFunctions_signed.pdf', ...
+      'Visible', opts.Visible, ...
+      'TitlePrefix', 'Beta');
+  end
+  if isfield(R, 'rectifiedDOG')
+    plotReadoutDiagnostics(R.rectifiedDOG, ...
+      'NBoot', bootstrapCount(betaSummary), ...
+      'PlotDir', opts.PlotDir, ...
+      'FileName', 'Beta_ReadoutFunctions_rectified.pdf', ...
+      'Visible', opts.Visible, ...
+      'TitlePrefix', 'Beta');
+  end
+end
+
+fprintf('Regenerated beta plots from saved summary without refitting:\n');
+if opts.MakeRatioPlot
+  fprintf('  %s\n', fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'));
+end
+if opts.MakeReadoutPlot
+  fprintf('  %s\n', fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'));
+end
+if opts.MakeDiagnosticPlots
+  fprintf('  %s\n', fullfile(opts.PlotDir, 'Beta_ReadoutFunctions_signed.pdf'));
+  fprintf('  %s\n', fullfile(opts.PlotDir, 'Beta_ReadoutFunctions_rectified.pdf'));
+end
+end
+
+% -------------------------------------------------------------------------
+function plotBetaRatiosByOffset(S, savePath, visible)
+F = S.offsetFits;
+fig = figure('Color','w','Position',[100 100 1050 500], ...
+  'Visible', visible);
+hold on;
+
+hSession = gobjects(1);
+hPool = gobjects(1);
+for k = 1:numel(F)
+  n = numel(F(k).sessionBetaRatio);
+  jitter = zeros(n,1);
+  if n > 1
+    jitter = linspace(-1.5,1.5,n)';
+  end
+
+  h = errorbar(F(k).probeOffsetDeg+jitter, F(k).sessionBetaRatio(:), ...
+    F(k).sessionBetaRatioSE(:), 'o', 'LineStyle','none', ...
+    'MarkerSize',4, 'CapSize',0);
+  if k == 1
+    hSession = h;
+  end
+
+  [ciLow, ciHigh] = offsetCI95(S, k);
+  hp = errorbar(F(k).probeOffsetDeg, F(k).scale, ...
+    F(k).scale-ciLow, ciHigh-F(k).scale, 'ks', ...
+    'MarkerFaceColor','k', 'MarkerSize',8, ...
+    'LineWidth',1.4, 'CapSize',8);
+  if k == 1
+    hPool = hp;
+  end
+end
+
+yline(0,':');
+yline(1,'--');
+xlabel('Probe direction offset (deg)');
+ylabel('\beta_{probe}/\beta_{pref}');
+title(sprintf('%s session ratios and pooled shared scales (%d bootstraps)', ...
+  upper(char(S.meta.stepType)), bootstrapCount(S)));
+xticks([F.probeOffsetDeg]);
+legend([hSession hPool], ...
+  {'Session ratio \pm SE','Pooled shared scale (95% CI)'}, ...
+  'Location','best');
+box off;
+
+exportgraphics(fig, savePath, 'ContentType','vector');
+if strcmpi(visible,'off')
+  close(fig);
+end
+end
+
+% -------------------------------------------------------------------------
+function plotBetaReadoutFit(S, savePath, visible)
+M = S.measurements;
+R = S.readoutFitSummary.readoutModels;
+F = S.offsetFits;
+
+fig = figure('Color','w','Position',[100 100 900 540], ...
+  'Visible', visible);
+hold on;
+
+ci = nan(numel(F),2);
+for k = 1:numel(F)
+  [ci(k,1), ci(k,2)] = offsetCI95(S, k);
+end
+
+lo = M.pooledScale(:) - ci(:,1);
+hi = ci(:,2) - M.pooledScale(:);
+
+hObs = errorbar(M.offsetsDeg(:), M.pooledScale(:), lo, hi, 'ko', ...
+  'MarkerFaceColor','k', 'LineWidth',1.2, 'CapSize',8);
+hh = hObs;
+labels = {'Pooled beta scale (95% CI)'};
+
+if isfield(R,'signedDOG') && isfield(R.signedDOG,'fit') && ...
+    ~isempty(R.signedDOG.fit) && R.signedDOG.fit.fitUsable
+  h = plot(R.signedDOG.plotOffsetsDeg, R.signedDOG.plotPredictedScale, ...
+    '-', 'LineWidth',1.5);
+  hh(end+1) = h; %#ok<AGROW>
+  labels{end+1} = 'Signed DOG'; %#ok<AGROW>
+end
+
+if isfield(R,'rectifiedDOG') && isfield(R.rectifiedDOG,'fit') && ...
+    ~isempty(R.rectifiedDOG.fit) && R.rectifiedDOG.fit.fitUsable
+  h = plot(R.rectifiedDOG.plotOffsetsDeg, R.rectifiedDOG.plotPredictedScale, ...
+    '-', 'LineWidth',1.5);
+  hh(end+1) = h; %#ok<AGROW>
+  labels{end+1} = 'Rectified DOG'; %#ok<AGROW>
+end
+
+yline(0,':');
+xlabel('Probe direction offset (deg)');
+ylabel('Normalized beta scale');
+title(sprintf('%s pooled beta scales and MT/readout fit (%d bootstraps)', ...
+  upper(char(S.meta.stepType)), bootstrapCount(S)));
+xlim([0 180]);
+legend(hh, labels, 'Location','southwest');
+box off;
+
+% Match the kernel-scale plot: pooled scale, percentile 95% CI, and trials.
+textLines = cell(numel(F),1);
+for k = 1:numel(F)
+  textLines{k} = sprintf('%.0f°: scale %.2f, %.2f to %.2f 95%% CI (n = %d)', ...
+    F(k).probeOffsetDeg, F(k).scale, ci(k,1), ci(k,2), F(k).nTrials);
+end
+annotation(fig, 'textbox', [0.55 0.69 0.42 0.24], ...
+  'String', textLines, ...
+  'Interpreter','none', ...
+  'FitBoxToText','on', ...
+  'BackgroundColor','w', ...
+  'EdgeColor',[0.75 0.75 0.75], ...
+  'FontSize',9);
+
+exportgraphics(fig, savePath, 'ContentType','vector');
+if strcmpi(visible,'off')
+  close(fig);
+end
+end
+
+% -------------------------------------------------------------------------
+function [ciLow, ciHigh] = offsetCI95(S, offsetIndex)
+F = S.offsetFits(offsetIndex);
+
+if isfield(S, 'bootstrap') && isfield(S.bootstrap, 'bootScaleMat') && ...
+    size(S.bootstrap.bootScaleMat, 2) >= offsetIndex
+  x = S.bootstrap.bootScaleMat(:, offsetIndex);
+  x = x(isfinite(x));
+  if ~isempty(x)
+    q = prctile(x, [2.5 97.5]);
+    ciLow = q(1);
+    ciHigh = q(2);
+    return;
+  end
+end
+
+if isfield(F,'boot95') && numel(F.boot95) == 2 && all(isfinite(F.boot95))
+  ciLow = F.boot95(1);
+  ciHigh = F.boot95(2);
+elseif isfield(F,'scaleHessianSE') && isfinite(F.scaleHessianSE)
+  ciLow = F.scale - 1.96*F.scaleHessianSE;
+  ciHigh = F.scale + 1.96*F.scaleHessianSE;
+else
+  ciLow = F.scale;
+  ciHigh = F.scale;
+end
+end
+
+% -------------------------------------------------------------------------
+function nBoot = bootstrapCount(S)
+if isfield(S,'meta') && isfield(S.meta,'nBoot') && isfinite(S.meta.nBoot)
+  nBoot = S.meta.nBoot;
+elseif isfield(S,'bootstrap') && isfield(S.bootstrap,'bootScaleMat')
+  nBoot = size(S.bootstrap.bootScaleMat,1);
+else
+  nBoot = 0;
+end
+end

@@ -53,7 +53,7 @@ end
 if ~isfield(sessionHeader, 'cohNoiseFrameMS')
   [v, ok] = localGetBlockStatusValue(header, 'cohNoiseFrameMS');
   if ok
-    sessionHeader.prefCohNoisePC = v;
+    sessionHeader.cohNoiseFrameMS = v;
   end
 end
 if ~isfield(sessionHeader, 'prefCohNoisePC') && isfield(header, 'prefNoiseCohPC')

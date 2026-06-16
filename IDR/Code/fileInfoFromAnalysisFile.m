@@ -14,22 +14,24 @@ function fileInfoRow = fileInfoFromAnalysisFile(filePath)
 
 [folder, fileName, ext] = fileparts(filePath);
 fileNameExt = [fileName ext];
-
-% S = struct();
-load(filePath, 'sessionHeader', 'sessionProbeHeader');
-
-nTrials = sessionHeader.numberOfTrials';
-nNoiseTrials = sessionHeader.nNoiseTrials';
-parentFileName = sessionHeader.fileName';
-parentProbeDirectionsDeg = sessionHeader.probeDirectionsDeg';
-parentNProbeDirections = sessionHeader.nProbeDirections;
+S = load(filePath, 'sessionHeader');
+vars = who('-file', filePath);
+if ismember('sessionProbeHeader', vars)
+  T = load(filePath, 'sessionProbeHeader');
+  S.sessionProbeHeader = T.sessionProbeHeader;
+end
+nTrials = S.sessionHeader.numberOfTrials';
+nNoiseTrials = S.sessionHeader.nNoiseTrials';
+parentFileName = S.sessionHeader.fileName';
+parentProbeDirectionsDeg = S.sessionHeader.probeDirectionsDeg';
+parentNProbeDirections = S.sessionHeader.nProbeDirections;
 parentIsSingleProbe = parentNProbeDirections == 1;
 parentIsInterleavedProbe = parentNProbeDirections > 1;
-prefCohNoisePC = sessionHeader.prefCohNoisePC;
-if exist('sessionProbeHeader', 'var')
-  probeDirDeg = sessionProbeHeader.probeDirDeg;
-  probeTag = sessionProbeHeader.probeTag;
-  probeCohNoisePC = sessionProbeHeader.probeCohNoisePC';
+prefCohNoisePC = S.sessionHeader.prefCohNoisePC;
+if isfield(S, 'sessionProbeHeader')
+  probeDirDeg = S.sessionProbeHeader.probeDirDeg;
+  probeTag = S.sessionProbeHeader.probeTag;
+  probeCohNoisePC = S.sessionProbeHeader.probeCohNoisePC';
 else
   probeCohNoisePC = nan;
   probeDirDeg = nan;
@@ -44,11 +46,9 @@ probeDirDeg, {probeTag}, parentNProbeDirections, {parentProbeDirectionsDeg}, ...
 parentIsSingleProbe, parentIsInterleavedProbe, ...
 prefCohNoisePC, probeCohNoisePC, nTrials, nNoiseTrials, {parentFileName}, ...
 false, {excludeReasons}, ...
-'VariableNames', {'filePath','folder','fileName', ...
-                  'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
-                  'parentIsSingleProbe','parentIsInterleavedProbe', ...
-                  'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', ...
-                  'isExcluded','excludeReasons'});
+'VariableNames', {'filePath','folder','fileName', 'probeDirDeg','probeTag','parentNProbeDirections', ...
+        'parentProbeDirectionsDeg', 'parentIsSingleProbe','parentIsInterleavedProbe', 'prefCohNoisePC', ...
+        'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', 'isExcluded','excludeReasons'});
 end
 
 % -------------------------------------------------------------------------

@@ -8,10 +8,13 @@ function dailyUpdate()
 %     4) refresh average-kernel plots for affected probe directions
 %     5) refresh across-offset summaries/plots
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
 fprintf('>>> dailyUpdate start\n');
 replace = false;
-doBootstrap = false;
+doKernelBootstrap = false;
+% doBetaBootstrap = false;
+nKernelBoot = 500;
+% nBetaBoot = 500;
+% bootstrapSeed = 1;
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -22,6 +25,24 @@ fprintf('  << convertIDRData complete\n');
 fprintf('  >> makeProbeSessions start\n');
 [allProbeDirs, staleProbeDirs] = makeProbeSessions(replace); %#ok<ASGLU>
 fprintf('  << makeProbeSessions complete\n');
+
+% ---- Beta temporal weights ----
+fprintf('  >> beta weight update start\n');
+[nBetaCreated, ~] = makeBetaSessionData(false);
+weightsPath = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions', 'BetaAnalysis', ...
+  'AcrossSessions', 'BetaWeights.mat');
+betaWeightsChanged = nBetaCreated > 0 || ~isfile(weightsPath);
+if betaWeightsChanged
+  [~, issueTable] = validateBetaSessionData();
+  if ~isempty(issueTable)
+    error('dailyUpdate:BetaValidationFailed', 'validateBetaSessionData reported %d issue(s).', height(issueTable));
+  end
+  makeBetaKernel();
+  makeBetaWeights();
+end
+
+plotAcrossOffsetBetaSummary('MakeRatioPlot', true, 'MakeReadoutPlot', true, 'MakeDiagnosticPlots', true);
+fprintf('  << beta weight update complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');
@@ -36,7 +57,7 @@ fprintf('  << makeKernels complete\n');
 
 % ---- Average Kernels ----
 if isempty(refreshProbeDirs)
-  fprintf('      no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
+  fprintf('       no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
 else
   fprintf('  >> kernelAverage start\n');
   for p = refreshProbeDirs(:).'
@@ -51,17 +72,27 @@ plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179]);
 fprintf('  << plotSideTypeKernelAverage complete\n');
 
 % ---- Across-offset summary update ----
-% This should run even when no single-session files were stale, because it
-% is cheap relative to the pipeline and keeps summary/plots synchronized
-% with any manual changes to summaries or exclusion rules.
-% ---- Across-offset summary update ----
-if anythingChanged || doBootstrap
+% This should run even when no single-session files were stale, because it is cheap relative to the pipeline and 
+% keeps summary/plots synchronized with manual changes to summaries or exclusion rules.
+if anythingChanged || doKernelBootstrap
   fprintf('  >> updateAcrossOffsetSummaries start\n');
-  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 500, 'RandomSeed', 1, ...
+  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nKernelBoot, 'RandomSeed', 1, ...
     'FileSelectionArgs', {'Bin179With180', true}); %#ok<NASGU>
   fprintf('  << updateAcrossOffsetSummaries complete\n');
 else
   fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');
 end
+
+% ---- Kernel-versus-beta comparison ----
+kernelSummaryPath = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', ...
+  'IDR_acrossOffsetSummary.mat');
+betaSummaryPath = fullfile(domainFolder(mfilename('fullpath')),  'Data', 'AcrossOffsetSummaries', ...
+  'IDR_acrossOffsetBetaSummary.mat');
+if isfile(kernelSummaryPath) && isfile(betaSummaryPath) &&  (anythingChanged || betaWeightsChanged || doKernelBootstrap)
+  fprintf('  >> kernel-beta comparison plot start\n');
+  plotKernelBetaReadoutComparison();
+  fprintf('  << kernel-beta comparison plot complete\n');
+end
+
 fprintf('<<< daily update complete\n');
 end

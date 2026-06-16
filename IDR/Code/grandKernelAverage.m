@@ -68,8 +68,8 @@ nSessions = 0;
 
 for f = 1:numel(files)
   filePath = files{f};
-  load(filePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
-    'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll');
+  load(filePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', 'prefNoiseByPatch', ...
+        'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', 'changeIndicesAll');
   sessionData = struct;
   sessionData.sessionHeader = sessionHeader;
   sessionData.sessionProbeHeader = sessionProbeHeader;
@@ -258,34 +258,6 @@ plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
 plotFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'Kernels'));
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
-
-% % ---- Save kernel data for summary display of one side type across probe directions ----
-% averageKernelPlotData = struct();
-% averageKernelPlotData.kernels = squeeze(avgKernels(summarySideTypeNum,:,:,:));
-% averageKernelPlotData.kVars   = squeeze(avgKVars(summarySideTypeNum,:,:,:));
-% 
-% [~, averageKernelPlotData.sideTypeNames] = sideTypeIndex();
-% averageKernelPlotData.stepTypeNames = {'inc', 'dec'};      % confirm order if needed
-% averageKernelPlotData.streamTypeNames = {'pref', 'probe'};
-% 
-% averageKernelPlotData.tMS = ((1:firstVFrames) - 1) * msPerVFrame - firstPreStepMS;
-% averageKernelPlotData.firstPreStepMS = firstPreStepMS;
-% averageKernelPlotData.firstStepMS = firstStepMS;
-% averageKernelPlotData.msPerVFrame = msPerVFrame;
-% 
-% averageKernelPlotData.avgCompStats = avgCompStats;
-% averageKernelPlotData.avgHitStats = avgHitStats;
-% averageKernelPlotData.nSessions = nSessions;
-% averageKernelPlotData.fileInfo = fileInfo;
-% 
-% averageKernelPlotData.createdDate = datetime('now');
-% 
-% summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', ...
-%                 [upper(summarySideType(1)) summarySideType(2:end)]);
-% validFolder(summaryDataFolder);
-% 
-% save(fullfile(summaryDataFolder, 'GrandAverageKernelPlotData.mat'), 'averageKernelPlotData');
-
 end
 
 %% Pool session kernels using inverse-variance weighting.

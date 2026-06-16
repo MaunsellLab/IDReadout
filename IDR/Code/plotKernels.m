@@ -1,4 +1,4 @@
-function plotKernels(fig, titleStr, sessionHeader, kernels, kVars, compStats, hitStats, probeDirDeg)
+function plotKernels(fig, titleStr, sideTypes, sessionHeader, kernels, kVars, compStats, hitStats, probeDirDeg)
 % Make a separate tile for inc/dec kernels, superimposing both preferred and
 % probe kernel on each.
 
@@ -10,6 +10,8 @@ end
 %
 %   INPUTS:
 %     fig           : number of the figure to use
+%     titleStr      : title for figure
+%     kernelIdx     : sideTypes that should be plotted
 %     sessionHeader : session-level analysis metadata
 %     kernels       : k x 2 x 2 x nVFrames kernels (numKTypes, dec/inc, pref/probe)
 %     kVars         : k x 2 x 2  (fixed over time) (numKTypes, dec/inc, pref/probe)
@@ -46,8 +48,10 @@ trialDurVF = round(trialDurMS / msPerVFrame);
 preStepVF = preStepMS / msPerVFrame;
 plotTitles = {"Decrement", "Increment"};
 
-nKernelTypes = size(kernels, 1);
-typeTitles = {'(Change - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', 'RF RDK', 'Opp RDK'};
+% nKernelTypes = size(kernels, 1);
+nKernelTypes = numel(sideTypes);
+typeTitles = {'(Change - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', ...
+  'RF RDK', 'Opp RDK', 'Chosen RDK', 'Not Chosen RDK'};
 
 set(figH, 'WindowStyle', 'docked');
 clf(figH);
@@ -59,28 +63,31 @@ prefLine = zeros(1, 2);
 probeLine = zeros(1, 2);
 strElement = {"Dec", "Inc"};
 
-for sideType = 1:nKernelTypes
-  for s = 1:2
-    colTitle = sprintf('%s: %d trials, %.0f%% correct (%.1f%% left, %.0f%% correct)', ...
-      strElement{s}, hitStats.nTrials(3 - s), hitStats.nHits(3 - s) * 100.0 / hitStats.nTrials(3 - s), ...
-      hitStats.nLeftTrials(3 - s) * 100 / hitStats.nTrials(3 - s), ...
-      hitStats.nLeftHits(3 - s) * 100.0 / hitStats.nLeftTrials(3 - s));
-    ax(sideType, s) = nexttile((sideType - 1) * 2 + 3 - s);
+% for sideType = 1:nKernelTypes
+for sideTypeIndex = 1:nKernelTypes
+  sideType = sideTypes(sideTypeIndex);
+  for stepIndex = 1:2
+    colTitle = sprintf('%stepIndex: %d trials, %.0f%% correct (%.1f%% left, %.0f%% correct)', ...
+      strElement{stepIndex}, hitStats.nTrials(3 - stepIndex), ...
+      hitStats.nHits(3 - stepIndex) * 100.0 / hitStats.nTrials(3 - stepIndex), ...
+      hitStats.nLeftTrials(3 - stepIndex) * 100 / hitStats.nTrials(3 - stepIndex), ...
+      hitStats.nLeftHits(3 - stepIndex) * 100.0 / hitStats.nLeftTrials(3 - stepIndex));
+    ax(sideTypeIndex, stepIndex) = nexttile((sideTypeIndex - 1) * 2 + 3 - stepIndex);
     xValues = 1:size(kernels, 4);
     hold on;
-    [~, prefLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 1, :)), ...
-      sqrt(kVars(sideType, s, 1)), [0, 0, 1]);
-    [~, probeLine(s)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, s, 2, :)), ...
-      sqrt(kVars(sideType, s, 2)), [0.7, 0, 0.7]);
+    [~, prefLine(stepIndex)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, stepIndex, 1, :)), ...
+      sqrt(kVars(sideType, stepIndex, 1)), [0, 0, 1]);
+    [~, probeLine(stepIndex)] = plotWithConstSEM(xValues, squeeze(kernels(sideType, stepIndex, 2, :)), ...
+      sqrt(kVars(sideType, stepIndex, 2)), [0.7, 0, 0.7]);
     plot([1, xValues(end)], [0, 0], 'k-');
     xticks([1, round(250 / msPerVFrame), round(500 / msPerVFrame), preStepVF, trialDurVF]);
     xticklabels({"0", "250", "500", sprintf("%.0f", preStepMS), sprintf("%.0f", trialDurMS)});
     xlabel("Time (ms)");
     ylabel("Coherence (%)");
     if sideType == 1
-      title(sprintf("%s\n\n%s %s Kernels", colTitle, plotTitles{s}, typeTitles{sideType}));     
+      title(sprintf("%s\n\n%s %s Kernels", colTitle, plotTitles{stepIndex}, typeTitles{sideType}));     
     else
-      title(sprintf("%s %s Kernels", plotTitles{s}, typeTitles{sideType}));
+      title(sprintf("%s %s Kernels", plotTitles{stepIndex}, typeTitles{sideType}));
     end
     % Text annotations report normalized comparison values when available.
     % The plotted kernel traces remain the raw measured kernels.
@@ -130,31 +137,31 @@ for sideType = 1:nKernelTypes
     if ~isempty(displayScaleCI)
       textStr = sprintf(['%s: 0°: %.2f%%, ±%d°: %.2f%%\n' ...
         '(%s: %.2f; %s: %.2f [SEM: %.2f; 95%% CI: %.2f, %.2f])'], ...
-        valueLabel, displayIntegrals(sideType, s, 1), probeDirDeg, displayIntegrals(sideType, s, 2), ...
-        ratioLabel, displayR(sideType, s), ...
-        scaleLabel, displayScale(sideType, s), displayScaleSEM(sideType, s), ...
-        displayScaleCI.lo(sideType, s), ...
-        displayScaleCI.hi(sideType, s));
+        valueLabel, displayIntegrals(sideType, stepIndex, 1), probeDirDeg, displayIntegrals(sideType, stepIndex, 2), ...
+        ratioLabel, displayR(sideType, stepIndex), ...
+        scaleLabel, displayScale(sideType, stepIndex), displayScaleSEM(sideType, stepIndex), ...
+        displayScaleCI.lo(sideType, stepIndex), ...
+        displayScaleCI.hi(sideType, stepIndex));
     else
       textStr = sprintf(['%s: 0°: %.2f%%, ±%d°: %.2f%%\n' ...
         '(%s: %.2f; %s: %.2f)'], ...
-        valueLabel, displayIntegrals(sideType, s, 1), probeDirDeg, displayIntegrals(sideType, s, 2), ...
-        ratioLabel, displayR(sideType, s), ...
-        scaleLabel, displayScale(sideType, s));
+        valueLabel, displayIntegrals(sideType, stepIndex, 1), probeDirDeg, displayIntegrals(sideType, stepIndex, 2), ...
+        ratioLabel, displayR(sideType, stepIndex), ...
+        scaleLabel, displayScale(sideType, stepIndex));
     end
     text(0.02, 0.98, textStr, 'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 6);
   end
-  yl1 = ylim(ax(sideType, 1));
-  yl2 = ylim(ax(sideType, 2));
+  yl1 = ylim(ax(sideTypeIndex, 1));
+  yl2 = ylim(ax(sideTypeIndex, 2));
   overallYMin = min(overallYMin, min(yl1(1), yl2(1)));
   overallYMax = max(overallYMax, max(yl1(2), yl2(2)));
 end
 set(ax, 'YLim', [overallYMin, overallYMax]);
 newYL = [overallYMin, overallYMax];
-for sideType = 1:nKernelTypes
+for sideTypeIndex = 1:nKernelTypes
   for a = 1:2
-    ylim(ax(sideType, a), newYL);
-    axes(ax(sideType, a)); %#ok<*LAXES>
+    ylim(ax(sideTypeIndex, a), newYL);
+    axes(ax(sideTypeIndex, a)); %#ok<*LAXES>
     patch([preStepVF trialDurVF trialDurVF preStepVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...
       [0.5 0.5 0.5], 'FaceAlpha', 0.15, 'EdgeColor', 'none');
     patch([intStartVF intStopVF intStopVF intStartVF], [newYL(1) newYL(1) newYL(2) newYL(2)], ...

@@ -7,7 +7,7 @@ function [index, sideTypeNames] = sideTypeIndex(sideType)
 %
 % This is the authoritative list used for indexing kernel side types.
 
-sideTypeNames = {'diff', 'change', 'noChange', 'RF', 'Opp', 'Left', 'Right'};
+sideTypeNames = {'Diff', 'Change', 'NoChange', 'Left', 'Right', 'RF', 'Opp', 'Chosen', 'NotChosen'};
 
 if nargin < 1 || isempty(sideType)
     index = [];

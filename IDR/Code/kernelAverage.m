@@ -27,12 +27,7 @@ else
   R = R0;
   fileSelectionArgs = R.FileSelectionArgs;
 end
-
-summarySideType = R.SummarySideType;
-summarySideTypeNum = sideTypeIndex(summarySideType);
-
 baseFolder = domainFolder(mfilename('fullpath'));
-
 dataFolder = fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions');
 % If no kernels exist, notify user and return
 if ~exist(dataFolder, 'dir')
@@ -70,8 +65,8 @@ nSessions = 0;
 
 for f = 1:numel(selectedFiles)
   filePath = selectedFiles{f};
-  load(filePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
-    'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll');
+  load(filePath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', 'prefNoiseByPatch', ...
+    'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', 'changeIndicesAll');
   sessionData = struct;
   sessionData.sessionHeader = sessionHeader;
   sessionData.sessionProbeHeader = sessionProbeHeader;
@@ -80,6 +75,7 @@ for f = 1:numel(selectedFiles)
   sessionData.prefNoiseByPatch = prefNoiseByPatch;
   sessionData.probeNoiseByPatch = probeNoiseByPatch;
   sessionData.trialOutcomesAll = trialOutcomesAll;
+  sessionData.chosenSidesAll = chosenSidesAll;
   sessionData.changeSidesAll = changeSidesAll;
   sessionData.changeIndicesAll = changeIndicesAll;
 
@@ -275,46 +271,69 @@ plotName = sprintf('AverageKernel_%s.pdf', probeTag);
 plotTitle = sprintf('\\bf%s Probe Kernels %d Session Average%s', probeDirStr, nSessions, titleSuffix);
 
 % ---- Plot/export averaged kernels ----
-plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
-        avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
+sideTypes = [1, 2, 3, 8, 9];
+plotKernels(2, plotTitle, sideTypes, sessionHeader, avgKernels(:,:,:,:), ...
+        avgKVars(:,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
 plotFolder = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'Kernels'));
 pdfFile = fullfile(plotFolder, plotName);
 exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 
-% ---- Save kernel data for summary display of one side type across probe directions ----
-averageKernelPlotData = struct();
+% ---- Save kernel data for every side type across probe directions ----
 
-averageKernelPlotData.summarySideType = summarySideType;
-averageKernelPlotData.sideTypeNum = summarySideTypeNum;
-averageKernelPlotData.probeDirDeg = R.probeDirDeg;
+[~, allSideTypeNames] = sideTypeIndex();
+nSideTypes = size(avgKernels, 1);
+if numel(allSideTypeNames) < nSideTypes
+  error('kernelAverage:MissingSideTypeNames', ...
+    'Found %d kernel side types but only %d side-type names.', ...
+    nSideTypes, numel(allSideTypeNames));
+end
+for sideTypeNum = 1:nSideTypes
 
-averageKernelPlotData.kernels = squeeze(avgKernels(summarySideTypeNum,:,:,:));
-averageKernelPlotData.kVars   = squeeze(avgKVars(summarySideTypeNum,:,:,:));
+  sideTypeName = allSideTypeNames{sideTypeNum};
+  averageKernelPlotData = struct();
+  averageKernelPlotData.summarySideType = sideTypeName;
+  averageKernelPlotData.sideTypeNum = sideTypeNum;
+  averageKernelPlotData.probeDirDeg = R.probeDirDeg;
 
-[~, averageKernelPlotData.sideTypeNames] = sideTypeIndex();
-averageKernelPlotData.stepTypeNames = {'inc', 'dec'};      % confirm order if needed
-averageKernelPlotData.streamTypeNames = {'pref', 'probe'};
+  averageKernelPlotData.kernels = ...
+    squeeze(avgKernels(sideTypeNum, :, :, :));
 
-averageKernelPlotData.tMS = ((1:firstVFrames) - 1) * msPerVFrame - firstPreStepMS;
-averageKernelPlotData.firstPreStepMS = firstPreStepMS;
-averageKernelPlotData.firstStepMS = firstStepMS;
-averageKernelPlotData.msPerVFrame = msPerVFrame;
+  averageKernelPlotData.kVars = ...
+    squeeze(avgKVars(sideTypeNum, :, :));
 
-averageKernelPlotData.avgCompStats = avgCompStats;
-averageKernelPlotData.avgHitStats = avgHitStats;
-averageKernelPlotData.nSessions = nSessions;
-averageKernelPlotData.fileInfo = fileInfo;
-averageKernelPlotData.titlePrefix = probeDirStr;
-averageKernelPlotData.titleSuffix = titleSuffix;
+  averageKernelPlotData.sideTypeNames = allSideTypeNames;
+  averageKernelPlotData.stepTypeNames = {'inc', 'dec'};
+  averageKernelPlotData.streamTypeNames = {'pref', 'probe'};
 
-averageKernelPlotData.createdDate = datetime('now');
+  averageKernelPlotData.tMS = ...
+    ((1:firstVFrames) - 1) * msPerVFrame - firstPreStepMS;
 
-summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', ...
-                [upper(summarySideType(1)) summarySideType(2:end)]);
-validFolder(summaryDataFolder);
+  averageKernelPlotData.firstPreStepMS = firstPreStepMS;
+  averageKernelPlotData.firstStepMS = firstStepMS;
+  averageKernelPlotData.msPerVFrame = msPerVFrame;
 
-save(fullfile(summaryDataFolder, 'AverageKernelPlotData.mat'), 'averageKernelPlotData');
+  averageKernelPlotData.avgCompStats = avgCompStats;
+  averageKernelPlotData.avgHitStats = avgHitStats;
+  averageKernelPlotData.nSessions = nSessions;
+  averageKernelPlotData.fileInfo = fileInfo;
+  averageKernelPlotData.titlePrefix = probeDirStr;
+  averageKernelPlotData.titleSuffix = titleSuffix;
 
+  averageKernelPlotData.createdDate = datetime('now');
+
+  sideTypeFolderName = ...
+    [upper(sideTypeName(1)) sideTypeName(2:end)];
+
+  summaryDataFolder = fullfile( ...
+    baseFolder, ...
+    'Data', ...
+    probeTag, ...
+    'AverageKernels', ...
+    sideTypeFolderName);
+
+  validFolder(summaryDataFolder);
+  save(fullfile(summaryDataFolder, 'AverageKernelPlotData.mat'), 'averageKernelPlotData');
+end
 end
 
 %% Pool session kernels using inverse-variance weighting.
@@ -465,7 +484,7 @@ P = inputParser;
 addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
+addParameter(P, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
 addParameter(P, 'verbose', false, @islogical);
 end
 

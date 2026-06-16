@@ -1,8 +1,9 @@
 IDReadout To Do:
 
-Chosen Unchosen Kernels
-
 Revise:
+
+Getting different number of trials for beta and scale fits
+
   makeKernels
     strip parsing out of compileKernelSummary
     eliminate the stub: recomputeSessionKernelStruct

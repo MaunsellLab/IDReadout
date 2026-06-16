@@ -168,14 +168,11 @@ end
 outputPath = fullfile(acrossFolder, 'BetaWeights.mat');
 save(outputPath, 'weightData', '-v7.3');
 
-fprintf('Saved %s\n', outputPath);
-fprintf('Created one all-session and %d leave-one-out weight vectors.\n', ...
-  nSessions);
-fprintf('Step window contains %d samples from %.3f to %.3f ms.\n', ...
-  numel(stepTMS), stepTMS(1), stepTMS(end));
-fprintf('All-session kernel sum: %.6g\n', allKernelSum);
-fprintf('Leave-one-out kernel sums: %.6g to %.6g\n', ...
-  min(looKernelSum), max(looKernelSum));
+% fprintf('Saved %s\n', outputPath);
+% fprintf('Created one all-session and %d leave-one-out weight vectors.\n', nSessions);
+% fprintf('Step window contains %d samples from %.3f to %.3f ms.\n', numel(stepTMS), stepTMS(1), stepTMS(end));
+% fprintf('All-session kernel sum: %.6g\n', allKernelSum);
+% fprintf('Leave-one-out kernel sums: %.6g to %.6g\n', min(looKernelSum), max(looKernelSum));
 end
 
 % -------------------------------------------------------------------------

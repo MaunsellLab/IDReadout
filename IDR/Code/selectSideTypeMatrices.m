@@ -1,5 +1,5 @@
 function [prefNoise, probeNoise] = selectSideTypeMatrices( ...
-    prefNoiseByPatch, probeNoiseByPatch, changeSides, sideType, lr)
+    prefNoiseByPatch, probeNoiseByPatch, chosenSides, changeSides, sideType, lr)
 % selectSideTypeMatrices
 %
 % Select trial x frame matrices for one sideType.
@@ -19,18 +19,22 @@ function [prefNoise, probeNoise] = selectSideTypeMatrices( ...
 %   5 R
 %   6 RF
 %   7 Opp
+%   8 Chosen
+%   9 notChosen
 %
 % Outputs:
 %   prefNoise          m x nTrials
 %   probeNoise         m x nTrials
 
-  SIDE_DIFF     = 1;
-  SIDE_CHANGE   = 2;
-  SIDE_NOCHANGE = 3;
-  SIDE_LEFT     = 4;
-  SIDE_RIGHT    = 5;
-  SIDE_RF       = 6;
-  SIDE_OPP      = 7;
+  SIDE_DIFF      = 1;
+  SIDE_CHANGE    = 2;
+  SIDE_NOCHANGE  = 3;
+  SIDE_LEFT      = 4;
+  SIDE_RIGHT     = 5;
+  SIDE_RF        = 6;
+  SIDE_OPP       = 7;
+  SIDE_CHOSEN    = 8;
+  SIDE_NOTCHOSEN = 9;
 
   [nPatches, m, nTrials] = size(prefNoiseByPatch);
   if nPatches ~= 2
@@ -40,17 +44,21 @@ function [prefNoise, probeNoise] = selectSideTypeMatrices( ...
   if size(prefNoiseByPatch,1) ~= size(probeNoiseByPatch,1) || ...
       size(prefNoiseByPatch,2) ~= size(probeNoiseByPatch,2) || ...
       size(prefNoiseByPatch,3) ~= size(probeNoiseByPatch,3)
-    error('selectSideTypeMatrices:SizeMismatch', ...
-      'prefNoiseByPatch and probeNoiseByPatch must have the same size.');
+    error('selectSideTypeMatrices:SizeMismatch', 'prefNoiseByPatch and probeNoiseByPatch must have the same size.');
+  end
+  chosenSides = reshape(chosenSides, 1, []);
+  if numel(chosenSides) ~= nTrials
+    error('selectSideTypeMatrices:BadInput', 'Number of chosenSides entries must match nTrials.');
   end
   changeSides = reshape(changeSides, 1, []);
   if numel(changeSides) ~= nTrials
-    error('selectSideTypeMatrices:BadInput', ...
-      'Number of changeSides entries must match nTrials.');
+    error('selectSideTypeMatrices:BadInput', 'Number of changeSides entries must match nTrials.');
   end
 
   % Trialwise patch identities
-  changePatch   = 1 + changeSides;   % RF->1, Opp->2
+  chosenPatch   = 1 + chosenSides;   % RF->1, Opp->2 (zero based)
+  notChosenPatch = 2 - chosenSides;   % RF<->Opp
+  changePatch   = 1 + changeSides;   % RF->1, Opp->2 (one based)
   noChangePatch = 3 - changePatch;   % RF<->Opp
 
   % Sessionwise L/R mapping onto RF/Opp
@@ -105,6 +113,18 @@ function [prefNoise, probeNoise] = selectSideTypeMatrices( ...
     case SIDE_OPP
       prefNoise  = squeeze(prefNoiseByPatch(2, :, :));
       probeNoise = squeeze(probeNoiseByPatch(2, :, :));
+
+    case SIDE_CHOSEN
+      for t = 1:nTrials
+        prefNoise(:, t)  = squeeze(prefNoiseByPatch(chosenPatch(t), :, t)).';
+        probeNoise(:, t) = squeeze(probeNoiseByPatch(chosenPatch(t), :, t)).';
+      end
+
+    case SIDE_NOTCHOSEN
+      for t = 1:nTrials
+        prefNoise(:, t)  = squeeze(prefNoiseByPatch(notChosenPatch(t), :, t)).';
+        probeNoise(:, t) = squeeze(probeNoiseByPatch(notChosenPatch(t), :, t)).';
+      end
 
     otherwise
       error('selectSideTypeMatrices:BadSideType', ...

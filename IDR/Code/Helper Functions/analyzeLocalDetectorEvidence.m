@@ -77,7 +77,7 @@ P = ip.Results;
 % ---------------- Load data ----------------
 S = load([domainFolder(mfilename('fullpath')), '/Data', '/FullSessions/', noiseFile]);
 
-reqFields = {'prefNoiseByPatch','probeNoiseByPatch','changeSidesAll', ...
+reqFields = {'prefNoiseByPatch','probeNoiseByPatch','changeSidesAll', 'chosenSidesAll', ...
              'changeIndicesAll','trialOutcomesAll','header'};
 for i = 1:numel(reqFields)
     assert(isfield(S, reqFields{i}), 'Missing field: %s', reqFields{i});
@@ -85,6 +85,7 @@ end
 
 prefNoiseByPatch  = S.prefNoiseByPatch;
 probeNoiseByPatch = S.probeNoiseByPatch;
+chosenSidesAll    = S.chosenSidesAll(:);
 changeSidesAll    = S.changeSidesAll(:);
 changeIndicesAll  = S.changeIndicesAll(:);
 trialOutcomesAll  = S.trialOutcomesAll(:);
@@ -93,6 +94,7 @@ header            = S.header;
 [nPatches, nFrames, nTrials] = size(prefNoiseByPatch);
 assert(nPatches == 2, 'Expected 2 patches.');
 assert(all(size(probeNoiseByPatch) == [2 nFrames nTrials]), 'probeNoiseByPatch size mismatch.');
+assert(numel(chosenSidesAll)   == nTrials, 'chosenSidesAll length mismatch.');
 assert(numel(changeSidesAll)   == nTrials, 'changeSidesAll length mismatch.');
 assert(numel(changeIndicesAll) == nTrials, 'changeIndicesAll length mismatch.');
 assert(numel(trialOutcomesAll) == nTrials, 'trialOutcomesAll length mismatch.');

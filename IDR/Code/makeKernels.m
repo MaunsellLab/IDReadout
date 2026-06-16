@@ -4,7 +4,7 @@
 % Derived per-probe files written by makeKernels contain both headers:
 %   Data/ProbeXX/Kernels
 %
-% cleanupObj = initProjectPath(); %#ok<NASGU>
+
 if nargin < 1 || isempty(replace)
   replace = false;
 end
@@ -33,7 +33,7 @@ for k = 1:numel(dataFiles)
   [~, baseName] = fileparts(dataFileName);
 
   % get a list of all probe directions using the headers in the data file
-  load(dataFilePath, 'header', 'sessionHeader');
+  load(dataFilePath, 'sessionHeader');
   probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
   probeTags = sessionHeader.probeTags;
   needsKernels = replace;
@@ -54,18 +54,20 @@ for k = 1:numel(dataFiles)
   if ~needsKernels
     continue
   end
-  % --- otherwise, load the full data set and make/plot kernels for each
-  load(dataFilePath, 'trials');
-  probeSessions = splitTrialsByProbeDirection(header, trials, sessionHeader);
-  for p = 1:numel(probeSessions)
+
+  % --- otherwise, load each existing probeSession and make/plot its kernel
+  for p = 1:numel(probeTags)
     probeTag = probeTags{p};
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
     probeDataPath = fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions', ...
                       sprintf('%s_%s.mat', baseName, probeTag));
-
-    load(probeDataPath, 'sessionProbeHeader', 'sideTypeNames', 'lr', ...
-          'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll');
-
+    if ~isfile(probeDataPath)
+      error('makeKernels:MissingProbeSession', ['Missing probeSession file:\n%s\n' ...
+        'Run makeProbeSessions before makeKernels.'], probeDataPath);
+    end
+    load(probeDataPath, 'sessionProbeHeader', 'lr', 'prefNoiseByPatch', 'probeNoiseByPatch', ...
+                'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', 'changeIndicesAll');
+    [~, sideTypeNames] = sideTypeIndex();
     sessionData = struct;
     sessionData.sessionHeader = sessionHeader;
     sessionData.sessionProbeHeader = sessionProbeHeader;
@@ -74,6 +76,7 @@ for k = 1:numel(dataFiles)
     sessionData.prefNoiseByPatch = prefNoiseByPatch;
     sessionData.probeNoiseByPatch = probeNoiseByPatch;
     sessionData.trialOutcomesAll = trialOutcomesAll;
+    sessionData.chosenSidesAll = chosenSidesAll;
     sessionData.changeSidesAll = changeSidesAll;
     sessionData.changeIndicesAll = changeIndicesAll;
 
@@ -81,11 +84,13 @@ for k = 1:numel(dataFiles)
     
     [kernelPath, plotPath] = makeFilePaths(probeTag, baseName);
     save(kernelPath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'lr', 'kernels', 'kVars', 'kStats', ...
-      'trialOutcomesAll', 'changeSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
+      'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', 'changeIndicesAll', 'compStats', 'hitStats', '-v7.3');
     
-    probeDirDeg = probeSessions(p).probeDirDeg;
+    probeDirDeg = sessionProbeHeader.probeDirDeg;
     titleStr = sprintf('\\bf%d° Probe Kernels %s-%s', probeDirDeg, baseName, probeTag);
-    plotKernels(1, titleStr, sessionHeader, kernels(1:5,:,:,:), kVars(1:5,:,:), compStats, hitStats, probeDirDeg);
+    sideTypes = [1, 2, 3, 8, 9];
+    plotKernels(1, titleStr, sideTypes, sessionHeader, kernels(:,:,:,:), kVars(:,:,:), ...
+        compStats, hitStats, probeDirDeg);
     exportgraphics(gcf, plotPath, 'ContentType', 'vector');
   end
 end

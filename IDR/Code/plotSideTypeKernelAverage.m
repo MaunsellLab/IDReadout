@@ -16,7 +16,7 @@ function plotSideTypeKernelAverage(varargin)
 baseFolder = domainFolder(mfilename('fullpath'));
 
 P = inputParser;
-addParameter(P, 'SideType', 'change', @(x) ischar(x) || isstring(x));
+addParameter(P, 'SideType', 'Change', @(x) ischar(x) || isstring(x));
 addParameter(P, 'ProbeDirs', [], @(x) isempty(x) || isnumeric(x));
 parse(P, varargin{:});
 R = P.Results;

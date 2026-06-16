@@ -17,7 +17,7 @@ function [nCreated, nSkipped] = makeBetaSessionData(replace)
 %   nCreated  Number of session files written
 %   nSkipped  Number of existing session files skipped
 
-cleanupObj = /initProjectPath(); %#ok<NASGU>
+% cleanupObj = initProjectPath(); %#ok<NASGU>
 
 if nargin < 1 || isempty(replace)
   replace = false;
@@ -47,7 +47,6 @@ if replace
   if isfolder(outputFolder)
     rmdir(outputFolder, 's');
   end
-
   if isfolder(acrossFolder)
     rmdir(acrossFolder, 's');
   end
@@ -55,14 +54,9 @@ end
 
 validFolder(outputFolder);
 validFolder(acrossFolder);
-
-[selectedFiles, fileInfo] = selectAnalysisFiles( ...
-  sessionFolder, ...
-  'ReportExcluded', true);
-
+[selectedFiles, fileInfo] = selectAnalysisFiles(sessionFolder);
 if isempty(selectedFiles)
-  error('makeBetaSessionData:NoSelectedFiles', ...
-    'No full-session files passed selectAnalysisFiles.');
+  error('makeBetaSessionData:NoSelectedFiles', 'No full-session files passed selectAnalysisFiles.');
 end
 
 nCreated = 0;
@@ -80,7 +74,7 @@ for iFile = 1:numel(selectedFiles)
     end
     nCreated = nCreated + 1;
 
-    fprintf('  processing %s ...\n', baseName);
+    fprintf('      processing %s ...\n', baseName);
 
     S = load(inputPath, 'sessionHeader', 'trials');
 
@@ -99,10 +93,9 @@ selectionManifest.selectedFiles = selectedFiles;
 selectionManifest.createdBy = mfilename;
 selectionManifest.createdDate = datetime('now');
 
-save(fullfile(acrossFolder, 'BetaSelectionManifest.mat'), ...
-  'selectionManifest');
-fprintf('Created %d files; skipped %d existing files.\n', ...
-  nCreated, nSkipped);
+save(fullfile(acrossFolder, 'BetaSelectionManifest.mat'), 'selectionManifest');
+% fprintf('Created %d files; skipped %d existing files.\n', ...
+%   nCreated, nSkipped);
 end
 
 % -------------------------------------------------------------------------

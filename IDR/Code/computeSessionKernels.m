@@ -1,4 +1,5 @@
-function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, changeSidesByCond, changeIndicesByCond] = ...
+function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, changeSidesByCond, ...
+  chosenSidesByCond, changeIndicesByCond] = ...
   computeSessionKernels(sessionData, trialIdx)
 % computeSessionKernels
 % Recomputes the full nSideTypes x 2 x 2 kernel set from saved patchwise noise matrices.
@@ -10,6 +11,7 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 %   sessionData.prefNoiseByPatch : 2 x m x nTrials
 %   sessionData.probeNoiseByPatch: 2 x m x nTrials
 %   sessionData.trialOutcomesAll : 1 x nTrials
+%   sessionData.chosenSidesAll   : 1 x nTrials
 %   sessionData.changeSidesAll   : 1 x nTrials
 %   sessionData.changeIndicesAll : 1 x nTrials   (1=decrement, 2=increment)
 %   sessionData.sessionHeader      : session-level metadata
@@ -22,7 +24,7 @@ function [kernels, kVars, kStats, hitStats, compStats, trialOutcomesByCond, chan
 %
 % OUTPUT
 %   kernels(sideType, stepType, streamType, frame)
-%       sideType   : 1=diff, 2=change, 3=noChange, 4=L, 5=R, 6=RF, 7=Opp
+%       sideType   : 1=diff, 2=change, 3=noChange, 4=L, 5=R, 6=RF, 7=Opp, 8=Chosen, 9=notChosen
 %       stepType   : 1=decrement, 2=increment
 %       streamType : 1=pref, 2=probe
 
@@ -34,6 +36,7 @@ sessionProbeHeader = sessionData.sessionProbeHeader;
 prefNoiseAll     = sessionData.prefNoiseByPatch(:, :, trialIdx);
 probeNoiseAll    = sessionData.probeNoiseByPatch(:, :, trialIdx);
 trialOutcomesAll = sessionData.trialOutcomesAll(trialIdx);
+chosenSidesAll   = sessionData.chosenSidesAll(trialIdx);
 changeSidesAll   = sessionData.changeSidesAll(trialIdx);
 changeIndicesAll = sessionData.changeIndicesAll(trialIdx);
 
@@ -65,12 +68,14 @@ if isfield(sessionData, 'lr') && ~isempty(sessionData.lr)
 else
   % backward compatibility for older saved sessionData structs
   if isfield(sessionData, 'trials') && ~isempty(sessionData.trials)
-    lr = sessionLRMap(sessionData.trials);
+    lr = sessionLRMap(sessionData.trials); %#ok<NASGU>
   else
     error('computeSessionKernels:MissingLRMap', ...
       ['sessionData.lr is missing, and no trials field is available to ' ...
        'reconstruct the L/R mapping.']);
   end
+  error('computeSessionKernels:MissingLRMap', ...
+    'Time to make sure lr is getting into every sessionHeader''(it has been a while).');
 end
 
 m = size(prefNoiseAll, 2);
@@ -83,6 +88,7 @@ kStats  = repmat(struct('nRFCorrect', 0, 'nRFWrong', 0, 'nCorrect', 0, 'nWrong',
   'sumCorrect', [], 'sumWrong', [], 'sigma2', nan, 'emptyOutcomeClass', nan), nSideTypes, 2, 2);
 
 trialOutcomesByCond = cell(nSideTypes, 2);
+chosenSidesByCond   = cell(nSideTypes, 2);
 changeSidesByCond   = cell(nSideTypes, 2);
 changeIndicesByCond = cell(nSideTypes, 2);
 
@@ -100,11 +106,12 @@ for sideType = 1:nSideTypes
     prefNoiseStep  = forcePatchNoise3D(prefNoiseStep, m);
     probeNoiseStep = forcePatchNoise3D(probeNoiseStep, m);
     trialOutcomesByCond{sideType, s} = trialOutcomesAll(useTrials);
+    chosenSidesByCond{sideType, s}   = chosenSidesAll(useTrials);
     changeSidesByCond{sideType, s}   = changeSidesAll(useTrials);
     changeIndicesByCond{sideType, s} = changeIndicesAll(useTrials);
 
     [prefMat, probeMat] = selectSideTypeMatrices( ...
-      prefNoiseStep, probeNoiseStep, changeSidesByCond{sideType, s}, sideType, lr);
+      prefNoiseStep, probeNoiseStep, chosenSidesByCond{sideType, s}, changeSidesByCond{sideType, s}, sideType, lr);
 
     [kernels(sideType, s, 1, :), kVars(sideType, s, 1), kStats(sideType, s, 1)] = meanPsychKernel( ...
       prefMat, trialOutcomesByCond{sideType, s}, changeSidesByCond{sideType, s}, ampScale * prefCohNoisePC);

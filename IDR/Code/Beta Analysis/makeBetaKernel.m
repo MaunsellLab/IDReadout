@@ -15,8 +15,6 @@ function kernelData = makeBetaKernel(omitSession)
 %   kernelData = makeBetaKernel(3);
 %   kernelData = makeBetaKernel("IDReadout2_Meetz_20260610.mat");
 
-/
-
 if nargin < 1
   omitSession = [];
 end
@@ -44,8 +42,7 @@ if ~isempty(omitIndex)
 end
 
 if ~any(includedSessionMask)
-  error('makeBetaKernel:NoIncludedSessions', ...
-    'The requested omission leaves no sessions to analyze.');
+  error('makeBetaKernel:NoIncludedSessions',  'The requested omission leaves no sessions to analyze.');
 end
 
 initialized = false;
@@ -69,16 +66,13 @@ for iSession = 1:nSessions
   S = load(filePath, 'sessionNoise');
 
   if ~isfield(S, 'sessionNoise')
-    error('makeBetaKernel:MissingSessionNoise', ...
-      '%s does not contain sessionNoise.', files(iSession).name);
+    error('makeBetaKernel:MissingSessionNoise', '%s does not contain sessionNoise.', files(iSession).name);
   end
 
   N = S.sessionNoise;
   H = N.sessionHeader;
 
-  requiredFields = {'hasPreferredNoise', 'trialOutcome', ...
-    'noiseTimesMS', 'noiseCohsPC', 'signalCohPC'};
-
+  requiredFields = {'hasPreferredNoise', 'trialOutcome', 'noiseTimesMS', 'noiseCohsPC', 'signalCohPC'};
   missing = requiredFields(~isfield(N, requiredFields));
   if ~isempty(missing)
     error('makeBetaKernel:MissingFields', ...
@@ -234,11 +228,9 @@ end
 outputPath = fullfile(outputFolder, outputName);
 save(outputPath, 'kernelData', '-v7.3');
 
-fprintf('Saved %s\n', outputPath);
-fprintf(['Included %d sessions and %d preferred-noise trials: ' ...
-         '%d correct, %d error.\n'], ...
-  sum(includedSessionMask), kernelData.nTrials, ...
-  kernelData.nCorrect, kernelData.nError);
+% fprintf('Saved %s\n', outputPath);
+% fprintf('Included %d sessions and %d preferred-noise trials: %d correct, %d error.\n', ...
+%   sum(includedSessionMask), kernelData.nTrials, kernelData.nCorrect, kernelData.nError);
 
 plotBetaKernel(kernelData);
 end
