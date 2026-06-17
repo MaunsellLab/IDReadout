@@ -133,9 +133,10 @@ p.FunctionName = mfilename;
 addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
 defaultSaveFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetSummary.mat');
 addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir',  fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits'), ...
-                  @(x) ischar(x) || isstring(x));
-addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'PlotDir',  ...
+          fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits', 'Kernels'), ...
+          @(x) ischar(x) || isstring(x));
+addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
 addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
@@ -805,7 +806,7 @@ end
 % ========================================================================
 function saveAcrossOffsetSummary(opts, acrossOffsetSummary)
 
-[saveDir, ~, ~] = fileparts(opts.SaveFile);
+[saveDir, ~, ~] = fileparts(c);
 if ~exist(saveDir, 'dir')
     mkdir(saveDir);
 end

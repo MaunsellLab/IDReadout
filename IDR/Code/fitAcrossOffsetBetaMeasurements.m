@@ -18,18 +18,17 @@ function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
 %   'Verbose'           default true
 
 baseFolder = domainFolder(mfilename('fullpath'));
-defaultSave = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetBetaSummary.mat');
+defaultSave = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetBetaSummary.mat');
 defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', ...
   'ReadoutFits', 'Beta');
 
 p = inputParser;
 p.FunctionName = mfilename;
 addParameter(p, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","combined"])));
-addParameter(p, 'NBoot', 1000, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
+addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
 addParameter(p, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+% addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'SaveFile', defaultSave, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotOnly', false, @(x) islogical(x) && isscalar(x));
@@ -54,8 +53,7 @@ opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir = char(opts.PlotDir);
 if ~isempty(opts.RandomSeed), rng(opts.RandomSeed); end
 
-files = dir(fullfile(baseFolder, 'Data', 'Probe*', 'Regression', ...
-  '*_scalarNoiseRegression.mat'));
+files = dir(fullfile(baseFolder, 'Data', 'Probe*', 'Regression', '*_scalarNoiseRegression.mat'));
 if isempty(files)
   error('fitAcrossOffsetBetaMeasurements:NoRegressionFiles', ...
     'No regression files were found.');
@@ -215,12 +213,8 @@ betaSummary = struct();
 betaSummary.version = 1;
 betaSummary.analysisName = 'acrossOffsetBetaMeasurements';
 betaSummary.meta = struct( ...
-  'createdDate', datetime('now'), ...
-  'stepType', opts.StepType, ...
-  'nBoot', opts.NBoot, ...
-  'randomSeed', opts.RandomSeed, ...
-  'bin179With180', opts.Bin179With180, ...
-  'model', ['session-specific intercept and preferred beta; ' ...
+  'createdDate', datetime('now'), 'stepType', opts.StepType, 'nBoot', opts.NBoot,  'randomSeed', opts.RandomSeed, ...
+  'bin179With180', opts.Bin179With180, 'model', ['session-specific intercept and preferred beta; ' ...
     'shared probe/preferred scale within offset']);
 betaSummary.sessionRecords = sessionRecords;
 betaSummary.offsetFits = offsetFits;
@@ -243,11 +237,11 @@ if ~isfolder(saveDir), mkdir(saveDir); end
 save(opts.SaveFile,'betaSummary','-v7.3');
 if opts.Verbose, fprintf('Saved %s\n',opts.SaveFile); end
 
-if opts.MakePlots
-  if ~isfolder(opts.PlotDir), mkdir(opts.PlotDir); end
-  plotBetaRatiosByOffset(betaSummary, fullfile(opts.PlotDir,'BetaRatiosByOffset.pdf'));
-  plotBetaReadoutFit(betaSummary, fullfile(opts.PlotDir,'BetaReadoutFit.pdf'));
-end
+% if opts.MakePlots
+%   if ~isfolder(opts.PlotDir), mkdir(opts.PlotDir); end
+%   plotBetaRatiosByOffset(betaSummary, fullfile(opts.PlotDir,'BetaRatiosByOffset.pdf'));
+%   plotBetaReadoutFit(betaSummary, fullfile(opts.PlotDir,'BetaReadoutFit.pdf'));
+% end
 end
 
 function D = recordsToSessionData(R)
@@ -257,63 +251,62 @@ for i = 1:numel(R)
 end
 end
 
-function plotBetaRatiosByOffset(S, savePath)
-F = S.offsetFits;
-fig = figure('Color','w','Position',[100 100 1050 500]); hold on;
-hSession = gobjects(1); hPool = gobjects(1);
-for k = 1:numel(F)
-  n = numel(F(k).sessionBetaRatio);
-  jitter = zeros(n,1);
-  if n > 1, jitter = linspace(-1.5,1.5,n)'; end
-  h = errorbar(F(k).probeOffsetDeg+jitter, F(k).sessionBetaRatio(:), ...
-    F(k).sessionBetaRatioSE(:), 'o','LineStyle','none','MarkerSize',4,'CapSize',0);
-  if k==1, hSession = h; end
-  if all(isfinite(F(k).boot95))
-    lo = F(k).scale-F(k).boot95(1); hi = F(k).boot95(2)-F(k).scale;
-  else
-    lo = 1.96*F(k).scaleHessianSE; hi = lo;
-  end
-  hp = errorbar(F(k).probeOffsetDeg,F(k).scale,lo,hi,'ks', ...
-    'MarkerFaceColor','k','MarkerSize',8,'LineWidth',1.4,'CapSize',8);
-  if k==1, hPool = hp; end
-end
-yline(0,':'); yline(1,'--');
-xlabel('Probe direction offset (deg)');
-ylabel('\beta_{probe}/\beta_{pref}');
-title(sprintf('%s session ratios and pooled shared scales',upper(S.meta.stepType)));
-xticks([F.probeOffsetDeg]);
-legend([hSession hPool],{'Session ratio \pm SE','Pooled shared scale (95% CI)'},'Location','best');
-box off;
-exportgraphics(fig,savePath,'ContentType','vector'); close(fig);
-end
-
-function plotBetaReadoutFit(S, savePath)
-M = S.measurements;
-R = S.readoutFitSummary.readoutModels;
-fig = figure('Color','w','Position',[100 100 850 520]); hold on;
-ci = nan(numel(S.offsetFits),2);
-for k=1:numel(S.offsetFits), ci(k,:)=S.offsetFits(k).boot95; end
-lo = M.pooledScale-ci(:,1)'; hi = ci(:,2)'-M.pooledScale;
-missing = ~isfinite(lo) | ~isfinite(hi);
-lo(missing)=1.96*sqrt(M.bootstrapVar(missing));
-hi(missing)=lo(missing);
-hObs = errorbar(M.offsetsDeg,M.pooledScale,lo,hi,'ko', ...
-  'MarkerFaceColor','k','LineWidth',1.2,'CapSize',8);
-hh = hObs; labels = {'Pooled beta scale (95% CI)'};
-if isfield(R.signedDOG,'fit') && ~isempty(R.signedDOG.fit) && R.signedDOG.fit.fitUsable
-  h=plot(R.signedDOG.plotOffsetsDeg,R.signedDOG.plotPredictedScale,'-','LineWidth',1.5);
-  hh(end+1)=h; labels{end+1}='Signed DOG';
-end
-if isfield(R.rectifiedDOG,'fit') && ~isempty(R.rectifiedDOG.fit) && R.rectifiedDOG.fit.fitUsable
-  h=plot(R.rectifiedDOG.plotOffsetsDeg,R.rectifiedDOG.plotPredictedScale,'-','LineWidth',1.5);
-  hh(end+1)=h; labels{end+1}='Rectified DOG';
-end
-yline(0,':');
-xlabel('Probe direction offset (deg)'); ylabel('Normalized beta scale');
-title(sprintf('%s pooled beta scales and MT/readout fit',upper(S.meta.stepType)));
-xlim([0 180]); legend(hh,labels,'Location','best'); box off;
-exportgraphics(fig,savePath,'ContentType','vector'); close(fig);
-end
+% function plotBetaRatiosByOffset(S, savePath)
+% F = S.offsetFits;
+% fig = figure('Color','w','Position',[100 100 1050 500]); hold on;
+% hSession = gobjects(1); hPool = gobjects(1);
+% for k = 1:numel(F)
+%   n = numel(F(k).sessionBetaRatio);
+%   jitter = zeros(n,1);
+%   if n > 1, jitter = linspace(-1.5,1.5,n)'; end
+%   h = errorbar(F(k).probeOffsetDeg+jitter, F(k).sessionBetaRatio(:), ...
+%     F(k).sessionBetaRatioSE(:), 'o','LineStyle','none','MarkerSize',4,'CapSize',0);
+%   if k==1, hSession = h; end
+%   if all(isfinite(F(k).boot95))
+%     lo = F(k).scale-F(k).boot95(1); hi = F(k).boot95(2)-F(k).scale;
+%   else
+%     lo = 1.96*F(k).scaleHessianSE; hi = lo;
+%   end
+%   hp = errorbar(F(k).probeOffsetDeg,F(k).scale,lo,hi,'ks', ...
+%     'MarkerFaceColor','k','MarkerSize',8,'LineWidth',1.4,'CapSize',8);
+%   if k==1, hPool = hp; end
+% end
+% yline(0,':'); yline(1,'--');
+% xlabel('Probe direction offset (deg)');
+% ylabel('\beta_{probe}/\beta_{pref}');
+% title(sprintf('%s session ratios and pooled shared scales',upper(S.meta.stepType)));
+% xticks([F.probeOffsetDeg]);
+% legend([hSession hPool],{'Session ratio \pm SE','Pooled shared scale (95% CI)'},'Location','best');
+% box off;
+% exportgraphics(fig, savePath,'ContentType','vector');
+% end
+% 
+% function plotBetaReadoutFit(S, savePath)
+% M = S.measurements;
+% R = S.readoutFitSummary.readoutModels;
+% fig = figure('Color','w','Position',[100 100 850 520]); hold on;
+% ci = nan(numel(S.offsetFits),2);
+% for k=1:numel(S.offsetFits), ci(k,:)=S.offsetFits(k).boot95; end
+% lo = M.pooledScale-ci(:,1)'; hi = ci(:,2)'-M.pooledScale;
+% missing = ~isfinite(lo) | ~isfinite(hi);
+% lo(missing)=1.96*sqrt(M.bootstrapVar(missing));
+% hi(missing)=lo(missing);
+% hObs = errorbar(M.offsetsDeg, M.pooledScale,lo,hi,'ko', 'MarkerFaceColor','k','LineWidth',1.2,'CapSize',8);
+% hh = hObs; labels = {'Pooled beta scale (95% CI)'};
+% if isfield(R.signedDOG,'fit') && ~isempty(R.signedDOG.fit) && R.signedDOG.fit.fitUsable
+%   h=plot(R.signedDOG.plotOffsetsDeg,R.signedDOG.plotPredictedScale,'-','LineWidth',1.5);
+%   hh(end+1)=h; labels{end+1}='Signed DOG';
+% end
+% if isfield(R.rectifiedDOG,'fit') && ~isempty(R.rectifiedDOG.fit) && R.rectifiedDOG.fit.fitUsable
+%   h=plot(R.rectifiedDOG.plotOffsetsDeg,R.rectifiedDOG.plotPredictedScale,'-','LineWidth',1.5);
+%   hh(end+1)=h; labels{end+1}='Rectified DOG';
+% end
+% yline(0,':');
+% xlabel('Probe direction offset (deg)'); ylabel('Normalized beta scale');
+% title(sprintf('%s pooled beta scales and MT/readout fit',upper(S.meta.stepType)));
+% xlim([0 180]); legend(hh,labels,'Location','best'); box off;
+% exportgraphics(fig,savePath,'ContentType','vector');
+% end
 
 function r = emptySessionRecord()
 r = struct('fileName','','filePath','','probeOffsetDeg',NaN, ...

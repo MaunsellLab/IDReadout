@@ -16,25 +16,18 @@ function betaSummary = plotAcrossOffsetBetaSummary(varargin)
 %   plotAcrossOffsetBetaSummary();
 
 baseFolder = domainFolder(mfilename('fullpath'));
-defaultSummaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetBetaSummary.mat');
+defaultSummaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_acrossOffsetBetaSummary.mat');
 defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', ...
   'ReadoutFits', 'Beta');
 
 p = inputParser;
 p.FunctionName = mfilename;
-addParameter(p, 'SummaryFile', defaultSummaryFile, ...
-  @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir', defaultPlotDir, ...
-  @(x) ischar(x) || isstring(x));
-addParameter(p, 'MakeRatioPlot', true, ...
-  @(x) islogical(x) && isscalar(x));
-addParameter(p, 'MakeReadoutPlot', true, ...
-  @(x) islogical(x) && isscalar(x));
-addParameter(p, 'MakeDiagnosticPlots', true, ...
-  @(x) islogical(x) && isscalar(x));
-addParameter(p, 'Visible', 'on', ...
-  @(x) any(strcmpi(string(x), ["on","off"])));
+addParameter(p, 'SummaryFile', defaultSummaryFile, @(x) ischar(x) || isstring(x));
+addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
+addParameter(p, 'MakeRatioPlot', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakeReadoutPlot', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakeDiagnosticPlots', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Visible', 'on', @(x) any(strcmpi(string(x), ["on","off"])));
 parse(p, varargin{:});
 opts = p.Results;
 opts.SummaryFile = char(opts.SummaryFile);
@@ -70,8 +63,7 @@ if opts.MakeRatioPlot
 end
 
 if opts.MakeReadoutPlot
-  plotBetaReadoutFit(betaSummary, ...
-    fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'), opts.Visible);
+  plotBetaReadoutFit(betaSummary, fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'), opts.Visible);
 end
 
 if opts.MakeDiagnosticPlots
@@ -142,6 +134,7 @@ end
 
 yline(0,':');
 yline(1,'--');
+ylim([-1, 3]);
 xlabel('Probe direction offset (deg)');
 ylabel('\beta_{probe}/\beta_{pref}');
 title(sprintf('%s session ratios and pooled shared scales (%d bootstraps)', ...
@@ -220,7 +213,7 @@ annotation(fig, 'textbox', [0.55 0.69 0.42 0.24], ...
   'EdgeColor',[0.75 0.75 0.75], ...
   'FontSize',9);
 
-exportgraphics(fig, savePath, 'ContentType','vector');
+exportgraphics(fig, savePath, 'ContentType', 'vector');
 if strcmpi(visible,'off')
   close(fig);
 end

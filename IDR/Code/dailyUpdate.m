@@ -11,10 +11,7 @@ function dailyUpdate()
 fprintf('>>> dailyUpdate start\n');
 replace = false;
 doKernelBootstrap = false;
-% doBetaBootstrap = false;
-nKernelBoot = 500;
-% nBetaBoot = 500;
-% bootstrapSeed = 1;
+nKernelBoot = 1000;
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -41,8 +38,16 @@ if betaWeightsChanged
   makeBetaWeights();
 end
 
-plotAcrossOffsetBetaSummary('MakeRatioPlot', true, 'MakeReadoutPlot', true, 'MakeDiagnosticPlots', true);
-fprintf('  << beta weight update complete\n');
+% ---- Probe-session regressions and across-offset beta summary ----
+fprintf('  >> makeRegressions start\n');
+makeRegressions(replace);
+fprintf('  << makeRegressions complete\n');
+
+fprintf('  >> fitAcrossOffsetBetaMeasurements start\n');
+fitAcrossOffsetBetaMeasurements();
+fprintf('  << fitAcrossOffsetBetaMeasurements complete\n');
+
+plotAcrossOffsetBetaSummary();
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');

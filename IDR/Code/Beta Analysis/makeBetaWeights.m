@@ -9,15 +9,13 @@ function weightData = makeBetaWeights()
 %
 % The weighting function is the unsmoothed preferred-noise kernel over the
 % 250-ms step interval. Weights are normalized to sum to 1, so a constant
-% +1%% coherence-noise waveform produces +1%% effective coherence.
+% +1% coherence-noise waveform produces +1% effective coherence.
 %
 % Leave-one-session-out kernels are reconstructed exactly from the saved
 % per-session correct/error means and trial counts.
 
 baseFolder = domainFolder(mfilename('fullpath'));
-acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions');
-
+acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis', 'AcrossSessions');
 kernelPath = fullfile(acrossFolder, 'BetaKernel_AllSessions.mat');
 if ~isfile(kernelPath)
   error('makeBetaWeights:MissingKernelFile', ...
