@@ -39,11 +39,9 @@ measurements = measurements(:)';
 variances = variances(:)';
 offsetsDeg = offsetsDeg(:)';
 assert(numel(measurements) == numel(offsetsDeg), ...
-    'fitAcrossOffsetReadout:SizeMismatch', ...
-    'Measurements and offsets must have equal lengths.');
+    'fitAcrossOffsetReadout:SizeMismatch', 'Measurements and offsets must have equal lengths.');
 assert(numel(variances) == numel(offsetsDeg), ...
-    'fitAcrossOffsetReadout:SizeMismatch', ...
-    'Variances and offsets must have equal lengths.');
+    'fitAcrossOffsetReadout:SizeMismatch', 'Variances and offsets must have equal lengths.');
 
 if isempty(optsIn.NSessions)
     nSessions = ones(size(offsetsDeg));

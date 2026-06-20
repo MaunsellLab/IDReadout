@@ -13,7 +13,7 @@ if ~existed
   fprintf('  convertIDRData -- failed to find data to convert in %s', dataFolder);
   return;
 end
-[names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
+[names, paths] = getDatFileList(dataFolder);
 convertedFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 
 % Convert any unconverted .dat files
@@ -116,4 +116,12 @@ else
     trials{k} = tr;
   end
 end
+end
+
+function [names, paths] = getDatFileList(dataFolder)
+  S = dir(fullfile(dataFolder, '*.dat'));
+  names = {S.name}';
+  paths = fullfile(dataFolder, names);
+  [names, idx] = sort(names);
+  paths = paths(idx);
 end

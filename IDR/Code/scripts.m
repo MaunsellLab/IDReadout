@@ -39,6 +39,6 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 
 %% updateAcrossOffsetSummaries
 clc;
-acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 5, 'RandomSeed', 1, ...
+acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 1000, 'RandomSeed', 1, ...
     'FileSelectionArgs', {'Bin179With180', true});
 

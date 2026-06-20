@@ -75,7 +75,7 @@ for k = 1:numel(dataFiles)
 
   %--- otherwise, load the full data set, make probeSession files
   load(dataFilePath, 'trials');
-  probeSessions = splitTrialsByProbe(header, trials, sessionHeader);
+  probeSessions = splitTrialsByProbe(baseName, header, trials, sessionHeader);
   for p = 1:numel(probeSessions)
     probeTag = probeSessions(p).probeTag;
     fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
@@ -103,7 +103,7 @@ staleProbeDirs = unique(staleProbeDirs);
 end
 
 %% splitTrialsByProbe
-function probeSessions = splitTrialsByProbe(header, trials, parentSessionHeader)
+function probeSessions = splitTrialsByProbe(baseName, header, trials, parentSessionHeader)
 % splitTrialsByProbeDirection  Split one recording session into probe-specific analysis sessions.
 
 nTrials = numel(trials);
@@ -170,7 +170,7 @@ for p = 1:numel(probeDirs)
   probeTag = sprintf('Probe%d', round(probeDirDeg));
   probeTrials = trials(idx);
 
-  sessionProbeHeader = makeSessionProbeHeader(header, probeTrials, probeDirDeg, probeTag, nTrials, probeDirs);
+  sessionProbeHeader = makeSessionProbeHeader(baseName, header, probeTrials, probeDirDeg, probeTag, nTrials, probeDirs);
 
   probeSessions(p).probeDirDeg = probeDirDeg;
   probeSessions(p).probeTag = probeTag;
@@ -182,7 +182,7 @@ end
 end
 
 %% makeSessionProbeHeader  Build authoritative metadata for one derived probe session.
-function H = makeSessionProbeHeader(parentHeader, probeTrials, probeDirDeg, probeTag, ...
+function H = makeSessionProbeHeader(matFileName, parentHeader, probeTrials, probeDirDeg, probeTag, ...
 parentNTrials, parentProbeDirectionsDeg)
 %
 % Create a sessionProbeHeader that describes details for one probe
@@ -197,7 +197,7 @@ H = struct();
 % ---- Identity / provenance ----
 H.version = 3;
 H.sessionID = baseName;
-H.parentFileName = parentHeader.fileName;
+H.parentFileName = matFileName;
 H.probeSessionPath = fullfile(probeSessionFolder, [baseName, '.mat']);
 H.probeDirDeg = probeDirDeg;
 H.probeTag = probeTag;
@@ -310,12 +310,6 @@ for k = 1:nTrials
     continue;
   end
 
-  % hasAnyNoise = ...
-  %   ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)) && ...
-  %   isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
-  % if ~hasAnyNoise
-  %   continue;
-  % end
   if ~tr.trial.data.cohNoise
     % fprintf('skipping trial %d, cohNoise %d, probeDirDeg %d\n', k, tr.trial.data.cohNoise, tr.trial.data.probeDirDeg);
     continue;

@@ -58,9 +58,13 @@ for k = 1:numel(D)
     filePath = fullfile(D(k).folder, fileName);
 
     % Hard filename exclusions happen before loading metadata.
-    if any(startsWith(fileName, hardExcludeNames, 'IgnoreCase', true))
-        excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
-        continue;
+
+    % Hard filename exclusions happen before loading metadata.
+    % Match the filename stem exactly, not just the beginning of the name.
+    [~, fileStem, ~] = fileparts(fileName);
+    if any(strcmpi(fileStem, hardExcludeNames))
+      excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
+      continue;
     end
 
     row = fileInfoFromAnalysisFile(filePath);

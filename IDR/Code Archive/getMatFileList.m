@@ -1,5 +1,5 @@
 function [names, paths] = getMatFileList(target, extension)
-% getMatFileList Return file names for a given exteions and full paths from standard folders
+% getMatFileList Return file names for a given extensions and full paths from standard folders
 %
 % Usage:
 %   [names, paths] = getMatFileList('Data', 'dat')

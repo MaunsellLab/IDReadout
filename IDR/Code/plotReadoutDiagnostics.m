@@ -36,13 +36,11 @@ if isfield(rm, 'templateMode')
 else
   templateMode = 'signed';
 end
-
 if ~isfield(rm, 'fit') || isempty(rm.fit) || ...
     ~isfield(rm.fit, 'fitSuccess') || ~rm.fit.fitSuccess
   fig = gobjects(0);
   return;
 end
-
 phiDeg = rm.phiDeg(:)';
 aPhi = rm.readoutPhi(:)';
 mtp = rm.mtForwardModelParams;
@@ -70,7 +68,6 @@ else
   set(fig, 'Color', 'w', 'Visible', opts.Visible, ...
     'Position', [100 100 850 900]);
 end
-
 tiledlayout(fig, 3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
 lineCol = lines(nOffsets);
 

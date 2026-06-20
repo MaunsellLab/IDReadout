@@ -37,17 +37,13 @@ if betaWeightsChanged
   makeBetaKernel();
   makeBetaWeights();
 end
-
+fprintf('  << beta weight update complete\n');
 % ---- Probe-session regressions and across-offset beta summary ----
-fprintf('  >> makeRegressions start\n');
+fprintf('  >> make, fit and plot regressions start\n');
 makeRegressions(replace);
-fprintf('  << makeRegressions complete\n');
-
-fprintf('  >> fitAcrossOffsetBetaMeasurements start\n');
 fitAcrossOffsetBetaMeasurements();
-fprintf('  << fitAcrossOffsetBetaMeasurements complete\n');
-
 plotAcrossOffsetBetaSummary();
+fprintf('  << make, fit and plot regressions complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');

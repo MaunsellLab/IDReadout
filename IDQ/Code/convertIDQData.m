@@ -1,18 +1,18 @@
 function convertIDQData()
 %   Convert Lablib .dat files to .mat format
-%   convertIDQData(dataFolder) uses the specified folder.
+%   Sources are in .../IDQ/Data/DatFiles
+%   Output to .../IDQ/Data/FullSessions
 %
 %   For each  .dat file in dataFolder, this function checks for a
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
 [dataFolder, existed] = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'DatFiles'));
 if ~existed 
   fprintf('  convertIDQData -- failed to find data to convert in %s', dataFolder);
   return;
 end
-[names, paths] = getMatFileList(fullfile('Data', 'DatFiles'), "dat");
+[names, paths] = getDatFileList(dataFolder);
 convertedFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 
 % Convert any unconverted .dat files
@@ -31,13 +31,12 @@ for fi = 1:numel(paths)
   end
   fprintf('Reading %s\n', datName);
   header = readLLFile('i', datPath);
-  movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
+  movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info in working directory
   nTrials = header.numberOfTrials;
   trials  = cell(1, nTrials);
-  fprintf('       converting %s\n', datName);
+  fprintf('       converting %s (%d trials)\n', datName, nTrials);
   for t = 1:nTrials
     trials{t} = readLLFile('t', t);
-    % D = trials{t}.trial.data;
     if t == nTrials || mod(t, 500) == 0                            % Occasionally update the waitbar text
       fprintf('       reading %s: trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
     end
@@ -52,7 +51,7 @@ end
 
 %%------------------------------------------------
 function sessionHeader = makeSessionHeader(header)
-% makeSessionHeader  Build stable session-level metadata for MT readout analyses.
+% makeSessionHeader  Build stable session-level metadata for analyses.
 %
 % sessionHeader is the analysis-facing metadata inherited from the converted
 % Lablib header. It intentionally contains only session-level quantities. 
@@ -79,11 +78,7 @@ for k = 1:numel(copyFields)
     sessionHeader.(f) = localDataValue(header.(f));
   end
 end
-if isfield(header, 'dirsDeg')
-  sessionHeader.dirsDeg = header.dirsDeg.data(1:sessionHeader.numNoiseStreams)';
-else
-  sessionHeader.dirsDeg = [30, 150, 270];
-end
+sessionHeader.dirsDeg = header.dirsDeg.data(1:sessionHeader.numNoiseStreams)';
 [~, sessionHeader.fileName] = fileparts(header.fileName);
 sessionHeader.createdBy = mfilename;
 sessionHeader.createdDate = datetime('now');
@@ -100,4 +95,13 @@ end
 if isnumeric(v) && ~isscalar(v)
   v = v(1);
 end
+end
+
+%% -------------------------------------------------------------------------
+function [names, paths] = getDatFileList(dataFolder)
+S = dir(fullfile(dataFolder, '*.dat'));
+names = {S.name}';
+paths = fullfile(dataFolder, names);
+[names, idx] = sort(names);
+paths = paths(idx);
 end
