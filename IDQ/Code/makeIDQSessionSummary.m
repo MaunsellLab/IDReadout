@@ -21,7 +21,6 @@ function out = makeIDQSessionSummary(varargin)
 %   dir dim 1:3 matches sessionHeader.dirsDeg
 %   trialData.sideIndex is changed side
 %   trialData.chosenSideIndex is subject-chosen side
-%   trialData.stepSignIndex: 1 = dec, 2 = inc
 %   trialData.dirIndex is step direction index
 %   trialData.correct is logical
 %   trialData.stepCoh is step coherence
@@ -54,7 +53,8 @@ if ~isfolder(processedFolder)
         'Processed session folder does not exist: %s', processedFolder);
 end
 
-outputFolder = validFolder(fullfile(idqFolder, 'Data', 'SessionSummaries'));
+dataOutFolder = validFolder(fullfile(idqFolder, 'Data', 'SessionSummaries'));
+plotOutFolder = validFolder(fullfile(idqFolder, 'Plots', 'SessionSummaries'));
 processedFiles = resolveProcessedFiles(processedFolder, opts.ProcessedFile);
 out = repmat(struct('processedFile', '', 'pdfFile', '', 'summaryFile', '', 'status', '', ...
     'message', ''), 0, 1);
@@ -62,8 +62,8 @@ out = repmat(struct('processedFile', '', 'pdfFile', '', 'summaryFile', '', 'stat
 for iFile = 1:numel(processedFiles)
     processedFile = processedFiles{iFile};
     [~, baseName] = fileparts(processedFile);
-    pdfFile = fullfile(outputFolder, [baseName '_sessionSummary.pdf']);
-    summaryFile = fullfile(outputFolder, [baseName '_sessionSummary.mat']);
+    summaryFile = fullfile(dataOutFolder, [baseName '_sessionSummary.mat']);
+    pdfFile = fullfile(plotOutFolder, [baseName '_sessionSummary.pdf']);
 
     thisOut = struct('processedFile', processedFile, ...
         'pdfFile', pdfFile, 'summaryFile', summaryFile, 'status', '', 'message', '');
@@ -74,8 +74,10 @@ for iFile = 1:numel(processedFiles)
         continue
     end
 
-    S = load(processedFile);
-    sessionSummary = computeSessionSummary(S.header, S.sessionHeader, S.trialData, S.noiseBySideDir, processedFile);
+    load(processedFile, 'header', 'sessionHeader', 'trialData', 'noiseBySideDir');
+    sessionAnalysis = loadOrMakeIDQSessionAnalysis(processedFile, sessionHeader);
+    sessionSummary = computeSessionSummary(header, sessionHeader, sessionAnalysis, trialData, noiseBySideDir, ...
+                      processedFile);
     fig = plotSessionSummaryFigure(sessionSummary);
     exportgraphics(fig, pdfFile, 'ContentType', 'vector', 'BackgroundColor', 'white');
 
@@ -136,7 +138,8 @@ tf = dPdf.datenum >= dProcessed.datenum && ...
 end
 
 % -------------------------------------------------------------------------
-function sessionSummary = computeSessionSummary(header, sessionHeader, trialData, noiseBySideDir, processedFile)
+function sessionSummary = computeSessionSummary( ...
+              header, sessionHeader, sessionAnalysis, trialData, noiseBySideDir, processedFile)
 
 nTrials = size(noiseBySideDir, 4);
 nFrames = size(noiseBySideDir, 3);
@@ -145,8 +148,8 @@ hasStepNoise = logical(trialData.hasStepNoise(:));
 correct = logical(trialData.correct(:));
 stepCoh = abs(double(trialData.stepCoh(:)));
 dirIndex = double(trialData.dirIndex(:));
-sideIndex = double(trialData.sideIndex(:));
-stepSignIndex = double(trialData.stepSignIndex(:));
+% sideIndex = double(trialData.sideIndex(:));
+% stepSignIndex = double(trialData.stepSignIndex(:));
 
 sessionSummary = struct;
 sessionSummary.processedFile = processedFile;
@@ -165,9 +168,7 @@ for iDir = 1:3
     idx = dirIndex == iDir;
     sessionSummary.psychometric.byDir(iDir) = summarizePsychometric(stepCoh(idx), correct(idx), hasStepNoise(idx)); 
 end
-
-sessionSummary.kernel = computeCombinedChangeSideKernel( ...
-    noiseBySideDir, sideIndex, stepSignIndex, correct, hasStepNoise);
+sessionSummary.kernel = makeKernelSummaryFromSessionAnalysis(sessionAnalysis);
 sessionSummary.plotLimits = choosePsychometricLimits(sessionSummary.psychometric);
 
 %summarize biases
@@ -288,9 +289,12 @@ valid = isfinite(x) & isfinite(y) & x >= 0;
 x = x(valid);
 y = y(valid);
 
+fixedBetaShape = 3.0;
+maxLapse = 0.05;
+
 fit = struct( ...
   'alpha', NaN, ...
-  'beta', NaN, ...
+  'beta', fixedBetaShape, ...
   'lapse', NaN, ...
   'xGrid', [], ...
   'pFit', [], ...
@@ -312,25 +316,24 @@ xs = x ./ xScale;
 
 % Parameters are fit in unconstrained form:
 %   rawAlpha -> alpha > 0
-%   rawBeta  -> beta  > 1
 %   rawLapse -> 0 <= lapse <= maxLapse
-maxLapse = 0.05;
+%
+% betaShape is fixed at 3.0 for stable session-level fits.
 
 alpha0 = median(xs(xs > 0));
 if isempty(alpha0) || ~isfinite(alpha0) || alpha0 <= 0
   alpha0 = 0.5;
 end
 
-beta0 = 3.0;
 lapse0 = 0.02;
+lapse0 = min(max(lapse0, eps), maxLapse - eps);
 
 rawAlpha0 = log(alpha0);
-rawBeta0 = log(beta0 - 1.0);
 rawLapse0 = log(lapse0 / (maxLapse - lapse0));
 
-b0 = [rawAlpha0 rawBeta0 rawLapse0];
+b0 = [rawAlpha0 rawLapse0];
 
-obj = @(b) negLogLikelihoodTwoAFCWeibull(b, xs, y, maxLapse);
+obj = @(b) negLogLikelihoodTwoAFCWeibullFixedBeta(b, xs, y, fixedBetaShape, maxLapse);
 
 opts = optimset( ...
   'Display', 'off', ...
@@ -341,21 +344,22 @@ opts = optimset( ...
 
 [bhat, ~, exitflag] = fminsearch(obj, b0, opts);
 
-[alphaS, betaShape, lapse] = unpackWeibullParams(bhat, maxLapse);
+[alphaS, lapse] = unpackWeibullParamsFixedBeta(bhat, maxLapse);
 
 fit.alpha = alphaS * xScale;
-fit.beta = betaShape;
+fit.beta = fixedBetaShape;
 fit.lapse = lapse;
 fit.exitflag = exitflag;
 
 fit.xGrid = linspace(0, max(x), 200);
-fit.pFit = twoAFCWeibull(fit.xGrid ./ xScale, alphaS, betaShape, lapse);
+fit.pFit = twoAFCWeibull(fit.xGrid ./ xScale, alphaS, fixedBetaShape, lapse);
 
 end
-% -------------------------------------------------------------------------
-function nll = negLogLikelihoodTwoAFCWeibull(b, x, y, maxLapse)
 
-[alpha, betaShape, lapse] = unpackWeibullParams(b, maxLapse);
+%% -------------------------------------------------------------------------
+function nll = negLogLikelihoodTwoAFCWeibullFixedBeta(b, x, y, betaShape, maxLapse)
+
+[alpha, lapse] = unpackWeibullParamsFixedBeta(b, maxLapse);
 
 p = twoAFCWeibull(x, alpha, betaShape, lapse);
 
@@ -367,12 +371,10 @@ nll = -sum(y .* log(p) + (1 - y) .* log(1 - p));
 end
 
 %% -------------------------------------------------------------------------
-function [alpha, betaShape, lapse] = unpackWeibullParams(b, maxLapse)
+function [alpha, lapse] = unpackWeibullParamsFixedBeta(b, maxLapse)
 
 alpha = exp(b(1));              % alpha > 0
-betaShape = 1.0 + exp(b(2));    % beta > 1, giving low slope near zero
-
-lapse = maxLapse ./ (1.0 + exp(-b(3)));
+lapse = maxLapse ./ (1 + exp(-b(2)));
 
 end
 
@@ -408,61 +410,61 @@ hi = min(1, center + halfWidth);
 
 end
 
-% -------------------------------------------------------------------------
-function kernel = computeCombinedChangeSideKernel(noiseBySideDir, sideIndex, stepSignIndex, correct, hasStepNoise)
-
-nTrials = size(noiseBySideDir, 4);
-nFrames = size(noiseBySideDir, 3);
-
-if numel(sideIndex) ~= nTrials || ...
-   numel(stepSignIndex) ~= nTrials || ...
-   numel(correct) ~= nTrials || ...
-   numel(hasStepNoise) ~= nTrials
-    error('makeIDQSessionSummary:KernelInputSizeMismatch', ...
-        'Kernel input vectors must match number of trials.');
-end
-
-idxUse = logical(hasStepNoise(:));
-if ~any(idxUse)
-    kernel = struct( ...
-        'meanDiff', nan(1, nFrames), ...
-        'correctMean', nan(1, nFrames), ...
-        'errorMean', nan(1, nFrames), ...
-        'nCorrect', 0, ...
-        'nError', 0, ...
-        'nTrials', 0, ...
-        'timeIndex', 1:nFrames);
-    return
-end
-
-noiseChangedMeanDir = nan(sum(idxUse), nFrames);
-useTrialInds = find(idxUse);
-
-for i = 1:numel(useTrialInds)
-    tr = useTrialInds(i);
-    side = sideIndex(tr);
-    raw = squeeze(mean(noiseBySideDir(side, :, :, tr), 2));
-    if iscolumn(raw)
-        raw = raw';
-    end
-    noiseChangedMeanDir(i, :) = double(raw);
-end
-
-correctUse = correct(idxUse);
-
-correctNoise = noiseChangedMeanDir(correctUse, :);
-errorNoise = noiseChangedMeanDir(~correctUse, :);
-
-kernel = struct;
-kernel.correctMean = mean(correctNoise, 1, 'omitnan');
-kernel.errorMean = mean(errorNoise, 1, 'omitnan');
-kernel.meanDiff = kernel.correctMean - kernel.errorMean;
-kernel.nCorrect = size(correctNoise, 1);
-kernel.nError = size(errorNoise, 1);
-kernel.nTrials = size(noiseChangedMeanDir, 1);
-kernel.timeIndex = 1:nFrames;
-
-end
+% % -------------------------------------------------------------------------
+% function kernel = computeCombinedChangeSideKernel(noiseBySideDir, sideIndex, stepSignIndex, correct, hasStepNoise)
+% 
+% nTrials = size(noiseBySideDir, 4);
+% nFrames = size(noiseBySideDir, 3);
+% 
+% if numel(sideIndex) ~= nTrials || ...
+%    numel(stepSignIndex) ~= nTrials || ...
+%    numel(correct) ~= nTrials || ...
+%    numel(hasStepNoise) ~= nTrials
+%     error('makeIDQSessionSummary:KernelInputSizeMismatch', ...
+%         'Kernel input vectors must match number of trials.');
+% end
+% 
+% idxUse = logical(hasStepNoise(:));
+% if ~any(idxUse)
+%     kernel = struct( ...
+%         'meanDiff', nan(1, nFrames), ...
+%         'correctMean', nan(1, nFrames), ...
+%         'errorMean', nan(1, nFrames), ...
+%         'nCorrect', 0, ...
+%         'nError', 0, ...
+%         'nTrials', 0, ...
+%         'timeIndex', 1:nFrames);
+%     return
+% end
+% 
+% noiseChangedMeanDir = nan(sum(idxUse), nFrames);
+% useTrialInds = find(idxUse);
+% 
+% for i = 1:numel(useTrialInds)
+%     tr = useTrialInds(i);
+%     side = sideIndex(tr);
+%     raw = squeeze(mean(noiseBySideDir(side, :, :, tr), 2));
+%     if iscolumn(raw)
+%         raw = raw';
+%     end
+%     noiseChangedMeanDir(i, :) = double(raw);
+% end
+% 
+% correctUse = correct(idxUse);
+% 
+% correctNoise = noiseChangedMeanDir(correctUse, :);
+% errorNoise = noiseChangedMeanDir(~correctUse, :);
+% 
+% kernel = struct;
+% kernel.correctMean = mean(correctNoise, 1, 'omitnan');
+% kernel.errorMean = mean(errorNoise, 1, 'omitnan');
+% kernel.meanDiff = kernel.correctMean - kernel.errorMean;
+% kernel.nCorrect = size(correctNoise, 1);
+% kernel.nError = size(errorNoise, 1);
+% kernel.nTrials = size(noiseChangedMeanDir, 1);
+% kernel.timeIndex = 1:nFrames;
+% 
+% end
 
 % -------------------------------------------------------------------------
 function plotLimits = choosePsychometricLimits(psychometric)
@@ -531,7 +533,7 @@ plotCombinedKernelPanel(axKernel, sessionSummary.kernel);
 
 for iDir = 1:3
     ax = nexttile(tl, 3 + iDir);
-    label = sprintf('Direction %d: %.0f deg', iDir, sessionSummary.dirsDeg(iDir));
+    label = sprintf('%.0f°', sessionSummary.dirsDeg(iDir));
     plotPsychometricPanel(ax, sessionSummary.psychometric.byDir(iDir), label, sessionSummary.plotLimits);
 end
 
@@ -671,7 +673,7 @@ text(ax, 0.97, 0.03, txt, 'Units', 'normalized', 'HorizontalAlignment', 'right',
 
 end
 
-% -------------------------------------------------------------------------
+%% -------------------------------------------------------------------------
 function plotCombinedKernelPanel(ax, kernel)
 
 hold(ax, 'on');
@@ -683,21 +685,52 @@ plot(ax, kernel.timeIndex, kernel.meanDiff, '-', ...
     'LineWidth', 1.2, ...
     'DisplayName', 'correct - error');
 
-title(ax, sprintf('Change-side mean-difference kernel, n=%d', kernel.nTrials), ...
+title(ax, sprintf('Changed-side signed-noise kernel, n=%d', kernel.nTrials), ...
     'Interpreter', 'none');
-
 xlabel(ax, 'Frame');
-ylabel(ax, 'Aligned noise, correct - error');
+ylabel(ax, 'Signed noise, correct - error');
 grid(ax, 'on');
 box(ax, 'off');
 
 legend(ax, 'Location', 'best', 'FontSize', 7);
 
-txt = sprintf('correct n=%d\nerror n=%d', kernel.nCorrect, kernel.nError);
+txt = sprintf('hit n=%d\nmiss n=%d', kernel.nCorrect, kernel.nError);
 text(ax, 0.02, 0.98, txt, ...
     'Units', 'normalized', ...
     'VerticalAlignment', 'top', ...
     'HorizontalAlignment', 'left', ...
     'FontSize', 8);
+
+end
+
+%% ------------------------------------------------------------------------
+function sessionAnalysis = loadOrMakeIDQSessionAnalysis(processedFile, sessionHeader)
+
+domainPath = domainFolder(mfilename('fullpath'));
+analysisFolder = fullfile(domainPath, 'Data', 'SessionAnalysis');
+sessionName = sessionHeader.fileName;
+sessionName = erase(sessionName, '.mat');
+sessionName = erase(sessionName, '.dat');
+analysisFile = fullfile(analysisFolder, sprintf('%s_sessionAnalysis.mat', sessionName));
+if ~isfile(analysisFile)
+  makeIDQSessionAnalysis(processedFile);
+end
+load(analysisFile, 'sessionAnalysis');
+end
+
+%% -------------------------------------------------------------------------
+function kernel = makeKernelSummaryFromSessionAnalysis(sessionAnalysis)
+
+kernel = struct();
+
+kernel.correctMean = sessionAnalysis.signedNoiseKernel.meanCorrect';
+kernel.errorMean = sessionAnalysis.signedNoiseKernel.meanError';
+kernel.meanDiff = sessionAnalysis.signedNoiseKernel.kernel';
+
+kernel.nCorrect = sessionAnalysis.signedNoiseKernel.nCorrect;
+kernel.nError = sessionAnalysis.signedNoiseKernel.nError;
+kernel.nTrials = sessionAnalysis.signedNoiseKernel.nTrials;
+
+kernel.timeIndex = 1:numel(sessionAnalysis.tMS);
 
 end
