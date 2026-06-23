@@ -42,7 +42,6 @@ end
 
 D = dir(fullfile(dataFolder, char(R.FilePattern)));
 D = D(~[D.isdir]);
-
 hardExcludeNames = cellstr(R.HardExcludeFileNames);
 
 selectedRows = {};
@@ -64,6 +63,14 @@ for k = 1:numel(D)
     [~, fileStem, ~] = fileparts(fileName);
     if any(strcmpi(fileStem, hardExcludeNames))
       excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
+      continue;
+    end
+
+    % If this a .mat file, we will check for exclusions reasons beyond the
+    % hard exclusions. Otherwise, only the hard exclusions will apply
+    if ~strcmp(R.FilePattern, '.mat')
+      fileInfoRow = table({filePath}, {dataFolder}, {fileStem}, 'VariableNames', {'filePath','folder','fileName'});
+      selectedRows{end+1} = fileInfoRow; %#ok<AGROW>
       continue;
     end
 
@@ -142,7 +149,6 @@ if isempty(selectedRows)
 else
     fileInfo = vertcat(selectedRows{:});
 end
-
 if isempty(fileInfo)
     files = {};
 else

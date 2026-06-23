@@ -25,25 +25,18 @@ allProbeDirs = [];
 
 % ---- Find all relevant session data files ----
 sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
-allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
-if isempty(allMatFiles)
-  fprintf('No session files found\n');
-  return;
-end
-names = {allMatFiles.name};
-isFileInfo = endsWith(names, '_fileInfo.mat');
-dataFiles = allMatFiles(~isFileInfo);
-if isempty(dataFiles)
+dataFilePaths = selectAnalysisFiles(sessionDataFolder);
+% allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
+if isempty(dataFilePaths)
   fprintf('No session files found\n');
   return;
 end
 [~, sideTypeNames] = sideTypeIndex();
 
 % ---- Process each data file ----
-for k = 1:numel(dataFiles)
-  dataFileName = dataFiles(k).name;
-  [~, baseName] = fileparts(dataFileName);
-  dataFilePath = fullfile(sessionDataFolder, dataFileName);
+for k = 1:numel(dataFilePaths)
+  dataFilePath = dataFilePaths{k};
+  [~, baseName] = fileparts(dataFilePath);
   
   % get a list of all probe directions using the headers in the data file.
   % Don't load trials because it is too slow when we are examining whether
@@ -78,7 +71,7 @@ for k = 1:numel(dataFiles)
   probeSessions = splitTrialsByProbe(baseName, header, trials, sessionHeader);
   for p = 1:numel(probeSessions)
     probeTag = probeSessions(p).probeTag;
-    fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
+    fprintf('      processing %s [%s] ...\n', baseName, probeTag);
     probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
     probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
     if isfile(probeSessionPath) && ~replace

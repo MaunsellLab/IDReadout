@@ -7,19 +7,29 @@ function convertIDRData()
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
 [dataFolder, existed] = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'DatFiles'));
 if ~existed 
   fprintf('  convertIDRData -- failed to find data to convert in %s', dataFolder);
   return;
 end
-[names, paths] = getDatFileList(dataFolder);
+
+% S = dir(fullfile(dataFolder, '*.dat'));
+% names = {S.name}';
+% paths = fullfile(dataFolder, names);
+% [names, idx] = sort(names);
+% paths = paths(idx);
+
+[paths, ~] = selectAnalysisFiles(dataFolder, 'FilePattern', '*.dat');
+if isempty(paths)
+  fprintf('No dat files found\n');
+  return;
+end
+
 convertedFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 
 % Convert any unconverted .dat files
 for fi = 1:numel(paths)
   datPath = string(paths(fi));
-  datName = string(names(fi));
   [~, baseName] = fileparts(datPath);
   tempInfoFileName = sprintf('%s/%s_fileInfo.mat', dataFolder, baseName);
   infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % .mat headerfile name for .dat file
@@ -30,7 +40,7 @@ for fi = 1:numel(paths)
   if isfile(infoFileName) && ~isfile(outFileName)                   % Skip only *_fileInfo.mat exists, re-read
     delete(infoFileName);
   end
-  fprintf('Reading %s\n', datName);
+  fprintf('       reading %s.mat\n', baseName);
   header = readLLFile('i', datPath);
   movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
   nTrials = header.numberOfTrials;
@@ -38,7 +48,7 @@ for fi = 1:numel(paths)
   trialMeta.probeDirectionsDeg = [];
   trialMeta.nProbeDirections = 0;
   trialMeta.nNoiseTrials = 0;
-  fprintf('       converting %s\n', datName);
+  fprintf('       converting %s.mat\n', baseName);
   for t = 1:nTrials
     trials{t} = readLLFile('t', t);
     D = trials{t}.trial.data;
@@ -52,7 +62,7 @@ for fi = 1:numel(paths)
       end
     end
     if t == nTrials || mod(t, 500) == 0                            % Occasionally update the waitbar text
-      fprintf('       reading %s: trial %d of %d (%.0f%%)\n', datName, t, nTrials, 100 * t / nTrials);
+      fprintf('       reading %s: trial %d of %d (%.0f%%)\n', baseName, t, nTrials, 100 * t / nTrials);
     end
   end
 
@@ -118,10 +128,3 @@ else
 end
 end
 
-function [names, paths] = getDatFileList(dataFolder)
-  S = dir(fullfile(dataFolder, '*.dat'));
-  names = {S.name}';
-  paths = fullfile(dataFolder, names);
-  [names, idx] = sort(names);
-  paths = paths(idx);
-end

@@ -372,8 +372,7 @@ rectPredictor.mean = mean(x, 'omitnan');
 rectPredictor.sd = std(x, 'omitnan');
 rectPredictor.meanCorrectTrials = mean(x(correct), 'omitnan');
 rectPredictor.meanErrorTrials = mean(x(~correct), 'omitnan');
-rectPredictor.meanDiffCorrectMinusError = ...
-    rectPredictor.meanCorrectTrials - rectPredictor.meanErrorTrials;
+rectPredictor.meanDiffCorrectMinusError =  rectPredictor.meanCorrectTrials - rectPredictor.meanErrorTrials;
 
 % Per-session version for diagnostics.
 nSessions = numel(sessionAnalyses);
@@ -402,16 +401,7 @@ for iSession = 1:nSessions
   meanErrorX(iSession) = mean(xs(~cs), 'omitnan');
   meanDiffCorrectMinusError(iSession) = meanCorrectX(iSession) - meanErrorX(iSession);
 end
-
-rectPredictor.bySession = table( ...
-  fileName, ...
-  nTrials, ...
-  meanX, ...
-  sdX, ...
-  meanCorrectX, ...
-  meanErrorX, ...
-  meanDiffCorrectMinusError);
-
+rectPredictor.bySession = table(fileName, nTrials, meanX, sdX, meanCorrectX, meanErrorX,  meanDiffCorrectMinusError);
 end
 
 %% -------------------------------------------------------------------------
@@ -421,10 +411,8 @@ fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8]);
 
 tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
-title(tl, sprintf('IDQ across-session summary, n=%d sessions', ...
-    acrossSummary.nSessions), ...
-    'Interpreter', 'none', ...
-    'FontWeight', 'bold');
+title(tl, sprintf('IDQ Across-session summary (%d sessions)', acrossSummary.nSessions), ...
+    'Interpreter', 'none', 'FontWeight', 'bold');
 
 axText = nexttile(tl, 1);
 plotAcrossTextSummary(axText, acrossSummary);
@@ -458,12 +446,12 @@ gainFit = acrossSummary.noiseGain.rect;
 looDiag = acrossSummary.looPredictor.weightDiagnostics;
 txt = {
     sprintf('Created: %s', string(acrossSummary.createdAt))
-    sprintf('%ld Session, %ld Trials: (%d with noise)', ...
+    sprintf('%ld Sessions, %ld Trials: (%d with noise)', ...
             acrossSummary.nSessions, acrossSummary.nTrials, acrossSummary.nStepNoiseTrials)
     ''
     sprintf('Mean performance: %.3f', mean(R.meanCorrect, 'omitnan'))
-    sprintf('Mean noisy-step performance: %.3f', mean(R.meanCorrectStepNoise, 'omitnan'))
-    sprintf('Mean noisy step coh: %.3g', mean(R.noisyStepCoh, 'omitnan'))
+    sprintf('Mean noise step performance: %.3f', mean(R.meanCorrectStepNoise, 'omitnan'))
+    sprintf('Noise step coh: %.3g', mean(R.noisyStepCoh, 'omitnan'))
     sprintf('Rect summed-noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
     ''
     sprintf('Across kernel step integral: %.3g, mean: %.3g', ...
@@ -559,13 +547,11 @@ end
 %% -------------------------------------------------------------------------
 function plotSessionPerformance(ax, sessionRecords)
 
-plot(ax, sessionRecords.meanCorrectStepNoise, 'ko-', ...
-    'LineWidth', 1.2, ...
-    'MarkerSize', 4);
+plot(ax, sessionRecords.meanCorrectStepNoise, 'ko-', 'LineWidth', 1.2, 'MarkerSize', 4);
 
 xlabel(ax, 'Session');
-ylabel(ax, 'P(correct), noisy step');
-title(ax, 'Noisy-step performance by session');
+ylabel(ax, 'P(hit), noise step');
+title(ax, 'Noise Step Performance by Session');
 ylim(ax, [0.45 1.02]);
 grid(ax, 'on');
 box(ax, 'off');
@@ -584,8 +570,8 @@ plot(ax, sessionRecords.kernelStepIntegral, 'ko-', ...
 yline(ax, 0, 'k:');
 
 xlabel(ax, 'Session');
-ylabel(ax, 'Step kernel integral');
-title(ax, 'Session summed-noise kernel integrals');
+ylabel(ax, 'Kernel Integral over Step');
+title(ax, 'Session Summed-Noise Kernel Integrals');
 grid(ax, 'on');
 box(ax, 'off');
 
