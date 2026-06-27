@@ -12,28 +12,21 @@ if nargin < 1 || isempty(replace), replace = false; end
 p = inputParser;
 p.FunctionName = mfilename;
 addParameter(p,'MakePlots',true,@(x)islogical(x)&&isscalar(x));
-addParameter(p,'Verbose',true,@(x)islogical(x)&&isscalar(x));
+addParameter(p,'Verbose', false ,@(x)islogical(x)&&isscalar(x));
 parse(p,varargin{:});
 opts = p.Results;
 
 root = domainFolder(mfilename('fullpath'));
 dataRoot = fullfile(root,'Data');
 plotRoot = fullfile(root,'Plots','Probes');
-weightPath = fullfile(dataRoot,'FullSessions','BetaAnalysis', ...
-  'AcrossSessions','BetaWeights.mat');
-if ~isfile(weightPath)
-  error('makeRegressions:MissingWeights','Missing %s.',weightPath);
-end
-W = load(weightPath,'weightData');
+weightPath = fullfile(dataRoot, 'AcrossOffsetSummaries', 'BetaWeights.mat');
+W = load(weightPath, 'weightData');
 weightData = W.weightData;
 
 probeDirs = dir(fullfile(dataRoot,'Probe*'));
 probeDirs = probeDirs([probeDirs.isdir]);
-batch = struct('version',1,'replace',replace,'weightPath',weightPath, ...
-  'files',{{}},'regPaths',{{}},'plotPaths',{{}},'ok',false(0,1), ...
-  'skippedIneligible',false(0,1), ...
-  'messages',{{}},'createdBy',mfilename,'createdDate',datetime('now'));
-
+batch = struct('version',1,'replace',replace,'weightPath', weightPath,'files',{{}},'regPaths',{{}},'plotPaths',{{}}, ...
+  'ok',false(0,1), 'skippedIneligible',false(0,1), 'messages',{{}},'createdBy',mfilename,'createdDate',datetime('now'));
 for iProbe = 1:numel(probeDirs)
   probeTag = probeDirs(iProbe).name;
   sessionFolder = fullfile(probeDirs(iProbe).folder,probeTag,'ProbeSessions');
@@ -42,19 +35,19 @@ for iProbe = 1:numel(probeDirs)
   plotFolder = fullfile(plotRoot,probeTag,'Regression');
   if opts.MakePlots, validFolder(plotFolder); end
   files = dir(fullfile(sessionFolder,'*.mat'));
-  [~,order] = sort({files.name}); files = files(order);
-
+  [~,order] = sort({files.name}); 
+  files = files(order);
   for iFile = 1:numel(files)
     sourcePath = fullfile(files(iFile).folder,files(iFile).name);
     [~,baseName] = fileparts(sourcePath);
     regPath = fullfile(regressionFolder,[baseName '_scalarNoiseRegression.mat']);
     plotPath = fullfile(plotFolder,[baseName '_scalarNoiseRegression.pdf']);
-    batch.files{end+1,1}=sourcePath; %#ok<AGROW>
-    batch.regPaths{end+1,1}=regPath; %#ok<AGROW>
-    batch.plotPaths{end+1,1}=plotPath; %#ok<AGROW>
-    batch.ok(end+1,1)=false; %#ok<AGROW>
-    batch.skippedIneligible(end+1,1)=false; %#ok<AGROW>
-    batch.messages{end+1,1}=''; %#ok<AGROW>
+    batch.files{end+1,1}=sourcePath; 
+    batch.regPaths{end+1,1}=regPath; 
+    batch.plotPaths{end+1,1}=plotPath; 
+    batch.ok(end+1,1)=false; 
+    batch.skippedIneligible(end+1,1)=false; 
+    batch.messages{end+1,1}=''; 
     ib = numel(batch.ok);
 
     current = isCurrentProduct(regPath);
@@ -66,10 +59,8 @@ for iProbe = 1:numel(probeDirs)
       continue;
     end
 
-    % Skip probe sessions whose parent full session was not included when
-    % BetaWeights.mat was constructed.
+    % Skip probe sessions whose parent full session was not included when BetaWeights.mat was constructed.
     Shead = load(sourcePath, 'sessionHeader', 'sessionProbeHeader');
-
     parentName = '';
     if isfield(Shead, 'sessionProbeHeader') && ...
         isfield(Shead.sessionProbeHeader, 'parentFileName')
@@ -153,7 +144,6 @@ catch
   tf = false;
 end
 end
-
 
 function base = filepartsBase(pathOrName)
 [~, base] = fileparts(char(pathOrName));

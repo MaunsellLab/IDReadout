@@ -12,7 +12,7 @@ function noiseFit = fitBetaNoiseRegression()
 % The model has one shared noise slope and one intercept per session.
 %
 % Reads:
-%   Data/FullSessions/BetaAnalysis/SessionData/*.mat
+%   Data/FullSessions/BetaAnalysis/*.mat
 %
 % Saves:
 %   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaNoiseRegressionFit.mat
@@ -20,10 +20,8 @@ function noiseFit = fitBetaNoiseRegression()
 % cleanupObj = initProjectPath(); %#ok<NASGU>
 
 baseFolder = domainFolder(mfilename('fullpath'));
-sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-outputFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions'));
+sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+outputFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 outputPath = fullfile(outputFolder, 'BetaNoiseRegressionFit.mat');
 
 files = dir(fullfile(sessionDataFolder, '*.mat'));

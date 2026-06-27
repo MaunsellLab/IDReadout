@@ -24,12 +24,8 @@ function sessionFits = fitBetaNoiseBySession()
 % cleanupObj = initProjectPath(); %#ok<NASGU>
 
 baseFolder = domainFolder(mfilename('fullpath'));
-
-sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-
-acrossFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions'));
+sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+acrossFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 
 psychometricPath = fullfile(acrossFolder, 'BetaPsychometricFit.mat');
 if ~isfile(psychometricPath)

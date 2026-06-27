@@ -729,7 +729,8 @@ function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
   end
 
   % -- set up figure to plot three panels
-  fig = figure(figNum); clf;
+  fig = figure(figNum);
+  clf(fig);
   tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
   lineCol = lines(nOffsets);
   
@@ -864,7 +865,6 @@ box off;
 saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
 
 % ---- Plots 2/3: fitted readout over MT preferred direction ----
-
 if hasSignedFit
     tmpSummary = acrossOffsetSummary;
     tmpSummary.readoutModel = signedRM;

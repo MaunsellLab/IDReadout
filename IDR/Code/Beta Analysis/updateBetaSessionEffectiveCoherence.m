@@ -14,10 +14,8 @@ if nargin < 1 || isempty(replace)
 end
 
 baseFolder = domainFolder(mfilename('fullpath'));
-sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-weightPath = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions', 'BetaWeights.mat');
+sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+weightPath = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'BetaWeights.mat');
 
 if ~isfile(weightPath)
   error('updateBetaSessionEffectiveCoherence:MissingWeights', ...

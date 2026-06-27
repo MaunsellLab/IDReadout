@@ -17,8 +17,7 @@ function betaSummary = plotAcrossOffsetBetaSummary(varargin)
 
 baseFolder = domainFolder(mfilename('fullpath'));
 defaultSummaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
-defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', ...
-  'ReadoutFits', 'Beta');
+defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta');
 
 p = inputParser;
 p.FunctionName = mfilename;
@@ -58,8 +57,7 @@ if ~isfolder(opts.PlotDir)
 end
 
 if opts.MakeRatioPlot
-  plotBetaRatiosByOffset(betaSummary, ...
-    fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'), opts.Visible);
+  plotBetaRatiosByOffset(betaSummary, fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'), opts.Visible);
 end
 
 if opts.MakeReadoutPlot
@@ -69,20 +67,14 @@ end
 if opts.MakeDiagnosticPlots
   R = betaSummary.readoutFitSummary.readoutModels;
   if isfield(R, 'signedDOG')
-    plotReadoutDiagnostics(R.signedDOG, ...
-      'NBoot', bootstrapCount(betaSummary), ...
-      'PlotDir', opts.PlotDir, ...
-      'FileName', 'Beta_ReadoutFunctions_signed.pdf', ...
-      'Visible', opts.Visible, ...
-      'TitlePrefix', 'Beta');
+    plotReadoutDiagnostics(R.signedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', opts.PlotDir, ...
+      'FileName', 'Beta_ReadoutFunctions_signed.pdf',  'Visible', opts.Visible, 'TitlePrefix', 'Beta', ...
+      'FigureNumber', 312);
   end
   if isfield(R, 'rectifiedDOG')
-    plotReadoutDiagnostics(R.rectifiedDOG, ...
-      'NBoot', bootstrapCount(betaSummary), ...
-      'PlotDir', opts.PlotDir, ...
-      'FileName', 'Beta_ReadoutFunctions_rectified.pdf', ...
-      'Visible', opts.Visible, ...
-      'TitlePrefix', 'Beta');
+    plotReadoutDiagnostics(R.rectifiedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', opts.PlotDir, ...
+      'FileName', 'Beta_ReadoutFunctions_rectified.pdf', 'Visible', opts.Visible, 'TitlePrefix', 'Beta', ...
+      'FigureNumber', 313);
   end
 end
 
@@ -102,8 +94,9 @@ end
 % -------------------------------------------------------------------------
 function plotBetaRatiosByOffset(S, savePath, visible)
 F = S.offsetFits;
-fig = figure('Color','w','Position',[100 100 1050 500], ...
-  'Visible', visible);
+fig = figure(310); 
+clf(fig);
+set(fig, 'Color','w', 'Visible', visible, 'WindowStyle', 'docked');
 hold on;
 
 hSession = gobjects(1);
@@ -114,19 +107,15 @@ for k = 1:numel(F)
   if n > 1
     jitter = linspace(-1.5,1.5,n)';
   end
-
   h = errorbar(F(k).probeOffsetDeg+jitter, F(k).sessionBetaRatio(:), ...
-    F(k).sessionBetaRatioSE(:), 'o', 'LineStyle','none', ...
-    'MarkerSize',4, 'CapSize',0);
+    F(k).sessionBetaRatioSE(:), 'o', 'LineStyle','none', 'MarkerSize',4, 'CapSize',0);
   if k == 1
     hSession = h;
   end
 
   [ciLow, ciHigh] = offsetCI95(S, k);
-  hp = errorbar(F(k).probeOffsetDeg, F(k).scale, ...
-    F(k).scale-ciLow, ciHigh-F(k).scale, 'ks', ...
-    'MarkerFaceColor','k', 'MarkerSize',8, ...
-    'LineWidth',1.4, 'CapSize',8);
+  hp = errorbar(F(k).probeOffsetDeg, F(k).scale, F(k).scale-ciLow, ciHigh-F(k).scale, 'ks', ...
+    'MarkerFaceColor','k', 'MarkerSize',8, 'LineWidth',1.4, 'CapSize',8);
   if k == 1
     hPool = hp;
   end
@@ -140,13 +129,11 @@ ylabel('\beta_{probe}/\beta_{pref}');
 title(sprintf('%s session ratios and pooled shared scales (%d bootstraps)', ...
   upper(char(S.meta.stepType)), bootstrapCount(S)));
 xticks([F.probeOffsetDeg]);
-legend([hSession hPool], ...
-  {'Session ratio \pm SE','Pooled shared scale (95% CI)'}, ...
-  'Location','best');
+legend([hSession hPool], {'Session ratio \pm SE','Pooled shared scale (95% CI)'}, 'Location','best');
 box off;
 
-exportgraphics(fig, savePath, 'ContentType','vector');
-if strcmpi(visible,'off')
+exportgraphics(fig, savePath, 'ContentType', 'vector');
+if strcmpi(visible, 'off')
   close(fig);
 end
 end
@@ -157,7 +144,9 @@ M = S.measurements;
 R = S.readoutFitSummary.readoutModels;
 F = S.offsetFits;
 
-fig = figure('Color','w','Position',[100 100 900 540], 'Visible', visible);
+fig = figure(311);
+clf(fig);
+set(fig, 'Color', 'w', 'Position', [100 100 900 540], 'Visible', visible, 'WindowStyle', 'docked');
 hold on;
 
 ci = nan(numel(F),2);
@@ -175,15 +164,15 @@ labels = {'Pooled beta scale (95% CI)'};
 
 if isfield(R, 'signedDOG') && isfield(R.signedDOG, 'fit') && ~isempty(R.signedDOG.fit) && R.signedDOG.fit.fitUsable
   h = plot(R.signedDOG.plotOffsetsDeg, R.signedDOG.plotPredictedScale, '-', 'LineWidth',1.5);
-  hh(end+1) = h; %#ok<AGROW>
-  labels{end+1} = 'Signed DOG'; %#ok<AGROW>
+  hh(end+1) = h; 
+  labels{end+1} = 'Signed DOG'; 
 end
 
 if isfield(R, 'rectifiedDOG') && isfield(R.rectifiedDOG,'fit') && ...
     ~isempty(R.rectifiedDOG.fit) && R.rectifiedDOG.fit.fitUsable
   h = plot(R.rectifiedDOG.plotOffsetsDeg, R.rectifiedDOG.plotPredictedScale, '-', 'LineWidth',1.5);
-  hh(end+1) = h; %#ok<AGROW>
-  labels{end+1} = 'Rectified DOG'; %#ok<AGROW>
+  hh(end+1) = h; 
+  labels{end+1} = 'Rectified DOG'; 
   DOGFitText(0.98, 0.02, 'Rectified DOG', R.rectifiedDOG);
 end
 
@@ -202,18 +191,9 @@ for k = 1:numel(F)
   textLines{k} = sprintf('%.0f°: scale %.2f, %.2f to %.2f 95%% CI (n = %d)', ...
     F(k).probeOffsetDeg, F(k).scale, ci(k,1), ci(k,2), F(k).nTrials);
 end
-annotation(fig, 'textbox', [0.55 0.69 0.42 0.24], ...
-  'String', textLines, ...
-  'Interpreter','none', ...
-  'FitBoxToText','on', ...
-  'BackgroundColor','w', ...
-  'EdgeColor',[0.75 0.75 0.75], ...
-  'FontSize',9);
-
+annotation(fig, 'textbox', [0.55 0.69 0.42 0.24], 'String', textLines, 'Interpreter','none', ...
+  'FitBoxToText','on', 'BackgroundColor','w', 'EdgeColor',[0.75 0.75 0.75], 'FontSize',9);
 exportgraphics(fig, savePath, 'ContentType', 'vector');
-if strcmpi(visible,'off')
-  close(fig);
-end
 end
 
 % -------------------------------------------------------------------------

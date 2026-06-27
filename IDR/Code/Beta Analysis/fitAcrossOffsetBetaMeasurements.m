@@ -35,17 +35,6 @@ addParameter(p, 'Verbose', true, @(x) islogical(x) && isscalar(x));
 parse(p, varargin{:});
 opts = p.Results;
 
-if opts.PlotOnly
-  S = load(opts.SaveFile, 'betaSummary');
-  betaSummary = S.betaSummary;
-  if ~isfolder(opts.PlotDir)
-    mkdir(opts.PlotDir);
-  end
-  plotBetaRatiosByOffset(betaSummary, fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'));
-  plotBetaReadoutFit(betaSummary,  fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'));
-  return;
-end
-
 opts.StepType = lower(char(string(opts.StepType)));
 opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir = char(opts.PlotDir);
@@ -84,7 +73,7 @@ for i = 1:numel(files)
   r = emptySessionRecord();
   r.fileName = files(i).name;
   r.filePath = filePath;
-  r.probeOffsetDeg = headerScalar(S.reg.sessionProbeHeader,'probeDirDeg');
+  r.probeOffsetDeg = S.reg.sessionProbeHeader.probeDirDeg;
   r.xPref = double(T.effectivePrefNoisePC(use));
   r.xProbe = double(T.effectiveProbeNoisePC(use));
   r.correct = double(T.correct(use));
@@ -98,8 +87,7 @@ for i = 1:numel(files)
 end
 
 if isempty(sessionRecords)
-  error('fitAcrossOffsetBetaMeasurements:NoUsableFiles', ...
-    'No current usable regression products were found.');
+  error('fitAcrossOffsetBetaMeasurements:NoUsableFiles', 'No current usable regression products were found.');
 end
 
 % Mirror the current kernel-readout eligibility: paired probes >1 and <=179.
@@ -140,7 +128,7 @@ for k = 1:numel(offsetKeys)
   offsetFits(k).sessionBetaRatioSE = [R.betaRatioSE];
 
   if opts.Verbose
-    fprintf('Offset %g: %d sessions, %d trials, pooled scale %.6g\n', ...
+    fprintf('       offset %g: %d sessions, %d trials, pooled scale %.6g\n', ...
       thisOffset, offsetFits(k).nSessions, offsetFits(k).nTrials, fit.scale);
   end
 
@@ -197,12 +185,8 @@ varFloor = max(1e-8,0.01*median(finiteVar));
 variances(isfinite(variances) & variances <= 0) = varFloor;
 
 readoutFitSummary = fitAcrossOffsetReadout(measurements, variances, offsetKeys, ...
-  'NSessions', [offsetFits.nSessions], ...
-  'Bounds', opts.Bounds, ...
-  'SourceMeasureType', 'pooledBetaScale', ...
-  'SourceSideType', 'change', ...
-  'SourceStepType', opts.StepType, ...
-  'SourceMode', 'sharedScale_sessionSpecificPreferredBeta');
+  'NSessions', [offsetFits.nSessions], 'Bounds', opts.Bounds, 'SourceMeasureType', 'pooledBetaScale', ...
+  'SourceSideType', 'change', 'SourceStepType', opts.StepType, 'SourceMode', 'sharedScale_sessionSpecificPreferredBeta');
 
 betaSummary = struct();
 betaSummary.version = 1;
@@ -210,18 +194,12 @@ betaSummary.analysisName = 'acrossOffsetBetaMeasurements';
 betaSummary.meta = struct( ...
   'createdDate', datetime('now'), 'stepType', opts.StepType, 'nBoot', opts.NBoot,  'randomSeed', opts.RandomSeed, ...
   'bin179With180', opts.Bin179With180, 'model', ['session-specific intercept and preferred beta; ' ...
-    'shared probe/preferred scale within offset']);
+   'shared probe/preferred scale within offset']);
 betaSummary.sessionRecords = sessionRecords;
 betaSummary.offsetFits = offsetFits;
-betaSummary.measurements = struct( ...
-  'offsetsDeg', offsetKeys, ...
-  'pooledScale', measurements, ...
-  'bootstrapVar', variances, ...
-  'nSessions', [offsetFits.nSessions], ...
-  'nTrials', [offsetFits.nTrials]);
-betaSummary.bootstrap = struct( ...
-  'bootScaleMat', bootScaleMat, ...
-  'varFloor', varFloor);
+betaSummary.measurements = struct('offsetsDeg', offsetKeys, 'pooledScale', measurements, 'bootstrapVar', variances, ...
+  'nSessions', [offsetFits.nSessions], 'nTrials', [offsetFits.nTrials]);
+betaSummary.bootstrap = struct('bootScaleMat', bootScaleMat, 'varFloor', varFloor);
 betaSummary.readoutFitSummary = readoutFitSummary;
 betaSummary.readoutModels = readoutFitSummary.readoutModels;
 betaSummary.readoutModel = readoutFitSummary.readoutModel;
@@ -234,6 +212,7 @@ if opts.Verbose, fprintf('Saved %s\n',opts.SaveFile); end
 
 end
 
+%%
 function D = recordsToSessionData(R)
 D = cell(numel(R),1);
 for i = 1:numel(R)
@@ -242,28 +221,17 @@ end
 end
 
 function r = emptySessionRecord()
-r = struct('fileName','','filePath','','probeOffsetDeg',NaN, ...
-  'xPref',[],'xProbe',[],'correct',[], ...
-  'betaPref',NaN,'betaProbe',NaN,'betaRatio',NaN, ...
-  'betaPrefSE',NaN,'betaProbeSE',NaN,'betaRatioSE',NaN);
+r = struct('fileName','','filePath','','probeOffsetDeg',NaN, 'xPref',[],'xProbe',[],'correct',[], ...
+  'betaPref',NaN,'betaProbe',NaN,'betaRatio',NaN, 'betaPrefSE',NaN,'betaProbeSE',NaN,'betaRatioSE',NaN);
 end
 
 function f = emptyOffsetFit()
-f = struct('probeOffsetDeg',NaN,'nSessions',0,'nTrials',0, ...
-  'scale',NaN,'scaleHessianSE',NaN,'scaleHessianCI95',[NaN NaN], ...
-  'fit',struct(),'sessionFileNames',{{}}, ...
-  'sessionBetaPref',[],'sessionBetaProbe',[],'sessionBetaRatio',[], ...
-  'sessionBetaPrefSE',[],'sessionBetaProbeSE',[],'sessionBetaRatioSE',[], ...
-  'bootMean',NaN,'bootMedian',NaN,'boot68',[NaN NaN], ...
-  'boot95',[NaN NaN],'nValidBoot',0);
+f = struct('probeOffsetDeg',NaN,'nSessions',0,'nTrials',0, 'scale',NaN, 'scaleHessianSE',NaN, ...
+  'scaleHessianCI95',[NaN NaN], 'fit',struct(),'sessionFileNames',{{}}, 'sessionBetaPref',[],'sessionBetaProbe',[], ...
+  'sessionBetaRatio',[], 'sessionBetaPrefSE',[],'sessionBetaProbeSE',[],'sessionBetaRatioSE',[], ...
+  'bootMean',NaN,'bootMedian',NaN,'boot68',[NaN NaN], 'boot95',[NaN NaN],'nValidBoot',0);
 end
 
 function v = fieldOrNaN(S,name)
 if isfield(S,name), v=double(S.(name)); else, v=NaN; end
-end
-
-function v = headerScalar(H,name)
-if ~isfield(H,name), error('Missing header field %s.',name); end
-v=H.(name); if isstruct(v)&&isfield(v,'data'),v=v.data;end
-v=double(v(1));
 end

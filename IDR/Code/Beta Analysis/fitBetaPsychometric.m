@@ -19,10 +19,8 @@ function psychometricFit = fitBetaPsychometric()
 % cleanupObj = initProjectPath(); %#ok<NASGU>
 
 baseFolder = domainFolder(mfilename('fullpath'));
-sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-outputFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions'));
+sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+outputFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 outputPath = fullfile(outputFolder, 'BetaPsychometricFit.mat');
 
 files = dir(fullfile(sessionDataFolder, '*.mat'));

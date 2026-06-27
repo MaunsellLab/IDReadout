@@ -2,10 +2,10 @@ function weightData = makeBetaWeights()
 % makeBetaWeights  Create normalized all-session and leave-one-out weights.
 %
 % Reads:
-%   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaKernel_AllSessions.mat
+%   Data/AcrossOffsetSummaries/BetaKernel_AllSessions.mat
 %
 % Saves:
-%   Data/FullSessions/BetaAnalysis/AcrossSessions/BetaWeights.mat
+%   Data/AcrossOffsetSummaries/BetaWeights.mat
 %
 % The weighting function is the unsmoothed preferred-noise kernel over the
 % 250-ms step interval. Weights are normalized to sum to 1, so a constant
@@ -15,70 +15,36 @@ function weightData = makeBetaWeights()
 % per-session correct/error means and trial counts.
 
 baseFolder = domainFolder(mfilename('fullpath'));
-acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis', 'AcrossSessions');
+acrossFolder = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries');
 kernelPath = fullfile(acrossFolder, 'BetaKernel_AllSessions.mat');
-if ~isfile(kernelPath)
-  error('makeBetaWeights:MissingKernelFile', ...
-    'Kernel file not found: %s', kernelPath);
-end
-
 S = load(kernelPath, 'kernelData');
-if ~isfield(S, 'kernelData')
-  error('makeBetaWeights:MissingKernelData', ...
-    '%s does not contain kernelData.', kernelPath);
-end
-
 K = S.kernelData;
-
-requiredFields = { ...
-  'tMS', ...
-  'stepOnsetMS', ...
-  'stepMS', ...
-  'sessionFileNames', ...
-  'sessionMeanCorrectPC', ...
-  'sessionMeanErrorPC', ...
-  'sessionNCorrect', ...
-  'sessionNError' ...
-  };
-
+requiredFields = { 'tMS', 'stepOnsetMS', 'stepMS', 'sessionFileNames', 'sessionMeanCorrectPC', ...
+  'sessionMeanErrorPC', 'sessionNCorrect', 'sessionNError'};
 missing = requiredFields(~isfield(K, requiredFields));
 if ~isempty(missing)
   error('makeBetaWeights:MissingFields', ...
     'kernelData is missing: %s', strjoin(missing, ', '));
 end
-
 tMS = double(K.tMS(:)');
 stepStartMS = double(K.stepOnsetMS);
 stepEndMS = stepStartMS + double(K.stepMS);
-
 stepMask = tMS >= stepStartMS & tMS < stepEndMS;
 stepTMS = tMS(stepMask);
-
-if isempty(stepTMS)
-  error('makeBetaWeights:EmptyStepWindow', ...
-    'No kernel samples fall within the step interval.');
-end
-
 nSessions = numel(K.sessionFileNames);
-
 meanCorrect = K.sessionMeanCorrectPC;
 meanError = K.sessionMeanErrorPC;
 nCorrect = double(K.sessionNCorrect(:));
 nError = double(K.sessionNError(:));
 
 if size(meanCorrect,1) ~= nSessions || size(meanError,1) ~= nSessions
-  error('makeBetaWeights:SessionCountMismatch', ...
-    'Per-session mean arrays do not match sessionFileNames.');
+  error('makeBetaWeights:SessionCountMismatch', 'Per-session mean arrays do not match sessionFileNames.');
 end
-
 if numel(nCorrect) ~= nSessions || numel(nError) ~= nSessions
-  error('makeBetaWeights:CountMismatch', ...
-    'Per-session trial counts do not match sessionFileNames.');
+  error('makeBetaWeights:CountMismatch', 'Per-session trial counts do not match sessionFileNames.');
 end
-
 if any(nCorrect <= 0) || any(nError <= 0)
-  error('makeBetaWeights:EmptyOutcomeClass', ...
-    'Every session must contain both correct and error trials.');
+  error('makeBetaWeights:EmptyOutcomeClass', 'Every session must contain both correct and error trials.');
 end
 
 % ---- All-session pooled kernel ----
@@ -107,9 +73,7 @@ for iSession = 1:nSessions
   thisStepKernel = thisKernel(stepMask);
   thisSum = sum(thisStepKernel);
 
-  assertUsableKernelSum(thisSum, ...
-    sprintf('leave-one-out session %d (%s)', ...
-    iSession, K.sessionFileNames{iSession}));
+  assertUsableKernelSum(thisSum, sprintf('leave-one-out session %d (%s)', iSession, K.sessionFileNames{iSession}));
 
   looKernelPC(iSession,:) = thisKernel;
   looStepKernelPC(iSession,:) = thisStepKernel;
@@ -154,23 +118,15 @@ weightData.createdDate = datetime('now');
 
 % ---- Final consistency checks ----
 if abs(weightData.allSessionWeightSum - 1) > 1e-12
-  error('makeBetaWeights:AllWeightNormalizationFailed', ...
-    'All-session weights do not sum to 1.');
+  error('makeBetaWeights:AllWeightNormalizationFailed', 'All-session weights do not sum to 1.');
 end
 
 if any(abs(weightData.leaveOneOutWeightSums - 1) > 1e-12)
-  error('makeBetaWeights:LOOWeightNormalizationFailed', ...
-    'At least one leave-one-out weight vector does not sum to 1.');
+  error('makeBetaWeights:LOOWeightNormalizationFailed', 'At least one leave-one-out weight vector does not sum to 1.');
 end
 
 outputPath = fullfile(acrossFolder, 'BetaWeights.mat');
 save(outputPath, 'weightData', '-v7.3');
-
-% fprintf('Saved %s\n', outputPath);
-% fprintf('Created one all-session and %d leave-one-out weight vectors.\n', nSessions);
-% fprintf('Step window contains %d samples from %.3f to %.3f ms.\n', numel(stepTMS), stepTMS(1), stepTMS(end));
-% fprintf('All-session kernel sum: %.6g\n', allKernelSum);
-% fprintf('Leave-one-out kernel sums: %.6g to %.6g\n', min(looKernelSum), max(looKernelSum));
 end
 
 % -------------------------------------------------------------------------
@@ -179,18 +135,11 @@ function kernelPC = pooledKernel(meanCorrect, meanError, ...
 
 totalCorrect = sum(nCorrect(includeMask));
 totalError = sum(nError(includeMask));
-
 if totalCorrect <= 0 || totalError <= 0
-  error('makeBetaWeights:NoOutcomeTrials', ...
-    'Pooled data must contain both correct and error trials.');
+  error('makeBetaWeights:NoOutcomeTrials', 'Pooled data must contain both correct and error trials.');
 end
-
-pooledCorrect = sum(meanCorrect(includeMask,:) .* ...
-  nCorrect(includeMask), 1) / totalCorrect;
-
-pooledError = sum(meanError(includeMask,:) .* ...
-  nError(includeMask), 1) / totalError;
-
+pooledCorrect = sum(meanCorrect(includeMask,:) .* nCorrect(includeMask), 1) / totalCorrect;
+pooledError = sum(meanError(includeMask,:) .* nError(includeMask), 1) / totalError;
 kernelPC = pooledCorrect - pooledError;
 end
 
@@ -198,20 +147,16 @@ end
 function assertUsableKernelSum(kernelSum, label)
 
 if ~isfinite(kernelSum)
-  error('makeBetaWeights:NonfiniteKernelSum', ...
-    'The %s kernel sum is nonfinite.', label);
+  error('makeBetaWeights:NonfiniteKernelSum', 'The %s kernel sum is nonfinite.', label);
 end
 
 if kernelSum <= 0
-  error('makeBetaWeights:NonpositiveKernelSum', ...
-    'The %s kernel sum is %.6g; expected a positive value.', ...
+  error('makeBetaWeights:NonpositiveKernelSum', 'The %s kernel sum is %.6g; expected a positive value.', ...
     label, kernelSum);
 end
 
-% This is only a guard against pathological normalization.
+% Guard against pathological normalization.
 if abs(kernelSum) < 1e-9
-  error('makeBetaWeights:NearZeroKernelSum', ...
-    'The %s kernel sum is too close to zero for stable normalization.', ...
-    label);
+  error('makeBetaWeights:NearZeroKernelSum', 'The %s kernel sum is too close to zero for stable normalization.', label);
 end
 end

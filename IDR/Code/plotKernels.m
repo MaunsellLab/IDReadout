@@ -48,7 +48,6 @@ trialDurVF = round(trialDurMS / msPerVFrame);
 preStepVF = preStepMS / msPerVFrame;
 plotTitles = {"Decrement", "Increment"};
 
-% nKernelTypes = size(kernels, 1);
 nKernelTypes = numel(sideTypes);
 typeTitles = {'(Change - No Change RDK)', 'Change RDK', 'No Change RDK', 'Left RDK', 'Right RDK', ...
   'RF RDK', 'Opp RDK', 'Chosen RDK', 'Not Chosen RDK'};
@@ -93,52 +92,44 @@ for sideTypeIndex = 1:nKernelTypes
     % The plotted kernel traces remain the raw measured kernels.
     if isfield(compStats, 'normIntegrals')
       displayIntegrals = compStats.normIntegrals;
-      displayR         = compStats.normR;
+      % displayR         = compStats.normR;
       displayScale     = compStats.normScale;
-
       if isfield(compStats, 'normScaleSEM')
         displayScaleSEM = compStats.normScaleSEM;
       else
         displayScaleSEM = nan(size(displayScale));
       end
-
       if isfield(compStats, 'normScaleCI')
         displayScaleCI = compStats.normScaleCI;
       else
         displayScaleCI = [];
       end
-
       valueLabel = 'norm integrals';
-      ratioLabel = 'norm ratio';
+      % ratioLabel = 'norm ratio';
       scaleLabel = 'norm scale';
     else
       % Backward compatibility for older compStats structs.
       displayIntegrals = compStats.kIntegrals;
-      displayR         = compStats.R;
+      % displayR         = compStats.R;
       displayScale     = compStats.scale;
-
       if isfield(compStats, 'scaleSEM')
         displayScaleSEM = compStats.scaleSEM;
       else
         displayScaleSEM = nan(size(displayScale));
       end
-
       if isfield(compStats, 'scaleCI')
         displayScaleCI = compStats.scaleCI;
       else
         displayScaleCI = [];
       end
-
       valueLabel = 'integrals';
-      ratioLabel = 'ratio';
+      % ratioLabel = 'ratio';
       scaleLabel = 'scale';
     end
-
     if ~isempty(displayScaleCI)
       textStr = sprintf(['%s: 0°: %.2f%%, ±%d°: %.2f%%\n' ...
         '(%s: %.2f; %s: %.2f [SEM: %.2f; 95%% CI: %.2f, %.2f])'], ...
         valueLabel, displayIntegrals(sideType, stepIndex, 1), probeDirDeg, displayIntegrals(sideType, stepIndex, 2), ...
-        ratioLabel, displayR(sideType, stepIndex), ...
         scaleLabel, displayScale(sideType, stepIndex), displayScaleSEM(sideType, stepIndex), ...
         displayScaleCI.lo(sideType, stepIndex), ...
         displayScaleCI.hi(sideType, stepIndex));
@@ -146,7 +137,6 @@ for sideTypeIndex = 1:nKernelTypes
       textStr = sprintf(['%s: 0°: %.2f%%, ±%d°: %.2f%%\n' ...
         '(%s: %.2f; %s: %.2f)'], ...
         valueLabel, displayIntegrals(sideType, stepIndex, 1), probeDirDeg, displayIntegrals(sideType, stepIndex, 2), ...
-        ratioLabel, displayR(sideType, stepIndex), ...
         scaleLabel, displayScale(sideType, stepIndex));
     end
     text(0.02, 0.98, textStr, 'units', 'normalized', 'VerticalAlignment', 'top', 'fontSize', 6);

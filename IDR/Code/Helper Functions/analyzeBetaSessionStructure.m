@@ -24,10 +24,8 @@ function structureAnalysis = analyzeBetaSessionStructure()
 % cleanupObj = initProjectPath(); %#ok<NASGU>
 
 baseFolder = domainFolder(mfilename('fullpath'));
-sessionFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-acrossFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions');
+sessionFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+acrossFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 
 inputPath = fullfile(acrossFolder, 'BetaSessionFitAnalysis.mat');
 S = load(inputPath, 'sessionBetaAnalysis');

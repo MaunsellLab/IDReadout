@@ -1,4 +1,4 @@
-function acrossSummary = makeIDQAcrossSessionSummary()
+function acrossSummary = makeIDQAcrossSessionSummaries()
 % makeIDQAcrossSessionSummary
 %
 % Minimal first across-session IDQ summary.
@@ -19,7 +19,6 @@ domainPath = domainFolder(mfilename('fullpath'));
 sessionAnalysisFolder = fullfile(domainPath, 'Data', 'SessionAnalysis');
 summaryFolder = validFolder(fullfile(domainPath, 'Data', 'AcrossSessionSummaries'));
 plotFolder = validFolder(fullfile(domainPath, 'Plots', 'AcrossSessionSummaries'));
-
 
 files = dir(fullfile(sessionAnalysisFolder, '*_sessionAnalysis.mat'));
 if isempty(files)
@@ -142,10 +141,8 @@ fprintf('  saved %s\n', summaryMatFile);
 summaryPDFFile = fullfile(plotFolder, 'IDQ_AcrossSessionSummary.pdf');
 fig = plotIDQAcrossSessionSummary(acrossSummary);
 exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector');
-close(fig);
 fig = plotIDQDirectionDiagnosticsSummary(acrossSummary);
 exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector', 'Append', true);
-close(fig);
 
 end
 
@@ -407,7 +404,7 @@ end
 %% -------------------------------------------------------------------------
 function fig = plotIDQAcrossSessionSummary(acrossSummary)
 
-fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8]);
+fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8], 'WindowStyle', 'docked');
 
 tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
@@ -586,15 +583,9 @@ function fig = plotIDQDirectionDiagnosticsSummary(acrossSummary)
 Dabs = acrossSummary.directionDiagnostics.absolute;
 Daln = acrossSummary.directionDiagnostics.aligned;
 
-fig = figure( ...
-  'Color', 'w', ...
-  'Units', 'inches', ...
-  'Position', [1 1 11 8.5], ...
-  'PaperOrientation', 'landscape');
-
-tl = tiledlayout(fig, 2, 3, ...
-  'TileSpacing', 'compact', ...
-  'Padding', 'compact');
+fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 11 8.5], ...
+        'PaperOrientation', 'landscape', 'WindowStyle', 'docked');
+tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 title(tl, 'IDQ direction diagnostics', ...
   'Interpreter', 'none', ...

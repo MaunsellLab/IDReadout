@@ -30,10 +30,8 @@ end
 rng(seed);
 
 baseFolder = domainFolder(mfilename('fullpath'));
-sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'SessionData');
-acrossFolder = validFolder(fullfile(baseFolder, 'Data', 'FullSessions', ...
-  'BetaAnalysis', 'AcrossSessions'));
+sessionDataFolder = fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis');
+outputFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 
 files = dir(fullfile(sessionDataFolder, '*.mat'));
 [~, order] = sort({files.name});
