@@ -16,9 +16,6 @@ makeBetaSessionData(true);
 fprintf('\n=== 2. Build all-session kernel ===\n');
 kernelData = makeBetaKernel(); %#ok<NASGU>
 
-fprintf('\n=== 3. Build all-session and leave-one-out weights ===\n');
-weightData = makeBetaWeights(); %#ok<NASGU>
-
 fprintf('\n=== 4. Compute trialwise effective coherence ===\n');
 updateBetaSessionEffectiveCoherence(true);
 

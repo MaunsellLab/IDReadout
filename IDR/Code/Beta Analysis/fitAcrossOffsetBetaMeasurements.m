@@ -7,6 +7,7 @@ function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
 % and calls fitAcrossOffsetReadout.
 %
 % Name-value options:
+%   'Animal'            'All', 'Meetz', or 'Neesha'
 %   'StepType'          'inc' (default), 'dec', or 'combined'
 %   'NBoot'             hierarchical bootstrap count (default 1000)
 %   'RandomSeed'        bootstrap seed (default 1)
@@ -21,47 +22,47 @@ baseFolder = domainFolder(mfilename('fullpath'));
 defaultSave = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
 defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta');
 
-p = inputParser;
-p.FunctionName = mfilename;
-addParameter(p, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","combined"])));
-addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
-addParameter(p, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'SaveFile', defaultSave, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotOnly', false, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'Bounds', struct(), @isstruct);
-addParameter(p, 'Verbose', true, @(x) islogical(x) && isscalar(x));
-parse(p, varargin{:});
-opts = p.Results;
-
-opts.StepType = lower(char(string(opts.StepType)));
-opts.SaveFile = char(opts.SaveFile);
-opts.PlotDir = char(opts.PlotDir);
-if ~isempty(opts.RandomSeed), rng(opts.RandomSeed); end
-
-files = dir(fullfile(baseFolder, 'Data', 'Probe*', 'Regression', '*_scalarNoiseRegression.mat'));
-if isempty(files)
-  error('fitAcrossOffsetBetaMeasurements:NoRegressionFiles', ...
-    'No regression files were found.');
+P = makeParser(defaultSave, defaultPlotDir);
+parse(P, varargin{:});
+p0 = P.Results;
+% check for nested file selection arguments and include them if they exist
+if ~isempty(p0.FileSelectionArgs)
+  topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
+  fileSelectionArgs = p0.FileSelectionArgs;
+  P = makeParser();
+  parse(P, topArgs{:}, fileSelectionArgs{:});
+  p = P.Results;
+else
+  p = p0;
+  fileSelectionArgs = {'FileSelectionArgs', {'Animal', 'Neesha'}};
 end
+p.StepType = lower(char(string(p.StepType)));
+p.SaveFile = char(p.SaveFile);
+p.PlotDir = char(p.PlotDir);
+if ~isempty(p.RandomSeed), rng(p.RandomSeed); end
 
+% Scan through all ~IDR/Data/Probe*/Regression folders for
+% *_scalarNoiseRegression.mat files
+dataDirs = dir(fullfile(baseFolder, 'Data', 'Probe*'));
+dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Regression');
+[~, fileInfo] = selectAnalysisFiles(dataPaths, fileSelectionArgs{:});
 sessionRecords = repmat(emptySessionRecord(),0,1);
-for i = 1:numel(files)
-  filePath = fullfile(files(i).folder, files(i).name);
+
+for i = 1:height(fileInfo)
+  filePath = char(fileInfo{i, 'filePath'});
   S = load(filePath, 'reg');
   if ~isfield(S,'reg') || ~isfield(S.reg,'analysisName') || ...
       ~strcmp(S.reg.analysisName,'kernelWeightedProbeRegression') || ...
-      ~isfield(S.reg,'fitByStep') || ~isfield(S.reg.fitByStep,opts.StepType)
+      ~isfield(S.reg,'fitByStep') || ~isfield(S.reg.fitByStep,p.StepType)
     continue
   end
-  F = S.reg.fitByStep.(opts.StepType);
+  F = S.reg.fitByStep.(p.StepType);
   if ~isfield(F,'fitUsable') || ~F.fitUsable || ...
       ~isfield(S.reg,'trialTable') || isempty(S.reg.trialTable)
     continue
   end
   T = S.reg.trialTable;
-  switch opts.StepType
+  switch p.StepType
     case 'inc', use = T.changeIndex == 2;
     case 'dec', use = T.changeIndex == 1;
     otherwise, use = true(height(T),1);
@@ -71,7 +72,7 @@ for i = 1:numel(files)
   end
 
   r = emptySessionRecord();
-  r.fileName = files(i).name;
+  r.fileName = char(fileInfo{i, 'fileName'});
   r.filePath = filePath;
   r.probeOffsetDeg = S.reg.sessionProbeHeader.probeDirDeg;
   r.xPref = double(T.effectivePrefNoisePC(use));
@@ -93,7 +94,7 @@ end
 % Mirror the current kernel-readout eligibility: paired probes >1 and <=179.
 offsets = [sessionRecords.probeOffsetDeg];
 eligible = isfinite(offsets) & offsets > 1 & offsets <= 180;
-if opts.Bin179With180
+if p.Bin179With180
   for i = 1:numel(sessionRecords)
     if sessionRecords(i).probeOffsetDeg == 180
       sessionRecords(i).probeOffsetDeg = 179;
@@ -104,7 +105,7 @@ sessionRecords = sessionRecords(eligible);
 
 offsetKeys = unique([sessionRecords.probeOffsetDeg]);
 offsetFits = repmat(emptyOffsetFit(),numel(offsetKeys),1);
-bootScaleMat = nan(opts.NBoot,numel(offsetKeys));
+bootScaleMat = nan(p.NBoot,numel(offsetKeys));
 
 for k = 1:numel(offsetKeys)
   thisOffset = offsetKeys(k);
@@ -127,12 +128,12 @@ for k = 1:numel(offsetKeys)
   offsetFits(k).sessionBetaProbeSE = [R.betaProbeSE];
   offsetFits(k).sessionBetaRatioSE = [R.betaRatioSE];
 
-  if opts.Verbose
+  if p.Verbose
     fprintf('       offset %g: %d sessions, %d trials, pooled scale %.6g\n', ...
       thisOffset, offsetFits(k).nSessions, offsetFits(k).nTrials, fit.scale);
   end
 
-  for b = 1:opts.NBoot
+  for b = 1:p.NBoot
     nS = numel(R);
     sampled = randi(nS,nS,1);
     Db = cell(nS,1);
@@ -166,7 +167,7 @@ for k = 1:numel(offsetFits)
     offsetFits(k).boot68 = prctile(x,[16 84]);
     offsetFits(k).boot95 = prctile(x,[2.5 97.5]);
     offsetFits(k).nValidBoot = numel(x);
-  elseif opts.NBoot == 0
+  elseif p.NBoot == 0
     variances(k) = offsetFits(k).scaleHessianSE^2;
     offsetFits(k).bootMean = NaN;
     offsetFits(k).bootMedian = NaN;
@@ -185,15 +186,15 @@ varFloor = max(1e-8,0.01*median(finiteVar));
 variances(isfinite(variances) & variances <= 0) = varFloor;
 
 readoutFitSummary = fitAcrossOffsetReadout(measurements, variances, offsetKeys, ...
-  'NSessions', [offsetFits.nSessions], 'Bounds', opts.Bounds, 'SourceMeasureType', 'pooledBetaScale', ...
-  'SourceSideType', 'change', 'SourceStepType', opts.StepType, 'SourceMode', 'sharedScale_sessionSpecificPreferredBeta');
+  'NSessions', [offsetFits.nSessions], 'Bounds', p.Bounds, 'SourceMeasureType', 'pooledBetaScale', ...
+  'SourceSideType', 'change', 'SourceStepType', p.StepType, 'SourceMode', 'sharedScale_sessionSpecificPreferredBeta');
 
 betaSummary = struct();
 betaSummary.version = 1;
 betaSummary.analysisName = 'acrossOffsetBetaMeasurements';
 betaSummary.meta = struct( ...
-  'createdDate', datetime('now'), 'stepType', opts.StepType, 'nBoot', opts.NBoot,  'randomSeed', opts.RandomSeed, ...
-  'bin179With180', opts.Bin179With180, 'model', ['session-specific intercept and preferred beta; ' ...
+  'createdDate', datetime('now'), 'stepType', p.StepType, 'nBoot', p.NBoot,  'randomSeed', p.RandomSeed, ...
+  'bin179With180', p.Bin179With180, 'model', ['session-specific intercept and preferred beta; ' ...
    'shared probe/preferred scale within offset']);
 betaSummary.sessionRecords = sessionRecords;
 betaSummary.offsetFits = offsetFits;
@@ -205,11 +206,29 @@ betaSummary.readoutModels = readoutFitSummary.readoutModels;
 betaSummary.readoutModel = readoutFitSummary.readoutModel;
 betaSummary.readoutModelComparison = readoutFitSummary.readoutModelComparison;
 
-saveDir = fileparts(opts.SaveFile);
+saveDir = fileparts(p.SaveFile);
 if ~isfolder(saveDir), mkdir(saveDir); end
-save(opts.SaveFile,'betaSummary','-v7.3');
-if opts.Verbose, fprintf('Saved %s\n',opts.SaveFile); end
+save(p.SaveFile,'betaSummary','-v7.3');
+if p.Verbose, fprintf('Saved %s\n',p.SaveFile); end
 
+end
+
+%% makeParser()
+function P = makeParser(defaultSave, defaultPlotDir)
+
+P = inputParser;
+P.FunctionName = mfilename;
+addParameter(P, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
+addParameter(P, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","combined"])));
+addParameter(P, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
+addParameter(P, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'SaveFile', defaultSave, @(x) ischar(x) || isstring(x));
+addParameter(P, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
+addParameter(P, 'PlotOnly', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'Bounds', struct(), @isstruct);
+addParameter(P, 'Verbose', true, @(x) islogical(x) && isscalar(x));
 end
 
 %%

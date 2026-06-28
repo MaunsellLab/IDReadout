@@ -1,7 +1,7 @@
-function [files, fileInfo] = selectAnalysisFiles(dataFolder, varargin)
+function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 % selectAnalysisFiles  Select MT readout analysis files by explicit metadata.
 %
-%   [files, fileInfo] = selectAnalysisFiles(dataFolder, ...)
+%   [files, fileInfo] = selectAnalysisFiles(dataFolders, ...)
 %
 % File structure is represented by hasSessionHeader / hasSessionProbeHeader.
 % Parent acquisition context is represented by parentNProbeDirections and
@@ -9,6 +9,7 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolder, varargin)
 % exclusions before loading metadata.
 %
 % Supported selection arguments:
+%   Animal                            char array with the name of selection
 %   Bin179With180                     count 179° and 180° as a single offset
 %   FilePattern                       default '*.mat'
 %   FileSelectionArgs                 cell array of additional args
@@ -22,41 +23,76 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolder, varargin)
 %   SingleProbeDirection              maximum 1 parent probe direction
 
 P = makeParser();
-parse(P, dataFolder, varargin{:});
+parse(P, dataFolders, varargin{:});
 R0 = P.Results;
 % check for nested file selection arguments and include them if they exist
 if ~isempty(R0.FileSelectionArgs)
     topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
     nestedArgs = R0.FileSelectionArgs;
     P = makeParser();
-    parse(P, dataFolder, topArgs{:}, nestedArgs{:});
+    parse(P, dataFolders, topArgs{:}, nestedArgs{:});
     R = P.Results;
 else
     R = R0;
 end
 
-dataFolder = char(R.dataFolder);
+% collect selected files from all folders
+fileInfo = [];
+excludedRows = [];
+for dIndex = 1:numel(R.dataFolders)
+  [dirFileInfo, dirExcludedRows] = doOneDataFolder(R.dataFolders{dIndex}, R);
+  fileInfo = [fileInfo; dirFileInfo]; %#ok<AGROW>
+  excludedRows = [excludedRows; dirExcludedRows]; %#ok<AGROW>
+  % If binning 179 with 180, check whether either offset is selected
+  if R.Bin179With180
+    [path, name] = fileparts(R.dataFolders{dIndex});
+    otherDataFolder = [];
+    if contains(path, 'Probe179')
+      otherDataFolder = [path(1:end-numel('Probe179')) 'Probe180/' name];
+      otherProbeDir = 180;
+    elseif contains(path, 'Probe180')
+      otherDataFolder = [path(1:end-numel('Probe180')) 'Probe179/' name];
+      otherProbeDir = 179;
+    end
+    % If 179 or 180 has been selected, concatenate entries for the other;
+    if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
+      modifiedArgs = removeParameterPair(varargin, 'Bin179With180');
+      modifiedArgs = [modifiedArgs, {'Bin179With180', false, 'ProbeDirDeg', otherProbeDir}]; %#ok<AGROW>
+      [otherFileInfo, otherExcluded] = selectAnalysisFiles(otherDataFolder, modifiedArgs{:});
+      fileInfo = [fileInfo; otherFileInfo];
+      excludedRows = [excludedRows; otherExcluded]; %#ok<AGROW>
+    end
+  end
+end
+
+if isempty(fileInfo)
+  files = {};
+else
+  files = fileInfo.filePath;
+end
+if R.ReportExcluded
+  reportExcludedFiles(excludedRows);
+end
+end
+
+function [fileInfo, excludedRows] = doOneDataFolder(dataFolder, R)
+% doOneDataFolder  Process the contents of one directory
+
 if ~exist(dataFolder, 'dir')
     error('selectAnalysisFiles:MissingFolder', 'Data folder not found: %s', dataFolder);
 end
-
 D = dir(fullfile(dataFolder, char(R.FilePattern)));
 D = D(~[D.isdir]);
 hardExcludeNames = cellstr(R.HardExcludeFileNames);
-
 selectedRows = {};
 excludedRows = {};
 
 for k = 1:numel(D)
     fileName = D(k).name;
-
     if endsWith(fileName, '_fileInfo.mat')
         continue;
     end
-
     filePath = fullfile(D(k).folder, fileName);
-
-    % Hard filename exclusions happen before loading metadata.
 
     % Hard filename exclusions happen before loading metadata.
     % Match the filename stem exactly, not just the beginning of the name.
@@ -78,6 +114,16 @@ for k = 1:numel(D)
     row = stripExclusionColumns(row);
 
     excludeReasons = {};
+
+    if ~isempty(R.Animal)
+      if ~isempty(row.animal)
+          error('selectAnalysisFiles:MissingAnimal', ...
+              'Selection by ProbeDirDeg requires sessionProbeHeader.probeDirDeg in %s.', filePath);
+      end
+      if row.animal ~= R.Animal
+          excludeReasons{end+1} = sprintf('animal %.6g != %.6g', row.animal, R.Animal); %#ok<AGROW>
+      end
+    end
 
     if ~isempty(R.ProbeDirDeg)
         if ~isfinite(row.probeDirDeg)
@@ -149,45 +195,16 @@ if isempty(selectedRows)
 else
     fileInfo = vertcat(selectedRows{:});
 end
-if isempty(fileInfo)
-    files = {};
-else
-    files = fileInfo.filePath;
 end
 
-if R.ReportExcluded
-    reportExcludedFiles(excludedRows);
-end
-
-% If binning 179 with 180, check whether either offset is selected
-if R.Bin179With180
-  [path, name] = fileparts(dataFolder);
-  otherDataFolder = [];
-  if endsWith(path, 'Probe179')
-    otherDataFolder = [path(1:end-numel('Probe179')) 'Probe180/' name];
-    otherProbeDir = 180;
-  elseif endsWith(path, 'Probe180')
-    otherDataFolder = [path(1:end-numel('Probe180')) 'Probe179/' name];
-    otherProbeDir = 179;
-  end
-  % If 179 or 180 has been selected, concatenate entries for the other;
-  if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
-    modifiedArgs = removeParameterPair(varargin, 'Bin179With180');
-    modifiedArgs = [modifiedArgs, {'Bin179With180', false, 'ProbeDirDeg', otherProbeDir}];
-    [otherFiles, otherFileInfo] = selectAnalysisFiles(otherDataFolder, modifiedArgs{:});
-    files = [files; otherFiles];
-    fileInfo = [fileInfo; otherFileInfo];
-  end
-end
-end
-
-% -------------------------------------------------------------------------
+%% -------------------------------------------------------------------------
 function P = makeParser()
 P = inputParser;
 P.FunctionName = mfilename;
 
-addRequired(P,  'dataFolder', @(x) ischar(x) || isstring(x));
-
+% addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x) && all(cellfun(@ischar, x(:))));
+addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x));
+addParameter(P, 'Animal', 'All', @(x) ischar(x) || isstring(x));
 addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));

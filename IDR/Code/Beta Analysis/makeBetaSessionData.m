@@ -24,7 +24,7 @@ if nargin < 1 || isempty(replace)
 end
 validateattributes(replace, {'logical'}, {'scalar'});
 acrossFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries');
-sessionFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
+sessionFolder = char(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 outputFolder = fullfile(sessionFolder, 'BetaAnalysis');
 
 if replace
@@ -38,7 +38,7 @@ end
 
 validFolder(outputFolder);
 validFolder(acrossFolder);
-[selectedFiles, fileInfo] = selectAnalysisFiles(sessionFolder);
+[selectedFiles, fileInfo] = selectAnalysisFiles({sessionFolder});
 if isempty(selectedFiles)
   error('makeBetaSessionData:NoSelectedFiles', 'No full-session files passed selectAnalysisFiles.');
 end
@@ -67,7 +67,7 @@ selectionManifest.fileInfo = fileInfo;
 selectionManifest.selectedFiles = selectedFiles;
 selectionManifest.createdBy = mfilename;
 selectionManifest.createdDate = datetime('now');
-save(fullfile(acrossFolder, 'BetaSelectionManifest.mat'), 'selectionManifest');
+% save(fullfile(acrossFolder, 'BetaSelectionManifest.mat'), 'selectionManifest');
 end
 
 % -------------------------------------------------------------------------
@@ -348,12 +348,8 @@ for iFile = 1:numel(files)
   end
 
   N = S.sessionNoise;
-
-  requiredFields = { ...
-    'version', 'sessionHeader', 'nTrials', 'trialIdx', ...
-    'trialOutcome', 'changeSide', 'baseCohPC', 'stepCohPC', ...
-    'signalCohPC', 'hasCohNoise', 'prefCohNoisePC', ...
-    'hasPreferredNoise', 'noiseTimesMS', 'noiseCohsPC'};
+  requiredFields = {'version', 'sessionHeader', 'nTrials', 'trialIdx', 'trialOutcome', 'changeSide', 'baseCohPC', 
+    'stepCohPC', 'signalCohPC', 'hasCohNoise', 'prefCohNoisePC', 'hasPreferredNoise', 'noiseTimesMS', 'noiseCohsPC'};
 
   missing = requiredFields(~isfield(N, requiredFields));
   if ~isempty(missing)

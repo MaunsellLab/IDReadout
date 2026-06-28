@@ -4,8 +4,7 @@ function kernelAverage(doBootstrap, nBoot, varargin)
 % Compute session-averaged kernels from saved session noise matrices.
 % Each session is reprocessed through computeSessionKernels(), then pooled
 % across sessions using inverse-variance weighting.
-%
-% cleanupObj = initProjectPath(); %#ok<NASGU>
+
 if nargin < 1 || isempty(doBootstrap)
   doBootstrap = false;
 end
@@ -13,8 +12,14 @@ if nargin < 2 || isempty(nBoot)
   nBoot = 500;
 end
 
-P = makeParser();
+P = inputParser;
+addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
+addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
+addParameter(P, 'verbose', false, @islogical);
 parse(P, varargin{:});
+
 R0 = P.Results;
 % check for nested file selection arguments and include them if they exist
 if ~isempty(R0.FileSelectionArgs)
@@ -29,13 +34,11 @@ else
 end
 baseFolder = domainFolder(mfilename('fullpath'));
 dataFolder = fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions');
-% If no kernels exist, notify user and return
 if ~exist(dataFolder, 'dir')
   fprintf('      data folder not found: %s\n', dataFolder);
   return;
 end
 
-% [selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, R.FileSelectionArgs{:});
 [selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, fileSelectionArgs{:});
 if R.verbose
   nFiles = numel(fileInfo.fileName);
@@ -475,17 +478,6 @@ end
 if isnumeric(v) && ~isscalar(v)
   v = v(1);
 end
-end
-
-% -------------------------------------------------------------------------
-function P = makeParser()
-
-P = inputParser;
-addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
-addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
-addParameter(P, 'verbose', false, @islogical);
 end
 
 % -------------------------------------------------------------------------

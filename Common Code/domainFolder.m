@@ -37,9 +37,7 @@ domainRoot = fullfile(projectRoot, parts(1));
 
 % Optional protection against calls from Utilities or another root folder.
 validDomains = ["IDR", "IDQ"];
-
 if ~ismember(parts(1), validDomains)
-  error("IDReadout:InvalidDomain", ...
-    "'%s' is not a recognized analysis domain.", parts(1));
+  error("IDReadout:InvalidDomain", "'%s' is not a recognized analysis domain.", parts(1));
 end
 end

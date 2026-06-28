@@ -13,12 +13,6 @@ if ~existed
   return;
 end
 
-% S = dir(fullfile(dataFolder, '*.dat'));
-% names = {S.name}';
-% paths = fullfile(dataFolder, names);
-% [names, idx] = sort(names);
-% paths = paths(idx);
-
 [paths, ~] = selectAnalysisFiles(dataFolder, 'FilePattern', '*.dat');
 if isempty(paths)
   fprintf('No dat files found\n');
@@ -145,11 +139,11 @@ function sessionHeader = makeSessionHeader(header, trialMeta)
 if nargin < 2 || isempty(trialMeta)
   trialMeta = struct();
 end
-
 sessionHeader = struct();
 
 % Parent-session probe-direction provenance. These describe the recording
 % session as acquired, before trial correction, exclusion, or probe splitting.
+sessionHeader.animal = getMetaField(trialMeta, 'animal', []);
 sessionHeader.nProbeDirections = getMetaField(trialMeta, 'nProbeDirections', NaN);
 sessionHeader.probeDirectionsDeg = getMetaField(trialMeta, 'probeDirectionsDeg', []);
 sessionHeader.probeTags = getMetaField(trialMeta, 'probeTags', {});

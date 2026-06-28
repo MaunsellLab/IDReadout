@@ -10,6 +10,9 @@ function updateIDR()
 
 fprintf('>>> dailyUpdate start\n');
 replace = false;
+doKernelBootstrap = false;
+nBoot = 5;
+animal = 'Neesha';
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -28,9 +31,8 @@ fprintf('  << makeKernels complete\n');
 
 % ---- Make beta session summaries ----
 fprintf('  >> makeBetaSessionData start\n');
-makeBetaSessionData(false);
+makeBetaSessionData(replace);
 fprintf('  << makeBetaSessionData start\n');
-
 
 % The following stages of the update all involve across-session analyses of
 % various sorts (including session beta regressions, which use an
@@ -38,16 +40,20 @@ fprintf('  << makeBetaSessionData start\n');
 
 % ---- Beta temporal weights ----
 fprintf('  >> beta fits start\n');
-makeBetaKernel();
-makeBetaWeights();
+makeBetaKernel('Animal', animal);
 fprintf('  << beta fits complete\n');
 
 % ---- Probe-session regressions and across-offset beta summary ----
 fprintf('  >> make, fit and plot regressions start\n');
-makeRegressions(replace);
-fitAcrossOffsetBetaMeasurements('NBoot', 500);
-plotAcrossOffsetBetaSummary();
+makeRegressions('Replace', replace, 'Animal', animal);
+fitAcrossOffsetBetaMeasurements('NBoot', nBoot, 'Animal', animal);
+plotAcrossOffsetBetaSummary('Animal', animal);
 fprintf('  << make, fit and plot regressions complete\n');
+
+
+Made it up to here -- need to test that kernel average is loading appropriately named summary files for its average
+I'm not sure that it matters here -- there might not be any summary files it uses. 
+
 
 % ---- Average Kernels ----
 if isempty(staleProbeDirs)
@@ -56,7 +62,7 @@ else
   fprintf('  >> kernelAverage start\n');
   for p = staleProbeDirs(:).'
     fprintf('      updating average for probe %d\n', p);
-    kernelAverage(true, 100, 'probeDirDeg', p);
+    kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true);
   end
   fprintf('  << kernelAverage complete\n');
 end
@@ -70,7 +76,7 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 % keeps summary/plots synchronized with manual changes to summaries or exclusion rules.
 if ~isempty(staleProbeDirs) || doKernelBootstrap
   fprintf('  >> updateAcrossOffsetSummaries start\n');
-  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', 500, 'RandomSeed', 1, ...
+  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, ...
     'FileSelectionArgs', {'Bin179With180', true}); %#ok<NASGU>
   fprintf('  << updateAcrossOffsetSummaries complete\n');
 else

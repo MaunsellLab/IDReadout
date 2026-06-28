@@ -21,6 +21,7 @@ defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'B
 
 p = inputParser;
 p.FunctionName = mfilename;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(p, 'SummaryFile', defaultSummaryFile, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
 addParameter(p, 'MakeRatioPlot', false, @(x) islogical(x) && isscalar(x));
@@ -34,8 +35,7 @@ opts.PlotDir = char(opts.PlotDir);
 opts.Visible = char(lower(string(opts.Visible)));
 
 if ~isfile(opts.SummaryFile)
-  error('plotAcrossOffsetBetaSummary:MissingSummary', ...
-    'Summary file not found: %s', opts.SummaryFile);
+  error('plotAcrossOffsetBetaSummary:MissingSummary', 'Summary file not found: %s', opts.SummaryFile);
 end
 
 S = load(opts.SummaryFile, 'betaSummary');

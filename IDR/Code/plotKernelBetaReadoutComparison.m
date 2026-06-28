@@ -6,10 +6,8 @@ function fig = plotKernelBetaReadoutComparison(varargin)
 %   bottom row: corresponding predicted normalized scale curves
 
 baseFolder = domainFolder(mfilename('fullpath'));
-defaultKernelFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetSummary.mat');
-defaultBetaFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetBetaSummary.mat');
+defaultKernelFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_KernelSummary.mat');
+defaultBetaFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
 defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits');
 
 p = inputParser;

@@ -1,4 +1,4 @@
-function batch = makeRegressions(replace, varargin)
+function batch = makeRegressions(varargin)
 % makeRegressions  Produce authoritative per-probe-session beta regressions.
 %
 % Inputs are Data/Probe*/ProbeSessions/*.mat. Outputs remain in the flat
@@ -8,25 +8,27 @@ function batch = makeRegressions(replace, varargin)
 % Old pilot products are replaced automatically because they do not contain
 % the current versioned kernelWeightedProbeRegression structure.
 
-if nargin < 1 || isempty(replace), replace = false; end
 p = inputParser;
 p.FunctionName = mfilename;
-addParameter(p,'MakePlots',true,@(x)islogical(x)&&isscalar(x));
-addParameter(p,'Verbose', false ,@(x)islogical(x)&&isscalar(x));
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'MakePlots', true, @(x)islogical(x)&&isscalar(x));
+addParameter(p, 'Replace', false , @(x)islogical(x)&&isscalar(x));
+addParameter(p, 'Verbose', false , @(x)islogical(x)&&isscalar(x));
 parse(p,varargin{:});
 opts = p.Results;
 
 root = domainFolder(mfilename('fullpath'));
 dataRoot = fullfile(root,'Data');
 plotRoot = fullfile(root,'Plots','Probes');
-weightPath = fullfile(dataRoot, 'AcrossOffsetSummaries', 'BetaWeights.mat');
+weightPath = fullfile(dataRoot, 'AcrossOffsetSummaries', sprintf('BetaWeights_%s.mat', opts.Animal));
 W = load(weightPath, 'weightData');
 weightData = W.weightData;
 
 probeDirs = dir(fullfile(dataRoot,'Probe*'));
 probeDirs = probeDirs([probeDirs.isdir]);
-batch = struct('version',1,'replace',replace,'weightPath', weightPath,'files',{{}},'regPaths',{{}},'plotPaths',{{}}, ...
-  'ok',false(0,1), 'skippedIneligible',false(0,1), 'messages',{{}},'createdBy',mfilename,'createdDate',datetime('now'));
+batch = struct('version',1,'Replace', p.Results.Replace, 'weightPath', weightPath,'files',{{}},'regPaths',{{}}, ...
+  'plotPaths',{{}}, 'ok',false(0,1), 'skippedIneligible',false(0,1), 'messages',{{}},'createdBy',mfilename, ...
+  'createdDate',datetime('now'));
 for iProbe = 1:numel(probeDirs)
   probeTag = probeDirs(iProbe).name;
   sessionFolder = fullfile(probeDirs(iProbe).folder,probeTag,'ProbeSessions');
@@ -51,8 +53,8 @@ for iProbe = 1:numel(probeDirs)
     ib = numel(batch.ok);
 
     current = isCurrentProduct(regPath);
-    needReg = replace || ~current;
-    needPlot = opts.MakePlots && (replace || needReg || ~isfile(plotPath));
+    needReg = p.Results.Replace || ~current;
+    needPlot = opts.MakePlots && (p.Results.Replace || needReg || ~isfile(plotPath));
     if ~needReg && ~needPlot
       if opts.Verbose, fprintf('Skipping current regression: %s [%s]\n',baseName,probeTag); end
       batch.ok(ib)=true; batch.messages{ib}='current outputs; skipped';
@@ -95,7 +97,7 @@ for iProbe = 1:numel(probeDirs)
     try
       if needReg
         if opts.Verbose, fprintf('Fitting regression: %s [%s]\n',baseName,probeTag); end
-        reg = computeKernelWeightedProbeRegression(sourcePath,weightData);
+        reg = computeKernelWeightedProbeRegression(sourcePath, weightData);
         reg.weightInfo.weightSourceFile = weightPath;
         save(regPath,'reg','-v7.3');
       else
@@ -119,7 +121,7 @@ for iProbe = 1:numel(probeDirs)
 end
 
 summaryPath = fullfile(dataRoot,'scalarNoiseRegression_batchSummary.mat');
-save(summaryPath,'batch');
+% save(summaryPath,'batch');
 if opts.Verbose
   fprintf('\nRegression production complete: %d/%d successful.\n',sum(batch.ok),numel(batch.ok));
   nProduced = sum(batch.ok);
@@ -147,4 +149,47 @@ end
 
 function base = filepartsBase(pathOrName)
 [~, base] = fileparts(char(pathOrName));
+end
+
+%%---------------------------------------------------
+function fig = plotKernelWeightedProbeRegression(reg)
+% plotKernelWeightedProbeRegression  Per-session coefficient diagnostics.
+
+labels = {'DEC','INC','Combined'};
+fields = {'dec','inc','combined'};
+fig = figure('Color','w','Position',[100 100 1050 360]);
+tiledlayout(1,3,'TileSpacing','compact','Padding','compact');
+
+for i = 1:3
+  nexttile; hold on;
+  F = reg.fitByStep.(fields{i});
+  if isfield(F,'fitUsable') && F.fitUsable
+    values = [F.betaPref F.betaProbe];
+    errors = [F.betaPrefSE F.betaProbeSE];
+    errorbar(1:2, values, errors, 'o', 'LineStyle','none', ...
+      'MarkerFaceColor','auto','LineWidth',1.2);
+    yline(0,':');
+    xlim([0.5 2.5]);
+    xticks([1 2]);
+    xticklabels({'Preferred','Probe'});
+    ylabel('\beta per % coherence');
+    title(sprintf('%s, n=%d',labels{i},F.nTrials));
+    txt = sprintf('probe/pref = %.3g\nSE = %.3g\ngrad = %.2g', ...
+      F.betaRatio,F.betaRatioSE,F.gradientInfNorm);
+    yl = ylim;
+    text(0.58,yl(2)-0.08*range(yl),txt,'VerticalAlignment','top');
+  else
+    axis off;
+    title(labels{i});
+    if isfield(F,'message'), text(0.05,0.5,F.message,'Interpreter','none'); end
+  end
+  box off;
+end
+
+sessionID = '';
+probeTag = '';
+if isfield(reg.sessionProbeHeader,'sessionID'), sessionID = reg.sessionProbeHeader.sessionID; end
+if isfield(reg.sessionProbeHeader,'probeTag'), probeTag = reg.sessionProbeHeader.probeTag; end
+sgtitle(sprintf('%s %s kernel-weighted preferred/probe regression',sessionID,probeTag), ...
+  'Interpreter','none');
 end
