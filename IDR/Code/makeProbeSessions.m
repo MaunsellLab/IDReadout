@@ -46,17 +46,16 @@ for k = 1:numel(dataFilePaths)
   probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
   probeTags = sessionHeader.probeTags;
   needsProbeSessions = opts.Replace;
-  % ---- check whether this file is missing probeSessions ----
+  % if we're not doing all, check whether this file is missing probeSessions
   if ~needsProbeSessions
     for p = 1:numel(probeDirectionsDeg)
       probeDirDeg = probeDirectionsDeg(p);
       probeTag = probeTags{p};
       probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
       probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
-      if isfile(probeSessionPath) && ~opts.Replace
+      if isfile(probeSessionPath)
         continue;
       end
-      staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
       needsProbeSessions = true;
     end
   end
@@ -88,6 +87,7 @@ for k = 1:numel(dataFilePaths)
     save(probeSessionPath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'probeTrials', 'trialIdx', 'lr', ...
       'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', ...
       'changeIndicesAll', '-v7.3');
+    staleProbeDirs = [staleProbeDirs, probeSessions(p).sessionProbeHeader.probeDirDeg]; %#ok<AGROW>
   end
 end
 staleProbeDirs = unique(staleProbeDirs);

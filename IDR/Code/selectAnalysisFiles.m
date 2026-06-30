@@ -12,7 +12,6 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 %   Animal                            char array with the name of selection
 %   Bin179With180                     count 179° and 180° as a single offset
 %   FilePattern                       default '*.mat'
-%   FileSelectionArgs                 cell array of additional args
 %   HardExcludeFileNames              filenames excluded before loading
 %   MaxParentNProbeDirections         maximum parent n-probe-directions
 %   MinParentNProbeDirections         minimum parent n-probe-directions
@@ -27,25 +26,15 @@ if isstring(dataFolders) || ischar(dataFolders)
 end
 P = makeParser();
 parse(P, dataFolders, varargin{:});
-R0 = P.Results;
-% check for nested file selection arguments and include them if they exist
-if ~isempty(R0.FileSelectionArgs)
-    topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-    nestedArgs = R0.FileSelectionArgs;
-    P = makeParser();
-    parse(P, dataFolders, topArgs{:}, nestedArgs{:});
-    R = P.Results;
-else
-    R = R0;
-end
+R = P.Results;
 
 % collect selected files from all folders
 fileInfo = [];
-excludedRows = [];
+excludedInfo = [];
 for dIndex = 1:numel(R.dataFolders)
-  [dirFileInfo, dirExcludedRows] = doOneDataFolder(R.dataFolders{dIndex}, R);
+  [dirFileInfo, dirExcludedInfo] = doOneDataFolder(R.dataFolders{dIndex}, R);
   fileInfo = [fileInfo; dirFileInfo]; %#ok<AGROW>
-  excludedRows = [excludedRows; dirExcludedRows]; %#ok<AGROW>
+  excludedInfo = [excludedInfo; dirExcludedInfo]; %#ok<AGROW>
   % If binning 179 with 180, check whether either offset is selected
   if R.Bin179With180
     [path, name] = fileparts(R.dataFolders{dIndex});
@@ -61,11 +50,6 @@ for dIndex = 1:numel(R.dataFolders)
     if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
       modArgs = removeParameterPair(varargin, 'Bin179With180');
       modArgs = removeParameterPair(modArgs, 'ProbeDirDeg');
-      if exist('nestedArgs')
-        modNestArgs = removeParameterPair(nestedArgs, 'Bin179With180');
-        modNestArgs = removeParameterPair(modNestArgs, 'ProbeDirDeg');
-        modArgs = [modArgs, modNestArgs]; %#ok<AGROW>
-      end
       [~, otherFileInfo] = selectAnalysisFiles(otherDataFolder, ...
                                     modArgs{:}, 'Bin179With180', false, 'ProbeDirDeg', otherProbeDir);
       fileInfo = [fileInfo; otherFileInfo]; %#ok<AGROW>
@@ -79,12 +63,12 @@ else
   files = fileInfo.filePath;
 end
 if R.ReportExcluded
-  reportExcludedFiles(excludedRows);
+  reportExcludedFiles(excludedInfo);
 end
 end
 
 %%-----------------------------------------------------------------
-function [fileInfo, excludedRows] = doOneDataFolder(dataFolder, R)
+function [fileInfo, excludedInfo] = doOneDataFolder(dataFolder, R)
 % doOneDataFolder  Process the contents of one directory
 
 if ~exist(dataFolder, 'dir')
@@ -120,7 +104,7 @@ for k = 1:numel(D)
     end
 
     row = fileInfoFromAnalysisFile(filePath);
-    row = stripExclusionColumns(row);
+    % row = stripExclusionColumns(row);
 
     excludeReasons = {};
 
@@ -204,6 +188,11 @@ if isempty(selectedRows)
 else
     fileInfo = vertcat(selectedRows{:});
 end
+if isempty(excludedRows)
+  excludedInfo = emptyExcludeTable();
+else
+  excludedInfo = vertcat(excludedRows{:});
+end
 end
 
 %% -------------------------------------------------------------------------
@@ -211,12 +200,10 @@ function P = makeParser()
 P = inputParser;
 P.FunctionName = mfilename;
 
-% addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x) && all(cellfun(@ischar, x(:))));
 addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x));
 addParameter(P, 'Animal', 'All', @(x) ischar(x) || isstring(x));
 addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'MultipleProbeDirections', false, @(x) islogical(x) && isscalar(x));
@@ -267,39 +254,37 @@ end
 end
 
 % -------------------------------------------------------------------------
-function row = stripExclusionColumns(row)
-% Protect the selector contract: returned fileInfo must describe selected
-% files only, and must not carry stale exclusion bookkeeping columns.
+% function row = stripExclusionColumns(row)
+% % Protect the selector contract: returned fileInfo must describe selected
+% % files only, and must not carry stale exclusion bookkeeping columns.
+% 
+% varsToDrop = intersect({'isExcluded', 'excludeReasons'}, row.Properties.VariableNames);
+% 
+% if ~isempty(varsToDrop)
+%     row(:, varsToDrop) = [];
+% end
+% end
 
-varsToDrop = intersect({'isExcluded', 'excludeReasons'}, row.Properties.VariableNames);
+%% -------------------------------------------------------------------------
+function T = emptyExcludeTable()
 
-if ~isempty(varsToDrop)
-    row(:, varsToDrop) = [];
-end
+T = table(cell(0,1), cell(0,1), cell(0,1), 'VariableNames', {'fileName', 'filePath', 'excludeReasons'});
 end
 
 % -------------------------------------------------------------------------
 function row = makeExcludedReportRow(filePath, reasons)
-[~, fileName, ext] = fileparts(filePath);
 
-row = table( ...
-    {[fileName ext]}, ...
-    {filePath}, ...
-    {reasons(:)'}, ...
-    'VariableNames', {'fileName', 'filePath', 'excludeReasons'});
+[~, fileName, ext] = fileparts(filePath);
+row = table({[fileName ext]}, {filePath}, {reasons(:)'}, 'VariableNames', {'fileName', 'filePath', 'excludeReasons'});
 end
 
 % -------------------------------------------------------------------------
-function reportExcludedFiles(excludedRows)
-if isempty(excludedRows)
+function reportExcludedFiles(excludedInfo)
+if isempty(excludedInfo)
     fprintf('selectAnalysisFiles: no files were excluded.\n');
     return;
 end
-
-excludedInfo = vertcat(excludedRows{:});
-
 fprintf('\nselectAnalysisFiles excluded %d file(s):\n', height(excludedInfo));
-
 for ii = 1:height(excludedInfo)
     fprintf('  %s\n', excludedInfo.fileName{ii});
 
@@ -308,20 +293,17 @@ for ii = 1:height(excludedInfo)
         fprintf('    - %s\n', reasons{rr});
     end
 end
-
 fprintf('\n');
 end
 
 %% -------------------------------------------------------------------------
 function T = emptyFileInfoTable()
 T = table( ...
-    cell(0,1), cell(0,1), cell(0,1), ...
-    false(0,1), false(0,1), ...
+    cell(0,1), cell(0,1), cell(0,1), cell(0,1), ...
     zeros(0,1), cell(0,1), zeros(0,1), cell(0,1), ...
     false(0,1), false(0,1), ...
     zeros(0,1), zeros(0,1), zeros(0,1), zeros(0,1), cell(0,1), ...
-    'VariableNames', {'filePath','folder','fileName', ...
-    'hasSessionHeader','hasSessionProbeHeader', ...
+    'VariableNames', {'filePath', 'folder', 'fileName', 'animal', ...
     'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
     'parentIsSingleProbe','parentIsInterleavedProbe', ...
     'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
@@ -366,15 +348,14 @@ else
   probeTag = "";
 end
 
-excludeReasons = {};
+% excludeReasons = {};
 
 fileInfoRow = table( ...
 {filePath}, {folder}, {fileNameExt}, ...
 {animal}, probeDirDeg, {probeTag}, parentNProbeDirections, {parentProbeDirectionsDeg}, ...
 parentIsSingleProbe, parentIsInterleavedProbe, ...
 prefCohNoisePC, probeCohNoisePC, nTrials, nNoiseTrials, {parentFileName}, ...
-false, {excludeReasons}, ...
 'VariableNames', {'filePath','folder','fileName', 'animal', 'probeDirDeg','probeTag','parentNProbeDirections', ...
         'parentProbeDirectionsDeg', 'parentIsSingleProbe','parentIsInterleavedProbe', 'prefCohNoisePC', ...
-        'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', 'isExcluded','excludeReasons'});
+        'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
 end

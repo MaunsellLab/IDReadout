@@ -14,18 +14,7 @@ end
 
 p = makeParser();
 parse(p, varargin{:});
-p0 = p.Results;
-% check for nested file selection arguments and include them if they exist
-% if ~isempty(p0.FileSelectionArgs)
-%   topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-%   fileSelectionArgs = p0.FileSelectionArgs;
-%   p = makeParser();
-%   parse(p, topArgs{:}, fileSelectionArgs{:});
-%   R = p.Results;
-% else
-  R = p0;
-  fileSelectionArgs = {'FileSelectionArgs', {'bin179With180', R.Bin179With180, 'Animal', R.Animal}};
-% end
+R = p.Results;
 baseFolder = domainFolder(mfilename('fullpath'));
 dataFolder = char(fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions'));
 if ~exist(dataFolder, 'dir')
@@ -33,7 +22,7 @@ if ~exist(dataFolder, 'dir')
   return;
 end
 
-[selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, fileSelectionArgs{:});
+[selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, 'Bin179With180', R.Bin179With180, 'Animal', R.Animal);
 if R.verbose
   nFiles = numel(fileInfo.fileName);
   if nFiles > 0
@@ -240,29 +229,13 @@ if doBootstrap
 end
 
 % check whether this needs to be flagged as combining 179 and 180
-probeDirStr = sprintf('%d°', R.probeDirDeg);
-if R.probeDirDeg == 179 || R.probeDirDeg == 180
-  args = fileSelectionArgs;
-  names = args(1:2:end);
-  values = args(2:2:end);
-  isMatch = cellfun(@(x) (ischar(x) || isstring(x)) && strcmpi(char(x), 'Bin179With180'), names);
-  if any(isMatch)
-    value = values{find(isMatch, 1, 'last')};
-    if value
-      probeDirStr = '179°/180°';
-    end
-  end
+if (R.probeDirDeg == 179 || R.probeDirDeg == 180) && R.Bin179With180
+  probeDirStr = '179°/180°';
+else
+  probeDirStr = sprintf('%d°', R.probeDirDeg);
 end
 
 % check whether this needs to be flagged as restricted to single- or multi-offset sessions
-% if any(strcmpi(R.FileSelectionArgs, 'MultipleProbeDirections'))
-%   titleSuffix = ' (multiple probe offset files)';
-% elseif any(strcmpi(R.FileSelectionArgs, 'SingleProbeDirection'))
-%   titleSuffix = ' (single probe offset files)';
-% else
-%   titleSuffix = '';
-% end
-
 titleSuffix = sprintf(' (%s)', R.Animal);
 probeTag = sprintf('Probe%d', round(R.probeDirDeg));
 plotName = sprintf('AverageKernel_%s_%s.pdf', probeTag, R.Animal);
@@ -318,8 +291,7 @@ for sideTypeNum = 1:nSideTypes
 
   averageKernelPlotData.createdDate = datetime('now');
 
-  sideTypeFolderName = ...
-    [upper(sideTypeName(1)) sideTypeName(2:end)];
+  sideTypeFolderName = [upper(sideTypeName(1)) sideTypeName(2:end)];
 
   summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideTypeFolderName);
   validFolder(summaryDataFolder);

@@ -16,17 +16,7 @@ baseFolder = domainFolder(mfilename('fullpath'));
 
 p0 = makeParser();
 parse(p0, varargin{:});
-% check for nested file selection arguments and include them if they exist
-% if ~isempty(p0.Results.FileSelectionArgs)
-%   topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-%   fileSelectionArgs = p0.Results.FileSelectionArgs;
-%   p1 = makeParser();
-%   parse(p1, topArgs{:}, fileSelectionArgs{:});
-%   R = p1.Results;
-% else
-  R = p0.Results;
-  fileSelectionArgs = {'FileSelectionArgs', {'Animal', R.Animal}};
-% end
+R = p0.Results;
 sideType = char(R.SideType);
 sideTypeIndex(sideType);  % validate sideType name; index not otherwise needed here
 if isempty(R.ProbeDirs)
@@ -43,10 +33,6 @@ plotData = cell(1, nProbes);
 missingIndices = [];
 
 for p = 1:nProbes
-  % dataDirs = dir(fullfile(baseFolder, 'Data', sprintf('Probe%d', probeDirs(p)));
-  % dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Kernels');
-  % [~, fileInfo] = selectAnalysisFiles(dataPaths, fileSelectionArgs{:});
-  % sessionRecords = repmat(emptySessionRecord(),0,1);
   dataFile = fullfile(baseFolder, 'Data', sprintf('probe%d', probeDirs(p)), 'AverageKernels', sideType, ...
           sprintf('AverageKernelPlotData_%s.mat', R.Animal));
   if ~isfile(dataFile)

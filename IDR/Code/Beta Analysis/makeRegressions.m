@@ -105,9 +105,9 @@ for iProbe = 1:numel(probeDirs)
         R = load(regPath, 'reg'); reg = R.reg;
       end
       if needPlot
-        fig = plotKernelWeightedProbeRegression(reg);
-        exportgraphics(fig, plotPath, 'ContentType', 'vector');
-        close(fig);
+        % fig = plotKernelWeightedProbeRegression(reg);
+        % exportgraphics(fig, plotPath, 'ContentType', 'vector');
+        % close(fig);
       end
       batch.ok(ib)=true; batch.messages{ib}='ok';
       if opts.Verbose && reg.fitByStep.inc.fitUsable

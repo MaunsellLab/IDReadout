@@ -17,7 +17,7 @@ clc
 fprintf('  >> kernelAverage start\n');
 for p = [10, 25, 45, 90, 135, 179, 180]
   fprintf('      updating average for probe %d\n', p);
-  kernelAverage(true, 500, 'probeDirDeg', p, 'SummarySideType', 'Chosen', 'FileSelectionArgs', {'Bin179With180', true});
+  kernelAverage(true, 500, 'probeDirDeg', p, 'SummarySideType', 'Chosen', 'Bin179With180', true);
 end
 fprintf('  << kernelAverage complete\n');
 
@@ -26,7 +26,7 @@ clc
 fprintf('  >> kernelAverage start\n');
 for p = [179, 180]
   fprintf('      updating average for probe %d\n', p);
-  kernelAverage(true, 5, 'probeDirDeg', p, 'SummarySideType', 'Chosen', 'FileSelectionArgs', {'Bin179With180', true});
+  kernelAverage(true, 5, 'probeDirDeg', p, 'SummarySideType', 'Chosen', 'Bin179With180', true);
 end
 fprintf('  << kernelAverage complete\n');
 
@@ -40,5 +40,5 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 %% updateAcrossOffsetSummaries
 clc;
 acrossOffsetSummary = updateAcrossOffsetSummaries([], 'Verbose', true, 'NBoot', 1000, 'RandomSeed', 1, ...
-    'FileSelectionArgs', {'Bin179With180', true});
+    'Bin179With180', true);
 

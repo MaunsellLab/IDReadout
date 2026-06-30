@@ -10,9 +10,9 @@ function updateIDR()
 
 fprintf('>>> dailyUpdate start\n');
 replace = false;
-doKernelBootstrap = false;
-nBoot = 5;
-animal = 'All';
+doKernelBootstrap = true;
+nBoot = 500;
+animal = 'Neesha';
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -21,18 +21,18 @@ fprintf('  << convertIDRData complete\n');
 
 % ---- Session-level probe-specific data files ----
 fprintf('  >> makeProbeSessions start\n');
-staleProbeDirs = makeProbeSessions('Animal', animal, 'Replace', replace); 
+staleProbeDirs = makeProbeSessions('Animal', animal, 'Replace', false); 
 fprintf('  << makeProbeSessions complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');
-makeKernels('Animal', animal, 'Replace', replace); 
+makeKernels('Animal', animal, 'Replace', false); 
 fprintf('  << makeKernels complete\n');
 
 % ---- Make beta session summaries ----
 fprintf('  >> makeBetaSessionData start\n');
-makeBetaSessionData('Animal', animal, 'Replace', replace);
-fprintf('  << makeBetaSessionData start\n');
+makeBetaSessionData('Animal', animal, 'Replace', false);
+fprintf('  << makeBetaSessionData complete\n');
 
 % The following stages of the update all involve across-session analyses of
 % various sorts (including session beta regressions, which use an
@@ -51,16 +51,12 @@ plotAcrossOffsetBetaSummary('Animal', animal);
 fprintf('  << make, fit and plot regressions complete\n');
 
 % ---- Average Kernels ----
-if isempty(staleProbeDirs)
-  fprintf('       no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
-else
-  fprintf('  >> kernelAverage start\n');
-  for p = staleProbeDirs(:).'
-    fprintf('      updating average for probe %d\n', p);
-    kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', animal);
-  end
-  fprintf('  << kernelAverage complete\n');
+fprintf('  >> kernelAverage start\n');
+for p = [10, 25, 45, 90, 135, 179, 180]
+  fprintf('      updating average for probe %d\n', p);
+  kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', animal);
 end
+fprintf('  << kernelAverage complete\n');
 
 fprintf('  >> plotSideTypeKernelAverage start\n');
 plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', animal);
@@ -72,22 +68,10 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 if ~isempty(staleProbeDirs) || doKernelBootstrap
   fprintf('  >> updateAcrossOffsetSummaries start\n');
   acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal, ...
-    'FileSelectionArgs', {'Bin179With180', true}); %#ok<NASGU>
+    'Bin179With180', true); %#ok<NASGU>
   fprintf('  << updateAcrossOffsetSummaries complete\n');
 else
   fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');
-end
-
-% ---- Kernel-versus-beta comparison ----
-kernelSummaryPath = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetSummary.mat');
-betaSummaryPath = fullfile(domainFolder(mfilename('fullpath')),  'Data', 'AcrossOffsetSummaries', ...
-  'IDR_acrossOffsetBetaSummary.mat');
-if isfile(kernelSummaryPath) && isfile(betaSummaryPath) &&...  
-                    (isempty(staleProbeDirs) || betaWeightsChanged || doKernelBootstrap)
-  fprintf('  >> kernel-beta comparison plot start\n');
-  plotKernelBetaReadoutComparison();
-  fprintf('  << kernel-beta comparison plot complete\n');
 end
 
 fprintf('<<< daily update complete\n');

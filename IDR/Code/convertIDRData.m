@@ -39,6 +39,7 @@ for fi = 1:numel(paths)
   movefile(tempInfoFileName, infoFileName);   % readLLFile leaves the info with the dat -- move it to the mat
   nTrials = header.numberOfTrials;
   trials  = cell(1, nTrials);
+
   subStr = {'Meetz', 'Neesha'};
   tf = cellfun(@(s) contains(header.fileName, s), subStr);
   if sum(tf) == 1
@@ -46,6 +47,7 @@ for fi = 1:numel(paths)
   else
     trialMeta.animal = 'unknown';
   end
+  
   trialMeta.probeDirectionsDeg = [];
   trialMeta.nProbeDirections = 0;
   trialMeta.nNoiseTrials = 0;

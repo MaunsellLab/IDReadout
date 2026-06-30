@@ -32,8 +32,7 @@ files = {};
 fileInfo = table();
 for iDir = 1:numel(opts.kernelsDir)
   thisDir = opts.kernelsDir{iDir};
-  selectionArgs = [{'FilePattern', opts.FilePattern}, {'Animal', opts.Animal}, opts.FileSelectionArgs];
-  [theFiles, theFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
+  [theFiles, theFileInfo] = selectAnalysisFiles(thisDir, 'Animal', opts.Animal, 'FilePattern', opts.FilePattern);
   files = [files; theFiles]; %#ok<AGROW>
   fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
 end
@@ -139,7 +138,6 @@ addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x >
 addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
-addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(p, 'OffsetField', 'probeOffsetDeg', @(x) ischar(x) || isstring(x));
 addParameter(p, 'SessionNameField', 'sessionName', @(x) ischar(x) || isstring(x));
 addParameter(p, 'ScaleMode', 'scaleFit', @(x) ischar(x) || isstring(x));
@@ -168,14 +166,6 @@ if ~exist(fileparts(opts.SaveFile), 'dir')
 end
 if opts.MakePlots && ~exist(opts.PlotDir, 'dir')
   mkdir(opts.PlotDir);
-end
-
-% insert a convenience flag for whether we are binning 179° with 180°
-names = opts.FileSelectionArgs(1:2:end);
-values = opts.FileSelectionArgs(2:2:end);
-isMatch = cellfun(@(x) (ischar(x) || isstring(x)) && strcmpi(char(x), 'Bin179With180'), names);
-if any(isMatch)
-  opts.Bin179With180 = values{find(isMatch, 1, 'last')};
 end
 
 if ~isempty(opts.RandomSeed)

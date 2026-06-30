@@ -15,6 +15,10 @@ opts = p.Results;
 baseFolder = domainFolder(mfilename('fullpath'));
 kernelFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('KernelSummary_%s.mat', opts.Animal));
 betaFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('BetaSummary_%s.mat', opts.Animal));
+if ~isfile(kernelFile) || ~isfile(betaFile)
+  fprintf('plotKernelBetaReadoutComparison: missing summary file(s) for %s\n', opts.Animal);
+  return;
+end
 
 K = load(char(kernelFile), 'acrossOffsetSummary');
 B = load(char(betaFile), 'betaSummary');
@@ -57,7 +61,7 @@ for j = 1:2
   legend([hk2 hb2], {'Kernel fit', 'Beta fit'}, 'Location', 'best');
   box off;
 end
-sgtitle('Kernel- and beta-derived MT readout fits');
+sgtitle(sprintf('Kernel- and beta-derived MT readout fits (%s)', opts.Animal));
 
 plotDir = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits'));
 opts.FileName = sprintf('KernelVsBetaReadoutComparison_%s.pdf', opts.Animal);

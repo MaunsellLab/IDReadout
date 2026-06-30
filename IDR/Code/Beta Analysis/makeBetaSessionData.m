@@ -56,7 +56,7 @@ for iFile = 1:numel(selectedFiles)
   sessionNoise.sourceFile = [sourceName sourceExt];
   save(outputPath, 'sessionHeader', 'sessionNoise', '-v7.3');
 end
-validateBetaSessionData()
+validateBetaSessionData();
 end
 
 % -------------------------------------------------------------------------

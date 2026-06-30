@@ -17,25 +17,14 @@ end
 
 P = makeParser();
 parse(P, varargin{:});
-R0 = P.Results;
-% check for nested file selection arguments and include them if they exist
-if ~isempty(R0.FileSelectionArgs)
-  topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-  fileSelectionArgs = R0.FileSelectionArgs;
-  P = makeParser();
-  parse(P, topArgs{:}, fileSelectionArgs{:});
-  R = P.Results;
-else
-  R = R0;
-  fileSelectionArgs = R.FileSelectionArgs;
-end
+R = P.Results;
 
 files = {};
 fileInfo = table();
 probeSessionDirs = dir([char(domainFolder(mfilename('fullpath'))), '/Data/Probe*']);
 for p = 1:numel(probeSessionDirs)
     probeSessionDir = [probeSessionDirs(p).folder, '/', probeSessionDirs(p).name, '/ProbeSessions/'];
-  [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, fileSelectionArgs{:});
+  [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, 'Animal', animal);
   files = [files; theFiles]; %#ok<AGROW>
   fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
 end
@@ -406,7 +395,6 @@ function p = makeParser()
 p = inputParser;
 addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
-addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(p, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
 addParameter(p, 'verbose', true, @islogical);

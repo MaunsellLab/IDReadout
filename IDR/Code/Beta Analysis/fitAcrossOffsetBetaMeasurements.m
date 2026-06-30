@@ -16,20 +16,9 @@ function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
 %   'Verbose'           default true
 
 
-P = makeParser();
-parse(P, varargin{:});
-p0 = P.Results;
-% check for nested file selection arguments and include them if they exist
-if ~isempty(p0.FileSelectionArgs)
-  topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-  fileSelectionArgs = p0.FileSelectionArgs;
-  P = makeParser();
-  parse(P, topArgs{:}, fileSelectionArgs{:});
-  p = P.Results;
-else
-  p = p0;
-  fileSelectionArgs = {'FileSelectionArgs', {'Animal', 'All'}};
-end
+p0 = makeParser();
+parse(p0, varargin{:});
+p = p0.Results;
 p.StepType = lower(char(string(p.StepType)));
 if ~isempty(p.RandomSeed), rng(p.RandomSeed); end
 
@@ -38,7 +27,7 @@ if ~isempty(p.RandomSeed), rng(p.RandomSeed); end
 baseFolder = domainFolder(mfilename('fullpath'));
 dataDirs = dir(fullfile(baseFolder, 'Data', 'Probe*'));
 dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Regression');
-[~, fileInfo] = selectAnalysisFiles(dataPaths, fileSelectionArgs{:});
+[~, fileInfo] = selectAnalysisFiles(dataPaths, 'Animal', p.Animal);
 sessionRecords = repmat(emptySessionRecord(),0,1);
 
 for i = 1:height(fileInfo)
@@ -213,7 +202,6 @@ function P = makeParser()
 P = inputParser;
 P.FunctionName = mfilename;
 addParameter(P, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
 addParameter(P, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","combined"])));
 addParameter(P, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
 addParameter(P, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
