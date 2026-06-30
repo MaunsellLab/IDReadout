@@ -32,7 +32,7 @@ files = {};
 fileInfo = table();
 for iDir = 1:numel(opts.kernelsDir)
   thisDir = opts.kernelsDir{iDir};
-  selectionArgs = [{'FilePattern', opts.FilePattern}, opts.FileSelectionArgs];
+  selectionArgs = [{'FilePattern', opts.FilePattern}, {'Animal', opts.Animal}, opts.FileSelectionArgs];
   [theFiles, theFileInfo] = selectAnalysisFiles(thisDir, selectionArgs{:});
   files = [files; theFiles]; %#ok<AGROW>
   fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
@@ -129,15 +129,14 @@ kernelDirs = unique(kernelDirs, 'stable');
 p = inputParser;
 p.FunctionName = mfilename;
 
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
-defaultSaveFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', 'IDR_KernelSummary.mat');
-addParameter(p, 'SaveFile', defaultSaveFile, @(x) ischar(x) || isstring(x));
 addParameter(p, 'PlotDir',  ...
           fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits', 'Kernels'), ...
           @(x) ischar(x) || isstring(x));
 addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
@@ -150,17 +149,20 @@ addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
 
+
 parse(p, dataDir, varargin{:});
 opts = p.Results;
+
 opts.kernelsDir = kernelDirs;
-opts.SaveFile = char(opts.SaveFile);
 opts.PlotDir  = char(opts.PlotDir);
 opts.FilePattern = char(opts.FilePattern);
 opts.OffsetField = char(opts.OffsetField);
 opts.SessionNameField = char(opts.SessionNameField);
 opts.ScaleMode = char(opts.ScaleMode);
 
-
+saveFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', ...
+  sprintf('KernelSummary_%s.mat', opts.Animal));
+opts.SaveFile = char(saveFile);
 if ~exist(fileparts(opts.SaveFile), 'dir')
   mkdir(fileparts(opts.SaveFile));
 end
@@ -168,7 +170,7 @@ if opts.MakePlots && ~exist(opts.PlotDir, 'dir')
   mkdir(opts.PlotDir);
 end
 
-%inset a convenience flag for whether we are binning 179° with 180°
+% insert a convenience flag for whether we are binning 179° with 180°
 names = opts.FileSelectionArgs(1:2:end);
 values = opts.FileSelectionArgs(2:2:end);
 isMatch = cellfun(@(x) (ischar(x) || isstring(x)) && strcmpi(char(x), 'Bin179With180'), names);
@@ -737,11 +739,10 @@ function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
   % ---- top panel: readout function ----
   nexttile; hold on;
   hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
-  % hFlatReadout = plot(phiDeg, ones(size(phiDeg)), 'k--', 'LineWidth', 1.5);
   plot(phiDeg, zeros(size(phiDeg)), 'k:', 'LineWidth', 1);
   xlabel('\phi (deg)');
   ylabel('a(\phi)');
-  title(sprintf('Fitted DOG readout (%s template, %d bootstraps)', templateMode, opts.NBoot));
+  title(sprintf('%s -- Fitted DOG readout (%s template, %d bootstraps)', opts.Animal, templateMode, opts.NBoot));
   legend(hFitReadout, {'Fitted readout a(\phi)'}, 'Location', 'northeast');
   paramText = cell(rm.nFreeParams, 1);
   for p = 1:rm.nFreeParams
@@ -784,9 +785,8 @@ function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
   ylabel('a(\phi)\Delta m(\phi;\delta)');
   legend(legendHandles, legendLabels, 'Location', 'best');
   box off;
-  if ~isempty(char(string(opts.SaveFile)))
-      saveas(fig, fullfile(opts.PlotDir, sprintf('ReadoutFunctions_%s.pdf', templateMode)));
-  end
+
+  saveas(fig, fullfile(opts.PlotDir, sprintf('ReadoutFunctions_%s_%s.pdf', templateMode, opts.Animal)));
 end
 
 % ========================================================================
@@ -853,16 +853,16 @@ if hasRectFit
 end
 legend(legendHandles, legendLabels, 'Location', 'southwest');
 if hasSignedFit || hasRectFit
-    title(sprintf('DOG Fits to Normalized Scales (%d bootstraps)', opts.NBoot));
+    title(sprintf('%s -- DOG Fits to Normalized Scales (%d bootstraps)', opts.Animal, opts.NBoot));
 else
-    title(sprintf('Normalized Scales (No Fit Over %d bootstraps)', opts.NBoot));
+    title(sprintf('%s -- Normalized Scales (No Fit Over %d bootstraps)', opts.Animal, opts.NBoot));
 end
 scaleText(0.98, 0.98, offsets, obsScale, ci95, emp);
 xlabel('Probe Offset (deg)');
 ylabel('Normalized Scale');
 xlim([0, 180]);
 box off;
-saveas(fig1, fullfile(opts.PlotDir, 'ScaleFits.pdf'));
+saveas(fig1, fullfile(opts.PlotDir, sprintf('ScaleFits_%s.pdf', opts.Animal)));
 
 % ---- Plots 2/3: fitted readout over MT preferred direction ----
 if hasSignedFit

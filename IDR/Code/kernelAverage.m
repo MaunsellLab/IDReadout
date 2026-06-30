@@ -12,34 +12,28 @@ if nargin < 2 || isempty(nBoot)
   nBoot = 500;
 end
 
-P = inputParser;
-addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
-addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
-addParameter(P, 'verbose', false, @islogical);
-parse(P, varargin{:});
-
-R0 = P.Results;
+p = makeParser();
+parse(p, varargin{:});
+p0 = p.Results;
 % check for nested file selection arguments and include them if they exist
-if ~isempty(R0.FileSelectionArgs)
-  topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
-  fileSelectionArgs = R0.FileSelectionArgs;
-  P = makeParser();
-  parse(P, topArgs{:}, fileSelectionArgs{:});
-  R = P.Results;
-else
-  R = R0;
-  fileSelectionArgs = R.FileSelectionArgs;
-end
+% if ~isempty(p0.FileSelectionArgs)
+%   topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
+%   fileSelectionArgs = p0.FileSelectionArgs;
+%   p = makeParser();
+%   parse(p, topArgs{:}, fileSelectionArgs{:});
+%   R = p.Results;
+% else
+  R = p0;
+  fileSelectionArgs = {'FileSelectionArgs', {'bin179With180', R.Bin179With180, 'Animal', R.Animal}};
+% end
 baseFolder = domainFolder(mfilename('fullpath'));
-dataFolder = fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions');
+dataFolder = char(fullfile(baseFolder, 'Data', sprintf('Probe%d', R.probeDirDeg), 'ProbeSessions'));
 if ~exist(dataFolder, 'dir')
   fprintf('      data folder not found: %s\n', dataFolder);
   return;
 end
 
-[selectedFiles, fileInfo] = selectAnalysisFiles(dataFolder, fileSelectionArgs{:});
+[selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, fileSelectionArgs{:});
 if R.verbose
   nFiles = numel(fileInfo.fileName);
   if nFiles > 0
@@ -261,16 +255,17 @@ if R.probeDirDeg == 179 || R.probeDirDeg == 180
 end
 
 % check whether this needs to be flagged as restricted to single- or multi-offset sessions
-if any(strcmpi(R.FileSelectionArgs, 'MultipleProbeDirections'))
-  titleSuffix = ' (multiple probe offset files)';
-elseif any(strcmpi(R.FileSelectionArgs, 'SingleProbeDirection'))
-  titleSuffix = ' (single probe offset files)';
-else
-  titleSuffix = '';
-end
+% if any(strcmpi(R.FileSelectionArgs, 'MultipleProbeDirections'))
+%   titleSuffix = ' (multiple probe offset files)';
+% elseif any(strcmpi(R.FileSelectionArgs, 'SingleProbeDirection'))
+%   titleSuffix = ' (single probe offset files)';
+% else
+%   titleSuffix = '';
+% end
 
+titleSuffix = sprintf(' (%s)', R.Animal);
 probeTag = sprintf('Probe%d', round(R.probeDirDeg));
-plotName = sprintf('AverageKernel_%s.pdf', probeTag);
+plotName = sprintf('AverageKernel_%s_%s.pdf', probeTag, R.Animal);
 plotTitle = sprintf('\\bf%s Probe Kernels %d Session Average%s', probeDirStr, nSessions, titleSuffix);
 
 % ---- Plot/export averaged kernels ----
@@ -286,8 +281,7 @@ exportgraphics(gcf, pdfFile, 'ContentType', 'vector');
 [~, allSideTypeNames] = sideTypeIndex();
 nSideTypes = size(avgKernels, 1);
 if numel(allSideTypeNames) < nSideTypes
-  error('kernelAverage:MissingSideTypeNames', ...
-    'Found %d kernel side types but only %d side-type names.', ...
+  error('kernelAverage:MissingSideTypeNames', 'Found %d kernel side types but only %d side-type names.', ...
     nSideTypes, numel(allSideTypeNames));
 end
 for sideTypeNum = 1:nSideTypes
@@ -327,15 +321,9 @@ for sideTypeNum = 1:nSideTypes
   sideTypeFolderName = ...
     [upper(sideTypeName(1)) sideTypeName(2:end)];
 
-  summaryDataFolder = fullfile( ...
-    baseFolder, ...
-    'Data', ...
-    probeTag, ...
-    'AverageKernels', ...
-    sideTypeFolderName);
-
+  summaryDataFolder = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideTypeFolderName);
   validFolder(summaryDataFolder);
-  save(fullfile(summaryDataFolder, 'AverageKernelPlotData.mat'), 'averageKernelPlotData');
+  save(fullfile(summaryDataFolder, sprintf('AverageKernelPlotData_%s.mat', R.Animal)), 'averageKernelPlotData');
 end
 end
 
@@ -386,6 +374,16 @@ for sideType = 1:nSideTypes
     end
   end
 end
+end
+
+%% makeParser
+function p = makeParser()
+  p = inputParser;
+  addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+  addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+  addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+  addParameter(p, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
+  addParameter(p, 'verbose', false, @islogical);
 end
 
 %%

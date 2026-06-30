@@ -13,7 +13,7 @@ p.FunctionName = mfilename;
 addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(p, 'MakePlots', true, @(x)islogical(x)&&isscalar(x));
 addParameter(p, 'Replace', false , @(x)islogical(x)&&isscalar(x));
-addParameter(p, 'Verbose', false , @(x)islogical(x)&&isscalar(x));
+addParameter(p, 'Verbose', true , @(x)islogical(x)&&isscalar(x));
 parse(p,varargin{:});
 opts = p.Results;
 
@@ -99,13 +99,14 @@ for iProbe = 1:numel(probeDirs)
         if opts.Verbose, fprintf('Fitting regression: %s [%s]\n',baseName,probeTag); end
         reg = computeKernelWeightedProbeRegression(sourcePath, weightData);
         reg.weightInfo.weightSourceFile = weightPath;
-        save(regPath,'reg','-v7.3');
+        sessionHeader = Shead.sessionHeader;
+        save(regPath,'reg', 'sessionHeader', '-v7.3');
       else
-        R = load(regPath,'reg'); reg = R.reg;
+        R = load(regPath, 'reg'); reg = R.reg;
       end
       if needPlot
         fig = plotKernelWeightedProbeRegression(reg);
-        exportgraphics(fig,plotPath,'ContentType','vector');
+        exportgraphics(fig, plotPath, 'ContentType', 'vector');
         close(fig);
       end
       batch.ok(ib)=true; batch.messages{ib}='ok';

@@ -1,4 +1,4 @@
-function [nCreated, nSkipped] = makeBetaSessionData(replace)
+function [nCreated, nSkipped] = makeBetaSessionData(varargin)
 % makeBetaSessionData  Extract full-session increment trials for beta analyses.
 %
 % Creates one file per full recording session in:
@@ -9,25 +9,21 @@ function [nCreated, nSkipped] = makeBetaSessionData(replace)
 % Preferred-direction noise is taken from the change-side patch and retained
 % in its original piecewise-constant representation.
 %
-% Usage:
-%   makeBetaSessionData();       % create missing files
-%   makeBetaSessionData(true);   % replace existing files
-%
 % OUTPUT
 %   nCreated  Number of session files written
 %   nSkipped  Number of existing session files skipped
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'Replace', false, @(x) isempty(x) || islogical(x));
+parse(p, varargin{:});
+opts = p.Results;
 
-if nargin < 1 || isempty(replace)
-  replace = false;
-end
-validateattributes(replace, {'logical'}, {'scalar'});
 acrossFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries');
 sessionFolder = char(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
 outputFolder = fullfile(sessionFolder, 'BetaAnalysis');
 
-if replace
+if opts.Replace
   if isfolder(outputFolder)
     rmdir(outputFolder, 's');
   end
@@ -38,7 +34,7 @@ end
 
 validFolder(outputFolder);
 validFolder(acrossFolder);
-[selectedFiles, fileInfo] = selectAnalysisFiles({sessionFolder});
+[selectedFiles, ~] = selectAnalysisFiles(sessionFolder, 'Animal', opts.Animal);
 if isempty(selectedFiles)
   error('makeBetaSessionData:NoSelectedFiles', 'No full-session files passed selectAnalysisFiles.');
 end
@@ -48,26 +44,19 @@ for iFile = 1:numel(selectedFiles)
   inputPath = selectedFiles{iFile};
   [~, baseName] = fileparts(inputPath);
   outputPath = fullfile(outputFolder, [baseName '.mat']);
-  if isfile(outputPath) && ~replace
+  if isfile(outputPath) && ~opts.Replace
     nSkipped = nSkipped + 1;
     continue
   end
   nCreated = nCreated + 1;
   fprintf('      processing %s ...\n', baseName);
-  S = load(inputPath, 'sessionHeader', 'trials');
-  sessionNoise = extractSessionNoise(S.sessionHeader, S.trials);
+  load(inputPath, 'sessionHeader', 'trials');
+  sessionNoise = extractSessionNoise(sessionHeader, trials);
   [~, sourceName, sourceExt] = fileparts(inputPath);
   sessionNoise.sourceFile = [sourceName sourceExt];
-  save(outputPath, 'sessionNoise', '-v7.3');
+  save(outputPath, 'sessionHeader', 'sessionNoise', '-v7.3');
 end
 validateBetaSessionData()
-
-selectionManifest = struct();
-selectionManifest.fileInfo = fileInfo;
-selectionManifest.selectedFiles = selectedFiles;
-selectionManifest.createdBy = mfilename;
-selectionManifest.createdDate = datetime('now');
-% save(fullfile(acrossFolder, 'BetaSelectionManifest.mat'), 'selectionManifest');
 end
 
 % -------------------------------------------------------------------------

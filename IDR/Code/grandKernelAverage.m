@@ -32,7 +32,7 @@ end
 
 files = {};
 fileInfo = table();
-probeSessionDirs = dir([domainFolder(mfilename('fullpath')), '/Data/Probe*']);
+probeSessionDirs = dir([char(domainFolder(mfilename('fullpath'))), '/Data/Probe*']);
 for p = 1:numel(probeSessionDirs)
     probeSessionDir = [probeSessionDirs(p).folder, '/', probeSessionDirs(p).name, '/ProbeSessions/'];
   [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, fileSelectionArgs{:});
@@ -247,10 +247,9 @@ if doBootstrap
   avgCompStats.kIntegralBootSD = avgCompStats.rawIntegralBootSD;
 end
 
-probeTag = 'AllProbes';
-plotName = 'GrandAverageKernel_AllProbes.pdf';
-plotTitle = sprintf('\\bfGrand Kernel Averages Over %d Probe Directions, %d Probe Sessions', ...
-        numel(probeSessionDirs), nSessions);
+plotName = sprintf('GrandAverageKernel_%s.pdf', R.Animal);
+plotTitle = sprintf('\\bfGrand Kernel Averages Over %d Probe Directions, %d Probe Sessions (%s)', ...
+        numel(probeSessionDirs), nSessions, R.Animal);
 
 % ---- Plot/export averaged kernels ----
 plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
@@ -402,14 +401,15 @@ end
 end
 
 % -------------------------------------------------------------------------
-function P = makeParser()
+function p = makeParser()
 
-P = inputParser;
-addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'FileSelectionArgs', {}, @(x) iscell(x));
-addParameter(P, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
-addParameter(P, 'verbose', true, @islogical);
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'FileSelectionArgs', {}, @(x) iscell(x));
+addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(p, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
+addParameter(p, 'verbose', true, @islogical);
 end
 
 % -------------------------------------------------------------------------

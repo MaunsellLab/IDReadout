@@ -15,15 +15,16 @@ function kernelData = makeBetaKernel(varargin)
 %   kernelData = makeBetaKernel(3);
 %   kernelData = makeBetaKernel("IDReadout2_Meetz_20260610.mat");
 
-P = inputParser;
-addParameter(P, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-parse(P, varargin{:});
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+parse(p, varargin{:});
+R = p.Results;
 
 baseFolder = domainFolder(mfilename('fullpath'));
 sessionDataFolder = char(fullfile(baseFolder, 'Data', 'FullSessions', 'BetaAnalysis'));
 outputFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
 plotFolder = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'Kernels'));
-[selectedFiles, fileInfo] = selectAnalysisFiles({sessionDataFolder}, 'FileSelectionArgs', {'Animal', P.Results.Animal});
+[selectedFiles, fileInfo] = selectAnalysisFiles({sessionDataFolder}, 'Animal', R.Animal);
 nSessions = numel(selectedFiles);
 
 initialized = false;
@@ -176,10 +177,10 @@ kernelData.trialSessionIndex = allSessionIndex;
 kernelData.createdBy = mfilename;
 kernelData.createdDate = datetime('now');
 
-outputPath = fullfile(outputFolder, sprintf('BetaKernel_%s.mat', P.Results.Animal));
+outputPath = fullfile(outputFolder, sprintf('BetaKernel_%s.mat', R.Animal));
 save(outputPath, 'kernelData', '-v7.3');
 
-makeBetaWeights(outputFolder, P.Results.Animal);
+makeBetaWeights(outputFolder, R.Animal);
 
 % Plot the kernel
 fig = figure('WindowStyle', 'docked');
@@ -194,7 +195,7 @@ xlabel('Time from preStep onset (ms)');
 ylabel('Kernel (% coherence)');
 title(sprintf('Preferred Direction Kernel (%d sessions, %d trials)', nSessions, kernelData.nTrials));
 box off
-exportgraphics(fig, fullfile(plotFolder, sprintf('AverageKernel_Preferred_%s.pdf', P.Results.Animal)), ...
+exportgraphics(fig, fullfile(plotFolder, sprintf('AverageKernel_Preferred_%s.pdf', R.Animal)), ...
     'ContentType', 'vector');
 
 end

@@ -165,37 +165,35 @@ end
 end
 
 function [row, parentName] = matchParentWeightRow(sessionHeader, probeHeader, W)
-% candidates = strings(0,1);
-% if isfield(probeHeader,'parentFileName')
-%   candidates(end+1) = string(probeHeader.parentFileName); 
-% end
-% if isfield(sessionHeader,'fileName')
-%   candidates(end+1) = string(sessionHeader.fileName); 
-% end
-% if isfield(probeHeader,'sessionID')
-  % candidates(end+1) = string(probeHeader.sessionID); 
-% end
+candidates = strings(0,1);
+if isfield(probeHeader,'parentFileName')
+  candidates(end+1) = string(probeHeader.parentFileName); 
+end
+if isfield(sessionHeader,'fileName')
+  candidates(end+1) = string(sessionHeader.fileName); 
+end
+if isfield(probeHeader,'sessionID')
+  candidates(end+1) = string(probeHeader.sessionID); 
+end
 weightNames = string(W.sessionFileNames(:));
-% weightBases = strings(size(weightNames));
-% for i = 1:numel(weightNames)
-%   [~,b,e] = fileparts(weightNames(i));
-%   weightBases(i) = b + e;
-% end
+weightBases = strings(size(weightNames));
+for i = 1:numel(weightNames)
+  [~,b,e] = fileparts(weightNames(i));
+  weightBases(i) = b + e;
+end
 matches = false(size(weightNames));
-% for c = 1:numel(candidates)
-%   % [~,b,e] = fileparts(candidates(c));
-%   % fullCandidate = b + e;
-%   % if strlength(e)==0, fullCandidate = b + ".mat"; end
-%   % matches = matches | strcmpi(weightBases, fullCandidate);
-matches = strcmpi(weightNames, probeHeader.sessionID);
-% end
+for c = 1:numel(candidates)
+  [~,b,e] = fileparts(candidates(c));
+  fullCandidate = b + e;
+  if strlength(e)==0, fullCandidate = b + ".mat"; end
+  matches = matches | strcmpi(weightBases, fullCandidate);
+% matches = strcmpi(weightNames, probeHeader.sessionID);
+end
 row = find(matches);
 if numel(row) ~= 1
   error('computeKernelWeightedProbeRegression:ParentSessionMatch', ...
     'Could not uniquely match probe session to BetaWeights (%d matches).', numel(row));
 end
-% parentName = char(weightNames(row));
-
 parentName = char(weightNames(row));
 end
 

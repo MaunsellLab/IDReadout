@@ -22,6 +22,9 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 %   ReportExcluded                    print excluded files and reasons
 %   SingleProbeDirection              maximum 1 parent probe direction
 
+if isstring(dataFolders) || ischar(dataFolders)
+  dataFolders = {char(dataFolders)};
+end
 P = makeParser();
 parse(P, dataFolders, varargin{:});
 R0 = P.Results;
@@ -56,11 +59,16 @@ for dIndex = 1:numel(R.dataFolders)
     end
     % If 179 or 180 has been selected, concatenate entries for the other;
     if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
-      modifiedArgs = removeParameterPair(varargin, 'Bin179With180');
-      modifiedArgs = [modifiedArgs, {'Bin179With180', false, 'ProbeDirDeg', otherProbeDir}]; %#ok<AGROW>
-      [otherFileInfo, otherExcluded] = selectAnalysisFiles(otherDataFolder, modifiedArgs{:});
-      fileInfo = [fileInfo; otherFileInfo];
-      excludedRows = [excludedRows; otherExcluded]; %#ok<AGROW>
+      modArgs = removeParameterPair(varargin, 'Bin179With180');
+      modArgs = removeParameterPair(modArgs, 'ProbeDirDeg');
+      if exist('nestedArgs')
+        modNestArgs = removeParameterPair(nestedArgs, 'Bin179With180');
+        modNestArgs = removeParameterPair(modNestArgs, 'ProbeDirDeg');
+        modArgs = [modArgs, modNestArgs]; %#ok<AGROW>
+      end
+      [~, otherFileInfo] = selectAnalysisFiles(otherDataFolder, ...
+                                    modArgs{:}, 'Bin179With180', false, 'ProbeDirDeg', otherProbeDir);
+      fileInfo = [fileInfo; otherFileInfo]; %#ok<AGROW>
     end
   end
 end
@@ -75,6 +83,7 @@ if R.ReportExcluded
 end
 end
 
+%%-----------------------------------------------------------------
 function [fileInfo, excludedRows] = doOneDataFolder(dataFolder, R)
 % doOneDataFolder  Process the contents of one directory
 
@@ -104,7 +113,7 @@ for k = 1:numel(D)
 
     % If this a .mat file, we will check for exclusions reasons beyond the
     % hard exclusions. Otherwise, only the hard exclusions will apply
-    if ~strcmp(R.FilePattern, '.mat')
+    if ~strcmp(R.FilePattern, '*.mat')
       fileInfoRow = table({filePath}, {dataFolder}, {fileStem}, 'VariableNames', {'filePath','folder','fileName'});
       selectedRows{end+1} = fileInfoRow; %#ok<AGROW>
       continue;
@@ -116,12 +125,12 @@ for k = 1:numel(D)
     excludeReasons = {};
 
     if ~isempty(R.Animal)
-      if ~isempty(row.animal)
+      if isempty(row.animal)
           error('selectAnalysisFiles:MissingAnimal', ...
               'Selection by ProbeDirDeg requires sessionProbeHeader.probeDirDeg in %s.', filePath);
       end
-      if row.animal ~= R.Animal
-          excludeReasons{end+1} = sprintf('animal %.6g != %.6g', row.animal, R.Animal); %#ok<AGROW>
+      if ~strcmpi(R.Animal, 'All') & ~strcmpi(row.animal, R.Animal)
+          excludeReasons{end+1} = sprintf('animal %s != %s', char(row.animal), R.Animal); %#ok<AGROW>
       end
     end
 
@@ -303,7 +312,7 @@ end
 fprintf('\n');
 end
 
-% -------------------------------------------------------------------------
+%% -------------------------------------------------------------------------
 function T = emptyFileInfoTable()
 T = table( ...
     cell(0,1), cell(0,1), cell(0,1), ...
@@ -316,4 +325,56 @@ T = table( ...
     'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
     'parentIsSingleProbe','parentIsInterleavedProbe', ...
     'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
+end
+
+%% -------------------------------------------------------------------------
+function fileInfoRow = fileInfoFromAnalysisFile(filePath)
+% fileInfoFromAnalysisFile  Return one-row metadata table for an analysis MAT file.
+%
+% Probe-session derived files are identified by the presence of the
+% sessionProbeHeader variable, not by filename conventions.
+%
+% Parent acquisition context is represented by:
+%   parentNProbeDirections
+%   parentProbeDirectionsDeg
+%
+
+[folder, fileName, ext] = fileparts(filePath);
+fileNameExt = [fileName ext];
+S = load(filePath, 'sessionHeader');
+vars = who('-file', filePath);
+if ismember('sessionProbeHeader', vars)
+  T = load(filePath, 'sessionProbeHeader');
+  S.sessionProbeHeader = T.sessionProbeHeader;
+end
+nTrials = S.sessionHeader.numberOfTrials';
+nNoiseTrials = S.sessionHeader.nNoiseTrials';
+animal = S.sessionHeader.animal;
+parentFileName = S.sessionHeader.fileName';
+parentProbeDirectionsDeg = S.sessionHeader.probeDirectionsDeg';
+parentNProbeDirections = S.sessionHeader.nProbeDirections;
+parentIsSingleProbe = parentNProbeDirections == 1;
+parentIsInterleavedProbe = parentNProbeDirections > 1;
+prefCohNoisePC = S.sessionHeader.prefCohNoisePC;
+if isfield(S, 'sessionProbeHeader')
+  probeDirDeg = S.sessionProbeHeader.probeDirDeg;
+  probeTag = S.sessionProbeHeader.probeTag;
+  probeCohNoisePC = S.sessionProbeHeader.probeCohNoisePC';
+else
+  probeCohNoisePC = nan;
+  probeDirDeg = nan;
+  probeTag = "";
+end
+
+excludeReasons = {};
+
+fileInfoRow = table( ...
+{filePath}, {folder}, {fileNameExt}, ...
+{animal}, probeDirDeg, {probeTag}, parentNProbeDirections, {parentProbeDirectionsDeg}, ...
+parentIsSingleProbe, parentIsInterleavedProbe, ...
+prefCohNoisePC, probeCohNoisePC, nTrials, nNoiseTrials, {parentFileName}, ...
+false, {excludeReasons}, ...
+'VariableNames', {'filePath','folder','fileName', 'animal', 'probeDirDeg','probeTag','parentNProbeDirections', ...
+        'parentProbeDirectionsDeg', 'parentIsSingleProbe','parentIsInterleavedProbe', 'prefCohNoisePC', ...
+        'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName', 'isExcluded','excludeReasons'});
 end

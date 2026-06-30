@@ -5,28 +5,23 @@ function fig = plotKernelBetaReadoutComparison(varargin)
 %   top row: inferred readout functions for signed and rectified templates
 %   bottom row: corresponding predicted normalized scale curves
 
-baseFolder = domainFolder(mfilename('fullpath'));
-defaultKernelFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_KernelSummary.mat');
-defaultBetaFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
-defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits');
-
 p = inputParser;
 p.FunctionName = mfilename;
-addParameter(p, 'KernelSummaryFile', defaultKernelFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'BetaSummaryFile', defaultBetaFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
-addParameter(p, 'FileName', 'KernelVsBetaReadoutComparison.pdf', @(x) ischar(x) || isstring(x));
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(p, 'Visible', 'on', @(x) any(strcmpi(string(x), ["on","off"])));
 parse(p, varargin{:});
 opts = p.Results;
 
-K = load(char(opts.KernelSummaryFile), 'acrossOffsetSummary');
-B = load(char(opts.BetaSummaryFile), 'betaSummary');
+baseFolder = domainFolder(mfilename('fullpath'));
+kernelFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('KernelSummary_%s.mat', opts.Animal));
+betaFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('BetaSummary_%s.mat', opts.Animal));
+
+K = load(char(kernelFile), 'acrossOffsetSummary');
+B = load(char(betaFile), 'betaSummary');
 if ~isfield(K, 'acrossOffsetSummary') || ~isfield(B, 'betaSummary')
   error('plotKernelBetaReadoutComparison:MissingSummary', ...
     'Expected acrossOffsetSummary and betaSummary in the supplied files.');
 end
-
 kernelModels = K.acrossOffsetSummary.readoutModels;
 betaModels = B.betaSummary.readoutFitSummary.readoutModels;
 modelNames = {'signedDOG', 'rectifiedDOG'};
@@ -62,14 +57,11 @@ for j = 1:2
   legend([hk2 hb2], {'Kernel fit', 'Beta fit'}, 'Location', 'best');
   box off;
 end
-
 sgtitle('Kernel- and beta-derived MT readout fits');
-plotDir = char(opts.PlotDir);
-if ~isempty(plotDir)
-  if ~isfolder(plotDir)
-    mkdir(plotDir);
-  end
-  exportgraphics(fig, fullfile(plotDir, char(opts.FileName)), ...
+
+plotDir = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits'));
+opts.FileName = sprintf('KernelVsBetaReadoutComparison_%s.pdf', opts.Animal);
+
+exportgraphics(fig, fullfile(plotDir, char(sprintf('KernelVsBetaReadoutComparison_%s.pdf', opts.Animal))), ...
     'ContentType', 'vector');
-end
 end

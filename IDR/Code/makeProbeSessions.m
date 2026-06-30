@@ -1,4 +1,4 @@
-function staleProbeDirs = makeProbeSessions(replace)
+function staleProbeDirs = makeProbeSessions(varargin)
 % makeProbeSessions  Split sessions into separate instances for each probe offset.
 %
 % makeProbeSessions is the authoritative producer of analysis headers:
@@ -17,14 +17,16 @@ function staleProbeDirs = makeProbeSessions(replace)
 % Derived per-probe files written by makeProbeSessions contain both headers:
 %   Data/ProbeXX/ProbeSessions
 
-if nargin < 1 || isempty(replace)
-  replace = false;
-end
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'Replace', false, @(x) isempty(x) || islogical(x));
+parse(p, varargin{:});
+opts = p.Results;
 staleProbeDirs = [];
 
 % ---- Find all relevant session data files ----
-sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
-dataFilePaths = selectAnalysisFiles(sessionDataFolder);
+sessionDataFolder = char(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
+dataFilePaths = selectAnalysisFiles(sessionDataFolder, 'Animal', opts.Animal);
 if isempty(dataFilePaths)
   fprintf('No session files found\n');
   return;
@@ -43,7 +45,7 @@ for k = 1:numel(dataFilePaths)
   load(dataFilePath, 'header', 'sessionHeader');
   probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
   probeTags = sessionHeader.probeTags;
-  needsProbeSessions = replace;
+  needsProbeSessions = opts.Replace;
   % ---- check whether this file is missing probeSessions ----
   if ~needsProbeSessions
     for p = 1:numel(probeDirectionsDeg)
@@ -51,7 +53,7 @@ for k = 1:numel(dataFilePaths)
       probeTag = probeTags{p};
       probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
       probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
-      if isfile(probeSessionPath) && ~replace
+      if isfile(probeSessionPath) && ~opts.Replace
         continue;
       end
       staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
@@ -71,7 +73,7 @@ for k = 1:numel(dataFilePaths)
     fprintf('      processing %s [%s] ...\n', baseName, probeTag);
     probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
     probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
-    if isfile(probeSessionPath) && ~replace
+    if isfile(probeSessionPath) && ~opts.Replace
       continue;
     end
     sessionHeader = probeSessions(p).sessionHeader;

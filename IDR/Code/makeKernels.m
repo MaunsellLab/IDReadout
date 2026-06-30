@@ -1,48 +1,60 @@
-  function [allProbeDirs, staleProbeDirs] = makeKernels(replace)
+  function [allProbeDirs, staleProbeDirs] = makeKernels(varargin)
 % makeKernels  Build and plot probe-session kernels
 %
 % Derived per-probe files written by makeKernels contain both headers:
 %   Data/ProbeXX/Kernels
 %
 
-if nargin < 1 || isempty(replace)
-  replace = false;
-end
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'Replace', false, @(x) isempty(x) || islogical(x));
+parse(p, varargin{:});
+opts = p.Results;
 staleProbeDirs = [];
 allProbeDirs = [];
 
+% ---- Find all relevant session data files ----
+sessionDataFolder = char(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
+dataFilePaths = selectAnalysisFiles(sessionDataFolder, 'Animal', opts.Animal);
+if isempty(dataFilePaths)
+  fprintf('No session files found\n');
+  return;
+end
+% [~, sideTypeNames] = sideTypeIndex();
+
+
 % ---- Find all relevant .mat data files ----
-sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
-allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
-if isempty(allMatFiles)
-  fprintf('No .mat files found in %s\n', sessionDataFolder);
-  return;
-end
-names = {allMatFiles.name};
-isFileInfo = endsWith(names, '_fileInfo.mat');
-dataFiles = allMatFiles(~isFileInfo);
-if isempty(dataFiles)
-  fprintf('No data session files found in %s\n', sessionDataFolder);
-  return;
-end
+% sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
+% allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
+% if isempty(allMatFiles)
+%   fprintf('No .mat files found in %s\n', sessionDataFolder);
+%   return;
+% end
+% names = {allMatFiles.name};
+% isFileInfo = endsWith(names, '_fileInfo.mat');
+% dataFiles = allMatFiles(~isFileInfo);
+% if isempty(dataFiles)
+%   fprintf('No data session files found in %s\n', sessionDataFolder);
+%   return;
+% end
 
 % ---- Process each session file to see if probeSession kernels are missing ----
-for k = 1:numel(dataFiles)
-  dataFileName = dataFiles(k).name;
-  dataFilePath = fullfile(sessionDataFolder, dataFileName);
-  [~, baseName] = fileparts(dataFileName);
+for k = 1:numel(dataFilePaths)
+  dataFilePath = dataFilePaths{k};
+  [~, baseName, extension] = fileparts(dataFilePath);
+  dataFileName = [baseName, extension];
 
   % get a list of all probe directions using the headers in the data file
   load(dataFilePath, 'sessionHeader');
   probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
   probeTags = sessionHeader.probeTags;
-  needsKernels = replace;
+  needsKernels = opts.Replace;
   for p = 1:numel(probeDirectionsDeg)
     probeDirDeg = probeDirectionsDeg(p);
     allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
     probeTag = probeTags{p};
     [kernelPath, plotPath] = makeFilePaths(probeTag, baseName);
-    if ~replace
+    if ~opts.Replace
       outputsStale = ~isfile(plotPath) || ~isfile(kernelPath);
       if outputsStale
         staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>

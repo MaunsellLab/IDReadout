@@ -12,24 +12,28 @@ function plotSideTypeKernelAverage(varargin)
 %   plotSideTypeKernelAverage('SideType', 'noChange')
 %   plotSideTypeKernelAverage('ProbeDirs', [45 90 135 180])
 
-% cleanupObj = initProjectPath(); %#ok<NASGU>
 baseFolder = domainFolder(mfilename('fullpath'));
 
-P = inputParser;
-addParameter(P, 'SideType', 'Change', @(x) ischar(x) || isstring(x));
-addParameter(P, 'ProbeDirs', [], @(x) isempty(x) || isnumeric(x));
-parse(P, varargin{:});
-R = P.Results;
-
+p0 = makeParser();
+parse(p0, varargin{:});
+% check for nested file selection arguments and include them if they exist
+% if ~isempty(p0.Results.FileSelectionArgs)
+%   topArgs = removeParameterPair(varargin, 'FileSelectionArgs');
+%   fileSelectionArgs = p0.Results.FileSelectionArgs;
+%   p1 = makeParser();
+%   parse(p1, topArgs{:}, fileSelectionArgs{:});
+%   R = p1.Results;
+% else
+  R = p0.Results;
+  fileSelectionArgs = {'FileSelectionArgs', {'Animal', R.Animal}};
+% end
 sideType = char(R.SideType);
 sideTypeIndex(sideType);  % validate sideType name; index not otherwise needed here
-
 if isempty(R.ProbeDirs)
   probeDirs = findProbeDirsWithAverageData(sideType);
 else
   probeDirs = R.ProbeDirs(:).';
 end
-
 assert(~isempty(probeDirs), 'plotSideTypeKernelAverage:NoProbeDirs', ...
   'No probe directions found for sideType "%s".', sideType);
 
@@ -39,9 +43,12 @@ plotData = cell(1, nProbes);
 missingIndices = [];
 
 for p = 1:nProbes
-  probeTag = sprintf('Probe%d', probeDirs(p));
-  dataFile = fullfile(baseFolder, 'Data', probeTag, 'AverageKernels', sideType, ...
-          'AverageKernelPlotData.mat');
+  % dataDirs = dir(fullfile(baseFolder, 'Data', sprintf('Probe%d', probeDirs(p)));
+  % dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Kernels');
+  % [~, fileInfo] = selectAnalysisFiles(dataPaths, fileSelectionArgs{:});
+  % sessionRecords = repmat(emptySessionRecord(),0,1);
+  dataFile = fullfile(baseFolder, 'Data', sprintf('probe%d', probeDirs(p)), 'AverageKernels', sideType, ...
+          sprintf('AverageKernelPlotData_%s.mat', R.Animal));
   if ~isfile(dataFile)
     missingIndices = [missingIndices, p]; %#ok<AGROW>
     fprintf('      no kernels for probe %3d°\n', probeDirs(p));
@@ -180,20 +187,28 @@ for p = 1:nProbes
     xticklabels(xTickLabels);
     xlabel("Time (ms)");
     ylabel("Coherence (%)");
-    title(sprintf('%s Probe %s. (%d Sessions, %d Trials)', D.titlePrefix, plotTitles{s}(1:3), D.nSessions, ...
-      D.avgHitStats.nTrials(s)));
+    title(sprintf('%s Probe %s. (%d Sessions, %d Trials)', D.titlePrefix, plotTitles{s}(1:3), ...
+        D.nSessions, D.avgHitStats.nTrials(s)));
     box on;
   end
 end
-
 upperSideType = [upper(sideType(1)) sideType(2:end)];
 legend([prefLine(1), probeLine(1)], {"0° ±SEM", "Probe"}, 'location', 'southwest');
-title(t, sprintf('\\bf%s Side Average Kernels by Probe Direction', upperSideType));
+title(t, sprintf('\\bf%s Side Average Kernels by Probe Direction (%s)', upperSideType, R.Animal));
 
 % ---- Export ----
 outFolder = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'Kernels', upperSideType));
-outFile = fullfile(outFolder, sprintf('SideTypeKernelAverage_%s.pdf', sideType));
+outFile = fullfile(outFolder, sprintf('SideTypeKernelAverage_%s_%s.pdf', upperSideType, R.Animal));
 exportgraphics(fig, outFile, 'ContentType', 'vector');
+end
+
+%% makeParser()
+function p = makeParser()
+
+p = inputParser;
+addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
+addParameter(p, 'SideType', 'Change', @(x) ischar(x) || isstring(x));
+addParameter(p, 'ProbeDirs', [], @(x) isempty(x) || isnumeric(x));
 end
 
 %% Find probe directions with saved average-kernel data for requested side type.

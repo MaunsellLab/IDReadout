@@ -12,17 +12,11 @@ function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
 %   'NBoot'             hierarchical bootstrap count (default 1000)
 %   'RandomSeed'        bootstrap seed (default 1)
 %   'Bin179With180'     combine 179 and 180 deg (default false)
-%   'MakePlots'         default true
-%   'SaveFile'          default Data/AcrossOffsetSummaries/IDR_BetaSummary.mat
-%   'PlotDir'           default Plots/AcrossProbes/ReadoutFits/Beta
 %   'Bounds'            forwarded to fitAcrossOffsetReadout
 %   'Verbose'           default true
 
-baseFolder = domainFolder(mfilename('fullpath'));
-defaultSave = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
-defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta');
 
-P = makeParser(defaultSave, defaultPlotDir);
+P = makeParser();
 parse(P, varargin{:});
 p0 = P.Results;
 % check for nested file selection arguments and include them if they exist
@@ -34,15 +28,14 @@ if ~isempty(p0.FileSelectionArgs)
   p = P.Results;
 else
   p = p0;
-  fileSelectionArgs = {'FileSelectionArgs', {'Animal', 'Neesha'}};
+  fileSelectionArgs = {'FileSelectionArgs', {'Animal', 'All'}};
 end
 p.StepType = lower(char(string(p.StepType)));
-p.SaveFile = char(p.SaveFile);
-p.PlotDir = char(p.PlotDir);
 if ~isempty(p.RandomSeed), rng(p.RandomSeed); end
 
 % Scan through all ~IDR/Data/Probe*/Regression folders for
 % *_scalarNoiseRegression.mat files
+baseFolder = domainFolder(mfilename('fullpath'));
 dataDirs = dir(fullfile(baseFolder, 'Data', 'Probe*'));
 dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Regression');
 [~, fileInfo] = selectAnalysisFiles(dataPaths, fileSelectionArgs{:});
@@ -206,15 +199,16 @@ betaSummary.readoutModels = readoutFitSummary.readoutModels;
 betaSummary.readoutModel = readoutFitSummary.readoutModel;
 betaSummary.readoutModelComparison = readoutFitSummary.readoutModelComparison;
 
-saveDir = fileparts(p.SaveFile);
-if ~isfolder(saveDir), mkdir(saveDir); end
-save(p.SaveFile,'betaSummary','-v7.3');
-if p.Verbose, fprintf('Saved %s\n',p.SaveFile); end
-
+saveFolder = validFolder(fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries'));
+saveFile = fullfile(saveFolder, sprintf('BetaSummary_%s.mat', p.Animal));
+save(saveFile,'-v7.3');
+if p.Verbose
+  fprintf('Saved %s\n', saveFile);
+end
 end
 
 %% makeParser()
-function P = makeParser(defaultSave, defaultPlotDir)
+function P = makeParser()
 
 P = inputParser;
 P.FunctionName = mfilename;
@@ -224,9 +218,6 @@ addParameter(P, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","comb
 addParameter(P, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
 addParameter(P, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
-addParameter(P, 'SaveFile', defaultSave, @(x) ischar(x) || isstring(x));
-addParameter(P, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
-addParameter(P, 'PlotOnly', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'Bounds', struct(), @isstruct);
 addParameter(P, 'Verbose', true, @(x) islogical(x) && isscalar(x));
 end

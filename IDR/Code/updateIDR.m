@@ -12,7 +12,7 @@ fprintf('>>> dailyUpdate start\n');
 replace = false;
 doKernelBootstrap = false;
 nBoot = 5;
-animal = 'Neesha';
+animal = 'All';
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -21,17 +21,17 @@ fprintf('  << convertIDRData complete\n');
 
 % ---- Session-level probe-specific data files ----
 fprintf('  >> makeProbeSessions start\n');
-staleProbeDirs = makeProbeSessions(replace); 
+staleProbeDirs = makeProbeSessions('Animal', animal, 'Replace', replace); 
 fprintf('  << makeProbeSessions complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');
-makeKernels(replace); 
+makeKernels('Animal', animal, 'Replace', replace); 
 fprintf('  << makeKernels complete\n');
 
 % ---- Make beta session summaries ----
 fprintf('  >> makeBetaSessionData start\n');
-makeBetaSessionData(replace);
+makeBetaSessionData('Animal', animal, 'Replace', replace);
 fprintf('  << makeBetaSessionData start\n');
 
 % The following stages of the update all involve across-session analyses of
@@ -50,11 +50,6 @@ fitAcrossOffsetBetaMeasurements('NBoot', nBoot, 'Animal', animal);
 plotAcrossOffsetBetaSummary('Animal', animal);
 fprintf('  << make, fit and plot regressions complete\n');
 
-
-Made it up to here -- need to test that kernel average is loading appropriately named summary files for its average
-I'm not sure that it matters here -- there might not be any summary files it uses. 
-
-
 % ---- Average Kernels ----
 if isempty(staleProbeDirs)
   fprintf('       no stale probe-specific session outputs detected; skipping session summaries and averages.\n');
@@ -62,13 +57,13 @@ else
   fprintf('  >> kernelAverage start\n');
   for p = staleProbeDirs(:).'
     fprintf('      updating average for probe %d\n', p);
-    kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true);
+    kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', animal);
   end
   fprintf('  << kernelAverage complete\n');
 end
 
 fprintf('  >> plotSideTypeKernelAverage start\n');
-plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179]);
+plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', animal);
 fprintf('  << plotSideTypeKernelAverage complete\n');
 
 % ---- Across-offset summary update ----
@@ -76,7 +71,7 @@ fprintf('  << plotSideTypeKernelAverage complete\n');
 % keeps summary/plots synchronized with manual changes to summaries or exclusion rules.
 if ~isempty(staleProbeDirs) || doKernelBootstrap
   fprintf('  >> updateAcrossOffsetSummaries start\n');
-  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, ...
+  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal, ...
     'FileSelectionArgs', {'Bin179With180', true}); %#ok<NASGU>
   fprintf('  << updateAcrossOffsetSummaries complete\n');
 else

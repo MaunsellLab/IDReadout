@@ -15,79 +15,51 @@ function betaSummary = plotAcrossOffsetBetaSummary(varargin)
 % Example:
 %   plotAcrossOffsetBetaSummary();
 
-baseFolder = domainFolder(mfilename('fullpath'));
-defaultSummaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', 'IDR_BetaSummary.mat');
-defaultPlotDir = fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta');
-
 p = inputParser;
 p.FunctionName = mfilename;
 addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-addParameter(p, 'SummaryFile', defaultSummaryFile, @(x) ischar(x) || isstring(x));
-addParameter(p, 'PlotDir', defaultPlotDir, @(x) ischar(x) || isstring(x));
-addParameter(p, 'MakeRatioPlot', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'MakeRatioPlot', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakeReadoutPlot', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakeDiagnosticPlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'Visible', 'on', @(x) any(strcmpi(string(x), ["on","off"])));
 parse(p, varargin{:});
 opts = p.Results;
-opts.SummaryFile = char(opts.SummaryFile);
-opts.PlotDir = char(opts.PlotDir);
 opts.Visible = char(lower(string(opts.Visible)));
 
-if ~isfile(opts.SummaryFile)
-  error('plotAcrossOffsetBetaSummary:MissingSummary', 'Summary file not found: %s', opts.SummaryFile);
-end
-
-S = load(opts.SummaryFile, 'betaSummary');
-if ~isfield(S, 'betaSummary')
-  error('plotAcrossOffsetBetaSummary:MissingVariable', ...
-    '%s does not contain betaSummary.', opts.SummaryFile);
-end
-betaSummary = S.betaSummary;
+baseFolder = domainFolder(mfilename('fullpath'));
+summaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('BetaSummary_%s.mat', opts.Animal));
+load(summaryFile, 'betaSummary');
 
 required = {'offsetFits','measurements','readoutFitSummary','meta'};
 missing = required(~isfield(betaSummary, required));
 if ~isempty(missing)
-  error('plotAcrossOffsetBetaSummary:MissingFields', ...
-    'betaSummary is missing: %s', strjoin(missing, ', '));
+  error('plotAcrossOffsetBetaSummary:MissingFields', 'betaSummary is missing: %s', strjoin(missing, ', '));
 end
 
-if ~isfolder(opts.PlotDir)
-  mkdir(opts.PlotDir);
-end
-
+plotDir = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta'));
 if opts.MakeRatioPlot
-  plotBetaRatiosByOffset(betaSummary, fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'), opts.Visible);
+  fprintf('  %s\n', fullfile(plotDir, sprintf('BetaRatiosByOffset_%s.pdf', opts.Animal)));
+  plotBetaRatiosByOffset(betaSummary, fullfile(plotDir, sprintf('BetaRatiosByOffset_%s.pdf', opts.Animal)), ...
+        opts.Visible);
 end
-
 if opts.MakeReadoutPlot
-  plotBetaReadoutFit(betaSummary, fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'), opts.Visible);
+  fprintf('  %s\n', fullfile(plotDir, sprintf('BetaReadoutFit_%s.pdf', opts.Animal)));
+  plotBetaReadoutFit(betaSummary, fullfile(plotDir, sprintf('BetaReadoutFit_%s.pdf', opts.Animal)), opts.Visible);
 end
-
 if opts.MakeDiagnosticPlots
   R = betaSummary.readoutFitSummary.readoutModels;
   if isfield(R, 'signedDOG')
-    plotReadoutDiagnostics(R.signedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', opts.PlotDir, ...
-      'FileName', 'Beta_ReadoutFunctions_signed.pdf',  'Visible', opts.Visible, 'TitlePrefix', 'Beta', ...
-      'FigureNumber', 312);
+    fprintf('  %s\n', fullfile(plotDir, sprintf('BetaReadoutFunctions_Signed_%s.pdf', opts.Animal)));
+    plotReadoutDiagnostics(R.signedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', plotDir, ...
+      'FileName', sprintf('BetaReadoutFunctions_Signed_%s.pdf', opts.Animal),  'Visible', opts.Visible, ...
+      'TitlePrefix', 'Beta', 'FigureNumber', 312);
   end
   if isfield(R, 'rectifiedDOG')
-    plotReadoutDiagnostics(R.rectifiedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', opts.PlotDir, ...
-      'FileName', 'Beta_ReadoutFunctions_rectified.pdf', 'Visible', opts.Visible, 'TitlePrefix', 'Beta', ...
+    fprintf('  %s\n', fullfile(plotDir, sprintf('BetaReadoutFunctions_Rectified_%s.pdf', opts.Animal)));
+      plotReadoutDiagnostics(R.rectifiedDOG, 'NBoot', bootstrapCount(betaSummary), 'PlotDir', plotDir, ...
+      'FileName', sprintf('BetaReadoutFunctions_Rectified_%s.pdf', opts.Animal), 'TitlePrefix', 'Beta', ...
       'FigureNumber', 313);
   end
-end
-
-fprintf('Regenerated beta plots from saved summary without refitting:\n');
-if opts.MakeRatioPlot
-  fprintf('  %s\n', fullfile(opts.PlotDir, 'BetaRatiosByOffset.pdf'));
-end
-if opts.MakeReadoutPlot
-  fprintf('  %s\n', fullfile(opts.PlotDir, 'BetaReadoutFit.pdf'));
-end
-if opts.MakeDiagnosticPlots
-  fprintf('  %s\n', fullfile(opts.PlotDir, 'Beta_ReadoutFunctions_signed.pdf'));
-  fprintf('  %s\n', fullfile(opts.PlotDir, 'Beta_ReadoutFunctions_rectified.pdf'));
 end
 end
 
