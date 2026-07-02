@@ -54,14 +54,14 @@ dirsDeg = sessionAnalyses{1}.sessionHeader.dirsDeg(:)';
 for iSession = 2:numel(sessionAnalyses)
     thisDirsDeg = sessionAnalyses{iSession}.sessionHeader.dirsDeg(:)';
     if numel(thisDirsDeg) ~= numel(dirsDeg) || any(thisDirsDeg ~= dirsDeg)
-        error('computeIDQDirectionDiagnostics:DirDegMismatch', ...
-            'sessionHeader.dirsDeg differs across sessions.');
+        error('computeIDQDirectionDiagnostics:DirDegMismatch', 'sessionHeader.dirsDeg differs across sessions.');
     end
 end
 
 dirLabels = strings(1, numel(dirsDeg));
 for iDir = 1:numel(dirsDeg)
-    dirLabels(iDir) = sprintf('%g deg', dirsDeg(iDir));
+    % dirLabels(iDir) = sprintf('%g deg', dirsDeg(iDir));
+    dirLabels(iDir) = sprintf('%.0f°', dirsDeg(iDir));
 end
 
 end

@@ -187,7 +187,7 @@ fig = figure('WindowStyle', 'docked');
 hold on;
 ci95 = 1.96 * kernelData.kernelSEMPC;
 fill([kernelData.tMS, fliplr(kernelData.tMS)], [kernelData.kernelPC + ci95, fliplr(kernelData.kernelPC - ci95)], ...
-  [0.85 0.85 1.00], 'EdgeColor', 'none', 'FaceAlpha', 0.4);
+  [0.7 0.7 0.7], 'EdgeColor', 'none', 'FaceAlpha', 0.4);
 plot(kernelData.tMS, kernelData.kernelPC, 'b-', 'LineWidth', 1.5);
 xline(kernelData.stepOnsetMS, 'k--', 'Step onset');
 yline(0, 'k:');

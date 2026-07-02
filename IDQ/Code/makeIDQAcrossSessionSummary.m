@@ -294,23 +294,18 @@ allErrorNoise = [];
 
 for iSession = 1:numel(sessionAnalyses)
   SA = sessionAnalyses{iSession};
-
   if numel(SA.tMS) ~= numel(tMS) || any(SA.tMS(:) ~= tMS(:))
-    error('makeIDQAcrossSessionSummary:TimeVectorMismatch', ...
-      'Session %s has a different tMS vector.', SA.fileName);
+    error('makeIDQAcrossSessionSummary:TimeVectorMismatch', 'Session %s has a different tMS vector.', SA.fileName);
   end
 
   if numel(SA.stepFrames) ~= numel(stepFrames) || any(SA.stepFrames(:) ~= stepFrames(:))
-    error('makeIDQAcrossSessionSummary:StepFrameMismatch', ...
-      'Session %s has different stepFrames.', SA.fileName);
+    error('makeIDQAcrossSessionSummary:StepFrameMismatch', 'Session %s has different stepFrames.', SA.fileName);
   end
 
   T = SA.trialTable;
   idxUse = T.hasStepNoise;
-
   correctUse = idxUse & T.correct;
   errorUse = idxUse & ~T.correct;
-
   allCorrectNoise = [allCorrectNoise, SA.sumNoiseByFrameTrial(:, correctUse)]; %#ok<AGROW>
   allErrorNoise = [allErrorNoise, SA.sumNoiseByFrameTrial(:, errorUse)]; %#ok<AGROW>
 end
@@ -342,7 +337,6 @@ kernel.preStepFrames = preStepFrames;
 
 kernel.preStepMean = mean(kernel.meanDiff(preStepFrames), 'omitnan');
 kernel.preStepSD = std(kernel.meanDiff(preStepFrames), 'omitnan');
-
 kernel.stepMinusPreMean = kernel.stepMean - kernel.preStepMean;
 
 if kernel.preStepSD > 0
@@ -351,7 +345,7 @@ else
   kernel.stepMeanZPreSD = NaN;
 end
 
-kernel.rectReference = zeros(size(kernel.meanDiff));
+kernel.rectReference = ones(size(kernel.meanDiff)) .* kernel.preStepMean;
 kernel.rectReference(stepFrames) = kernel.stepMean;
 end
 
@@ -404,7 +398,8 @@ end
 %% -------------------------------------------------------------------------
 function fig = plotIDQAcrossSessionSummary(acrossSummary)
 
-fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8], 'WindowStyle', 'docked');
+fig = figure(500);
+set(fig, 'Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8], 'WindowStyle', 'docked');
 
 tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
@@ -479,28 +474,23 @@ end
 function plotAcrossKernel(ax, kernel)
 
 hold(ax, 'on');
-
 plot(ax, kernel.tMS, zeros(size(kernel.tMS)), ':', 'HandleVisibility', 'off');
-
 x1 = kernel.tMS(kernel.stepFrames(1));
 x2 = kernel.tMS(kernel.stepFrames(end));
 
 % Plot first to establish y-limits.
 plot(ax, kernel.tMS, kernel.meanDiff, '-', 'LineWidth', 1.2,  'HandleVisibility', 'off');
 plot(ax, kernel.tMS, kernel.rectReference, '--', 'LineWidth', 1.0, 'HandleVisibility', 'off');
-
 yl = ylim(ax);
-patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.8 0.8 0.8],  'EdgeColor', 'none', ...
+patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7],  'EdgeColor', 'none', ...
     'FaceAlpha', 0.35, 'HandleVisibility', 'off');
 
 % Replot on top of patch.
 plot(ax, kernel.tMS, kernel.meanDiff, '-b', 'LineWidth', 1.2, 'DisplayName', 'correct - error');
 plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName', 'step-mean rectangle');
-
 xlabel(ax, 'Time from trial start (ms)');
 ylabel(ax, 'Summed changed-side noise, correct - error');
 title(ax, 'Across summed-noise kernel', 'Interpreter', 'none');
-
 grid(ax, 'on');
 box(ax, 'off');
 
@@ -509,7 +499,7 @@ txt = sprintf(['correct n=%d\n' 'error n=%d\n' 'step mean %.2f%%\n' 'preStep SD 
 text(ax, 0.02, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
   'FontSize', 8);
 
-legend(ax, 'Location', 'southeast', 'FontSize', 7);
+legend(ax, 'Location', 'southwest', 'FontSize', 7);
 
 end
 %% -------------------------------------------------------------------------
@@ -542,6 +532,7 @@ box(ax, 'off');
 
 end
 
+%% -------------------------------------------------------------------------
 function fig = plotIDQDirectionDiagnosticsSummary(acrossSummary)
 % plotIDQDirectionDiagnosticsSummary
 %
@@ -551,8 +542,9 @@ function fig = plotIDQDirectionDiagnosticsSummary(acrossSummary)
 Dabs = acrossSummary.directionDiagnostics.absolute;
 Daln = acrossSummary.directionDiagnostics.aligned;
 
-fig = figure('Color', 'w', 'Units', 'inches', 'Position', [1 1 11 8.5], ...
-        'PaperOrientation', 'landscape', 'WindowStyle', 'docked');
+fig = figure(501);
+set(fig, 'Color', 'w', 'Units', 'inches', 'Position', [1 1 11 8.5], ...
+              'PaperOrientation', 'landscape', 'WindowStyle', 'docked');
 tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 title(tl, 'IDQ direction diagnostics', ...
@@ -563,20 +555,16 @@ ax = nexttile(tl, 1);
 plotDirectionBehavior(ax, Dabs.behavior);
 
 ax = nexttile(tl, 2);
-plotDirectionKernelSummary(ax, Dabs.kernels, ...
-  'Absolute direction kernel step means');
+plotDirectionKernelSummary(ax, Dabs.kernels, 'Absolute direction kernel step means');
 
 ax = nexttile(tl, 3);
-plotRectGainByDirection(ax, ...
-    Dabs.rectGainByDirection);
+plotRectGainByDirection(ax, Dabs.rectGainByDirection);
 
 ax = nexttile(tl, 4);
-plotDirectionKernels(ax, Dabs.kernels, ...
-  'Absolute changed-side kernels');
+plotDirectionKernels(ax, Dabs.kernels, 'Absolute changed-side kernels');
 
 ax = nexttile(tl, 5);
-plotDirectionKernels(ax, Daln.kernels, ...
-  'Aligned changed-side kernels');
+plotDirectionKernels(ax, Daln.kernels, 'Aligned changed-side kernels');
 
 ax = nexttile(tl, 6);
 plotDirectionDiagnosticsText(ax, acrossSummary);
@@ -591,9 +579,7 @@ hold(ax, 'on');
 
 yline(ax, 0.5, 'k:', 'HandleVisibility', 'off');
 
-set(ax, ...
-    'XTick', 1:height(behavior), ...
-    'XTickLabel', behavior.directionLabel);
+set(ax, 'XTick', 1:height(behavior), 'XTickLabel', behavior.directionLabel);
 
 xtickangle(ax, 30);
 
@@ -623,36 +609,22 @@ S = kernels.summaryTable;
 
 bar(ax, S.stepMean);
 hold(ax, 'on');
-
 yline(ax, 0, 'k:', 'HandleVisibility', 'off');
-
-set(ax, ...
-    'XTick', 1:height(S), ...
-    'XTickLabel', S.directionLabel);
-
+set(ax, 'XTick', 1:height(S), 'XTickLabel', S.directionLabel);
 xtickangle(ax, 30);
-
 ylabel(ax, 'Step mean kernel');
-title(ax, plotTitle, ...
-    'Interpreter', 'none');
+title(ax, plotTitle, 'Interpreter', 'none');
 
 grid(ax, 'on');
 box(ax, 'off');
-
 for i = 1:height(S)
     y = S.stepMean(i);
-
     if y >= 0
         va = 'bottom';
     else
         va = 'top';
     end
-
-    text(ax, i, y, ...
-        sprintf('%.3g', y), ...
-        'HorizontalAlignment', 'center', ...
-        'VerticalAlignment', va, ...
-        'FontSize', 7);
+    text(ax, i, y, sprintf('%.3g', y), 'HorizontalAlignment', 'center', 'VerticalAlignment', va, 'FontSize', 7);
 end
 yl = ylim(ax);
 m = max(abs(yl));
@@ -663,12 +635,10 @@ end
 function plotDirectionKernels(ax, kernels, plotTitle)
 
 hold(ax, 'on');
-
 tMS = kernels.tMS;
 stepFrames = kernels.stepFrames;
 
-plot(ax, tMS, zeros(size(tMS)), 'k:', ...
-    'HandleVisibility', 'off');
+plot(ax, tMS, zeros(size(tMS)), 'k:', 'HandleVisibility', 'off');
 
 x1 = tMS(stepFrames(1));
 x2 = tMS(stepFrames(end));
@@ -676,34 +646,26 @@ x2 = tMS(stepFrames(end));
 % Initial plot to set y limits.
 for iDir = 1:numel(kernels.summaryTable.directionLabel)
     plot(ax, tMS, kernels.meanDiff(:, iDir), ...
-        'LineWidth', 1.0, ...
-        'DisplayName', char(kernels.summaryTable.directionLabel(iDir)));
+        'LineWidth', 1.0, 'DisplayName', char(kernels.summaryTable.directionLabel(iDir)), 'HandleVisibility', 'off');
 end
 
 yl = ylim(ax);
-
-patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], ...
-    [0.9 0.9 0.9], ...
-    'EdgeColor', 'none', ...
-    'FaceAlpha', 0.35, ...
-    'HandleVisibility', 'off');
+patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7], ...
+        'EdgeColor', 'none', 'FaceAlpha', 0.35, 'HandleVisibility', 'off');
 
 % Replot on top of patch.
 for iDir = 1:numel(kernels.summaryTable.directionLabel)
     plot(ax, tMS, kernels.meanDiff(:, iDir), ...
-        'LineWidth', 1.0, ...
-        'DisplayName', char(kernels.summaryTable.directionLabel(iDir)));
+        'LineWidth', 1.0, 'DisplayName', char(kernels.summaryTable.directionLabel(iDir)));
 end
 
 xlabel(ax, 'Time from trial start (ms)');
 ylabel(ax, 'Correct - error noise');
-title(ax, plotTitle, ...
-    'Interpreter', 'none');
+title(ax, plotTitle, 'Interpreter', 'none');
 
 grid(ax, 'on');
 box(ax, 'off');
-
-legend(ax, 'Location', 'best', 'FontSize', 7);
+legend(ax, 'Location', 'southwest', 'FontSize', 7);
 
 end
 
@@ -725,36 +687,25 @@ Saln = Daln.kernels.summaryTable;
 behaviorRange = max(B.pCorrect) - min(B.pCorrect);
 
 txt = {
-    'Direction diagnostics'
-    ''
-    'Behavior is grouped by physical drift direction.'
-    'Aligned kernels are grouped by stream relative to drift.'
-    ''
-    sprintf('Best physical direction: %s, p=%.3f', ...
-        B.directionLabel(bestDir), B.pCorrect(bestDir))
-    sprintf('Worst physical direction: %s, p=%.3f', ...
-        B.directionLabel(worstDir), B.pCorrect(worstDir))
+    sprintf('Best physical direction: %s, %.1f%%', B.directionLabel(bestDir), B.pCorrect(bestDir) * 100.0)
+    sprintf('Worst physical direction: %s, %.1f%%', B.directionLabel(worstDir), B.pCorrect(worstDir) * 100.0)
     sprintf('Behavior range: %.3f', behaviorRange)
     ''
     'Absolute kernel step means:'
-    sprintf('  %s: %.3g', Sabs.directionLabel(1), Sabs.stepMean(1))
-    sprintf('  %s: %.3g', Sabs.directionLabel(2), Sabs.stepMean(2))
-    sprintf('  %s: %.3g', Sabs.directionLabel(3), Sabs.stepMean(3))
+    sprintf('  %s: %.2g', Sabs.directionLabel(1), Sabs.stepMean(1))
+    sprintf('  %s: %.2g', Sabs.directionLabel(2), Sabs.stepMean(2))
+    sprintf('  %s: %.2g', Sabs.directionLabel(3), Sabs.stepMean(3))
     ''
     'Aligned kernel step means:'
-    sprintf('  %s: %.3g', Saln.directionLabel(1), Saln.stepMean(1))
-    sprintf('  %s: %.3g', Saln.directionLabel(2), Saln.stepMean(2))
-    sprintf('  %s: %.3g', Saln.directionLabel(3), Saln.stepMean(3))
+    sprintf('  %s: %.2g', Saln.directionLabel(1), Saln.stepMean(1))
+    sprintf('  %s: %.2g', Saln.directionLabel(2), Saln.stepMean(2))
+    sprintf('  %s: %.2g', Saln.directionLabel(3), Saln.stepMean(3))
     ''
     'Diagnostic only; primary gain remains collapsed across directions.'
     };
 
-text(ax, 0, 1, txt, ...
-    'Units', 'normalized', ...
-    'VerticalAlignment', 'top', ...
-    'HorizontalAlignment', 'left', ...
-    'FontName', 'Menlo', ...
-    'FontSize', 8);
+text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
+    'FontName', 'Menlo', 'FontSize', 8);
 
 end
 
@@ -762,51 +713,30 @@ end
 function plotRectGainByDirection(ax, rectGainByDirection)
 
 S = rectGainByDirection.summaryTable;
-
 hold(ax, 'on');
-
 x = 1:height(S);
-
 bar(ax, x, S.gain);
 
 for i = 1:height(S)
-  plot(ax, [x(i) x(i)], [S.CI95Low(i) S.CI95High(i)], ...
-    'k-', 'LineWidth', 1.3);
+  plot(ax, [x(i) x(i)], [S.CI95Low(i) S.CI95High(i)], 'k-', 'LineWidth', 1.3);
 end
 
-plot(ax, x, S.gain, 'ko', ...
-  'MarkerFaceColor', 'k', ...
-  'MarkerSize', 5);
-
-yline(ax, rectGainByDirection.flatPrediction, 'k--', ...
-  'DisplayName', 'flat prediction');
-
-yline(ax, 0, 'k:', ...
-  'HandleVisibility', 'off');
-
-set(ax, ...
-  'XTick', x, ...
-  'XTickLabel', S.directionLabel);
-
+plot(ax, x, S.gain, 'ko', 'MarkerFaceColor', 'k', 'MarkerSize', 5);
+yline(ax, rectGainByDirection.flatPrediction, 'k--', 'DisplayName', 'flat prediction');
+yline(ax, 0, 'k:', 'HandleVisibility', 'off');
+set(ax, 'XTick', x, 'XTickLabel', S.directionLabel);
 xtickangle(ax, 30);
-
 ylabel(ax, 'Rect noise gain');
-title(ax, 'Rectangular gain by drift direction', ...
-  'Interpreter', 'none');
-
+title(ax, 'Rectangular gain by drift direction', 'Interpreter', 'none');
 grid(ax, 'on');
 box(ax, 'off');
 
 yl = ylim(ax);
-ylim(ax, [min([yl(1), min(S.CI95Low)-0.1, -0.1]), ...
-  max([yl(2), rectGainByDirection.flatPrediction+0.1])]);
+ylim(ax, [min([yl(1), min(S.CI95Low)-0.1, -0.1]), max([yl(2), rectGainByDirection.flatPrediction+0.1])]);
 
 for i = 1:height(S)
-  text(ax, x(i), S.CI95High(i), ...
-    sprintf('zF %.1f', S.zVsFlat(i)), ...
-    'HorizontalAlignment', 'center', ...
-    'VerticalAlignment', 'bottom', ...
-    'FontSize', 7);
+  text(ax, x(i), S.CI95High(i), sprintf('zF %.1f', S.zVsFlat(i)), ...
+    'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 7);
 end
 
 end

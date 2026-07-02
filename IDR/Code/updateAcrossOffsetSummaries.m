@@ -786,8 +786,14 @@ fig1 = figure(300); clf; hold on;
 hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci95(:,1)'], [0, ci95(:,2)' - obsScale], ...
     'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
-legendHandles = hObs;
-legendLabels = {'Observed Scale (95% CI)'};
+
+% Typical MT Gaussian direction tuning, normalized to 1 at 0 deg
+mtSigmaDeg = 37.5;
+mtOffsetsDeg = linspace(0, 180, 361);
+mtTuning = exp(-0.5 * (mtOffsetsDeg ./ mtSigmaDeg).^2);
+hMT = plot(mtOffsetsDeg, mtTuning, 'k:', 'LineWidth', 1.0, 'DisplayName', 'Typical MT tuning');
+legendHandles = [hObs, hMT];
+legendLabels = {'Observed Scale (95% CI)', 'Typical MT tuning (\sigma = 37.5 deg)'};
 signedRM = acrossOffsetSummary.readoutModels.signedDOG;
 rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
 hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...

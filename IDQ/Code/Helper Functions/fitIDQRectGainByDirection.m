@@ -1,5 +1,5 @@
 function rectGainByDirection = fitIDQRectGainByDirection( ...
-  trialTable, sessionFits, alignedWeibull, targetPerformance, directionLabels)
+    trialTable, sessionFits, alignedWeibull, targetPerformance, directionLabels)
 % fitIDQRectGainByDirection
 %
 % Diagnostic-only rectangular noise gain fits by physical drift direction.
@@ -32,13 +32,7 @@ for iDir = 1:nDirs
 
   Tdir = trialTable(idxDir, :);
 
-  fit = fitIDQNoiseGain( ...
-    Tdir, ...
-    'rectNoisePredictor', ...
-    sessionFits, ...
-    alignedWeibull, ...
-    targetPerformance);
-
+  fit = fitIDQNoiseGain(Tdir, 'rectNoisePredictor', sessionFits, alignedWeibull, targetPerformance);
   fit.directionIndex = iDir;
   fit.directionLabel = directionLabels(iDir);
 

@@ -73,24 +73,22 @@ set(fig, 'Color','w', 'Visible', visible, 'WindowStyle', 'docked');
 hold on;
 
 hSession = gobjects(1);
-hPool = gobjects(1);
+% hPool = gobjects(1);
 for k = 1:numel(F)
-  n = numel(F(k).sessionBetaRatio);
+  validIdx = abs(F(k).sessionBetaRatio) < 3.0;
+  betaRatios = F(k).sessionBetaRatio(validIdx);
+  n = numel(betaRatios);
   jitter = zeros(n,1);
   if n > 1
     jitter = linspace(-1.5,1.5,n)';
   end
-  h = errorbar(F(k).probeOffsetDeg+jitter, F(k).sessionBetaRatio(:), ...
-    F(k).sessionBetaRatioSE(:), 'o', 'LineStyle','none', 'MarkerSize',4, 'CapSize',0);
+  h = plot(F(k).probeOffsetDeg+jitter, betaRatios, 'o', 'LineStyle', 'none', 'MarkerSize', 4);
+  h.MarkerFaceColor = h.Color;
+  h.MarkerEdgeColor = 'black';
+  plot(F(k).probeOffsetDeg, mean(betaRatios), 'o', 'LineStyle', 'none', 'MarkerSize', 8, ...
+          'MarkerFaceColor', 'black');
   if k == 1
     hSession = h;
-  end
-
-  [ciLow, ciHigh] = offsetCI95(S, k);
-  hp = errorbar(F(k).probeOffsetDeg, F(k).scale, F(k).scale-ciLow, ciHigh-F(k).scale, 'ks', ...
-    'MarkerFaceColor','k', 'MarkerSize',8, 'LineWidth',1.4, 'CapSize',8);
-  if k == 1
-    hPool = hp;
   end
 end
 
@@ -102,7 +100,7 @@ ylabel('\beta_{probe}/\beta_{pref}');
 title(sprintf('%s session ratios and pooled shared scales (%d bootstraps)', ...
   upper(char(S.meta.stepType)), bootstrapCount(S)));
 xticks([F.probeOffsetDeg]);
-legend([hSession hPool], {'Session ratio \pm SE','Pooled shared scale (95% CI)'}, 'Location','best');
+legend(hSession, {'Session ratio'}, 'Location','best');
 box off;
 
 exportgraphics(fig, savePath, 'ContentType', 'vector');
@@ -155,6 +153,9 @@ ylabel('Normalized beta scale');
 title(sprintf('%s pooled beta scales and MT/readout fit (%d bootstraps)', ...
   upper(char(S.meta.stepType)), bootstrapCount(S)));
 xlim([0 180]);
+if max([lo; hi]) > 2.0
+  ylim([-1, 2]);
+end
 legend(hh, labels, 'Location','southwest');
 box off;
 

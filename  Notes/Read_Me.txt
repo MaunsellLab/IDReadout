@@ -1,4 +1,7 @@
 IDReadout To Do:
+
+Remove CIs from scale plots
+Clip the scale fit plot for Neesha
   
 IDReadout Analysis Overview:
 ============================
