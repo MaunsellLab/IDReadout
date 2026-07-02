@@ -1,36 +1,5 @@
 IDReadout To Do:
-
-Kernel average is not getting staleDirections when regressions are remain  Is a problem for plotting across kernel directions
-
-plotSideTypeKernelAverage failed to find the summary files
-Trouble finding in function probeDirs = findProbeDirsWithAverageData(sideType)
-Search involves:
-dataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data');
-probeFolders = dir(fullfile(dataFolder, 'Probe*'));
-  probeDir = str2double(token{1});
-  dataFile = fullfile(dataFolder, probeName, 'AverageKernels', sideType, 'AverageKernelPlotData.mat');
-  AverageKernels have not been produced, let alone sideType averageKernels
-  dailyUpdate seems to be out of order
-
-Kernel plot titles are screwed up
-
-
-fitAcrossOffsetBetaMeasurements('NBoot', nBoot, 'Animal', animal); ???
-saving to:
-Batch summary saved: /Users/Shared/Data/IDReadout/IDR/Data/scalarNoiseRegression_batchSummary.mat
-Does this need to be identified by animal?
-
-Revise:
-
-Getting different number of trials for beta and scale fits
-
-  makeKernels
-    strip parsing out of compileKernelSummary
-    eliminate the stub: recomputeSessionKernelStruct
   
-Eliminate: 
-  updateAcrossOffsetSummaries -- remove selectCompStatsEntry
-
 IDReadout Analysis Overview:
 ============================
 

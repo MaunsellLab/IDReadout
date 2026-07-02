@@ -104,8 +104,6 @@ for k = 1:numel(D)
     end
 
     row = fileInfoFromAnalysisFile(filePath);
-    % row = stripExclusionColumns(row);
-
     excludeReasons = {};
 
     if ~isempty(R.Animal)
@@ -347,8 +345,6 @@ else
   probeDirDeg = nan;
   probeTag = "";
 end
-
-% excludeReasons = {};
 
 fileInfoRow = table( ...
 {filePath}, {folder}, {fileNameExt}, ...

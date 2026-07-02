@@ -23,7 +23,7 @@ if ~exist(dataFolder, 'dir')
 end
 
 [selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, 'Bin179With180', R.Bin179With180, 'Animal', R.Animal);
-if R.verbose
+if R.Verbose
   nFiles = numel(fileInfo.fileName);
   if nFiles > 0
     fprintf('  Found %d sessions:\n', nFiles);
@@ -355,7 +355,7 @@ function p = makeParser()
   addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
   addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
   addParameter(p, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
-  addParameter(p, 'verbose', false, @islogical);
+  addParameter(p, 'Verbose', false, @islogical);
 end
 
 %%

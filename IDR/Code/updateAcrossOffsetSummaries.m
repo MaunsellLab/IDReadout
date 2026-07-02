@@ -576,41 +576,6 @@ bootstrap.fitBootstrap = struct( ...
 end
 
 % ========================================================================
-% function scaleVal = recomputeSessionScalePointEstimate(sessionRecord, opts)
-% % Recompute the requested side/step point estimate from source noise matrices.
-% 
-% if isempty(sessionRecord.noiseFile) || ~exist(sessionRecord.noiseFile, 'file')
-%     scaleVal = sessionRecord.scalePointEstimate;
-%     return;
-% end
-% 
-% sessionData = load(sessionRecord.noiseFile);
-% [~, ~, ~, ~, compStats] = computeSessionKernels(sessionData, []);
-% 
-% if isfield(compStats, 'normScale')
-%     scaleVal = selectCompStatsEntry(compStats.normScale, opts.ScaleSideType, opts.ScaleStepType);
-% else
-%     warning('updateAcrossOffsetSummaries:MissingNormScale', ...
-%         'compStats.normScale missing for session %s; falling back to raw scale.', ...
-%         sessionRecord.sessionName);
-%     scaleVal = selectCompStatsEntry(compStats.scale, opts.ScaleSideType, opts.ScaleStepType);
-% end
-% end
-
-% % ========================================================================
-% function [kernels, kVars, hitStats, compStats] = recomputeSessionKernelStruct(sessionRecord, ~, doTrialBootstrap)
-% % Recompute full session kernel outputs from source noise matrices.
-% 
-% sessionData = load(sessionRecord.noiseFile);
-% trialIdx = [];
-% if doTrialBootstrap
-%     nTrials = size(sessionData.prefNoiseByPatch, 3);
-%     trialIdx = randi(nTrials, [1 nTrials]);
-% end
-% [kernels, kVars, ~, hitStats, compStats] = computeSessionKernels(sessionData, trialIdx);
-% end
-
-% ========================================================================
 function pooledScale = computeOffsetPooledScale(offsetStruct, opts, doBootstrap)
 % Mirror kernelAverage: recompute session kernels, normalize the probe
 % stream to the pref-noise amplitude convention, pool with inverse-variance
@@ -940,23 +905,27 @@ end
 function idx = mapSideType(sideType)
 
 if isnumeric(sideType)
-    idx = sideType;
-    return;
+  idx = sideType;
+  return;
 end
 
 switch lower(char(string(sideType)))
-    case 'diff'
-        idx = 1;
-    case 'change'
-        idx = 2;
-    case 'nochange'
-        idx = 3;
-    case 'rf'
-        idx = 4;
-    case 'opp'
-        idx = 5;
-    otherwise
-        error('Unknown side type: %s', char(string(sideType)));
+  case 'diff'
+    idx = 1;
+  case 'change'
+    idx = 2;
+  case 'nochange'
+    idx = 3;
+  case 'rf'
+    idx = 4;
+  case 'opp'
+    idx = 5;
+  case 'chosen'
+    idx = 6;
+  case 'notchosen'
+    idx = 7;
+  otherwise
+    error('Unknown side type: %s', char(string(sideType)));
 end
 
 end
@@ -1101,11 +1070,11 @@ normInfo.probeNormFactor = (prefCohNoisePC / combinedProbeCohNoisePC)^2;
 normInfo.method = ...
   'probe kernels multiplied by (prefCohNoisePC/(nYokedProbeStreams*probeCohNoisePC))^2 before computing normalized ratios/scales';
 end
+
 % ========================================================================
 function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
 
-assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
-    'updateAcrossOffsetSummaries:MissingProbeDir', ...
+assert(isfield(sessionProbeHeader, 'probeDirDeg'), 'updateAcrossOffsetSummaries:MissingProbeDir', ...
     'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
 
 probeDirDeg = abs(double(sessionProbeHeader.probeDirDeg));

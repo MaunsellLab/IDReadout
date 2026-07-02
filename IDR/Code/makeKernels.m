@@ -20,23 +20,6 @@ if isempty(dataFilePaths)
   fprintf('No session files found\n');
   return;
 end
-% [~, sideTypeNames] = sideTypeIndex();
-
-
-% ---- Find all relevant .mat data files ----
-% sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
-% allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
-% if isempty(allMatFiles)
-%   fprintf('No .mat files found in %s\n', sessionDataFolder);
-%   return;
-% end
-% names = {allMatFiles.name};
-% isFileInfo = endsWith(names, '_fileInfo.mat');
-% dataFiles = allMatFiles(~isFileInfo);
-% if isempty(dataFiles)
-%   fprintf('No data session files found in %s\n', sessionDataFolder);
-%   return;
-% end
 
 % ---- Process each session file to see if probeSession kernels are missing ----
 for k = 1:numel(dataFilePaths)

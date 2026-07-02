@@ -35,14 +35,11 @@ effectiveNFrames = nan(nSessions, 1);
 weightsBySession = nan(nStepFrames, nSessions);
 
 for iSession = 1:nSessions
-
     SA = sessionAnalyses{iSession};
-
     if numel(SA.tMS) ~= numel(tMS) || any(SA.tMS(:) ~= tMS(:))
         error('computeIDQLOONoisePredictor:TimeVectorMismatch', ...
             'Session %s has a different tMS vector.', SA.fileName);
     end
-
     if numel(SA.stepFrames) ~= numel(stepFrames) || any(SA.stepFrames(:) ~= stepFrames(:))
         error('computeIDQLOONoisePredictor:StepFrameMismatch', ...
             'Session %s has different stepFrames.', SA.fileName);
@@ -97,27 +94,24 @@ end
 
 %% ------------------------------------------------------------------------
 function kernel = computeLOOKernel(sessionAnalyses, leaveOutSession)
+% computeLOOKernel: computer a leave-one-out kernel.  Returns a single 
+% kernels if only one session is passed in.
 
 allCorrectNoise = [];
 allErrorNoise = [];
 
 for iSession = 1:numel(sessionAnalyses)
-
-  if iSession == leaveOutSession
+  if iSession == leaveOutSession && numel(sessionAnalyses) > 1
     continue
   end
-
   SA = sessionAnalyses{iSession};
   T = SA.trialTable;
 
   idxUse = T.hasStepNoise;
-
   correctUse = idxUse & T.correct;
   errorUse = idxUse & ~T.correct;
-
   allCorrectNoise = [allCorrectNoise, SA.sumNoiseByFrameTrial(:, correctUse)];
   allErrorNoise = [allErrorNoise, SA.sumNoiseByFrameTrial(:, errorUse)];
-
 end
 
 meanCorrect = mean(allCorrectNoise, 2, 'omitnan');

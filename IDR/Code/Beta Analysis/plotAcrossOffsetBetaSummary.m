@@ -30,11 +30,11 @@ baseFolder = domainFolder(mfilename('fullpath'));
 summaryFile = fullfile(baseFolder, 'Data', 'AcrossOffsetSummaries', sprintf('BetaSummary_%s.mat', opts.Animal));
 load(summaryFile, 'betaSummary');
 
-required = {'offsetFits','measurements','readoutFitSummary','meta'};
-missing = required(~isfield(betaSummary, required));
-if ~isempty(missing)
-  error('plotAcrossOffsetBetaSummary:MissingFields', 'betaSummary is missing: %s', strjoin(missing, ', '));
-end
+% required = {'offsetFits','measurements','readoutFitSummary','meta'};
+% missing = required(~isfield(betaSummary, required));
+% if ~isempty(missing)
+%   error('plotAcrossOffsetBetaSummary:MissingFields', 'betaSummary is missing: %s', strjoin(missing, ', '));
+% end
 
 plotDir = validFolder(fullfile(baseFolder, 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta'));
 if opts.MakeRatioPlot
@@ -43,8 +43,9 @@ if opts.MakeRatioPlot
         opts.Visible);
 end
 if opts.MakeReadoutPlot
-  fprintf('  %s\n', fullfile(plotDir, sprintf('BetaReadoutFit_%s.pdf', opts.Animal)));
-  plotBetaReadoutFit(betaSummary, fullfile(plotDir, sprintf('BetaReadoutFit_%s.pdf', opts.Animal)), opts.Visible);
+  filePath = fullfile(plotDir, sprintf('BetaFits_%s.pdf', opts.Animal));
+  fprintf('  %s\n', filePath);
+  plotBetaReadoutFit(betaSummary, filePath, opts.Visible);
 end
 if opts.MakeDiagnosticPlots
   R = betaSummary.readoutFitSummary.readoutModels;

@@ -10,9 +10,10 @@ function updateIDR()
 
 fprintf('>>> dailyUpdate start\n');
 replace = false;
-doKernelBootstrap = true;
 nBoot = 500;
-animal = 'Neesha';
+animal = 'All';
+% animal = 'Meetz';
+% animal = 'Neesha';
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -26,7 +27,7 @@ fprintf('  << makeProbeSessions complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');
-makeKernels('Animal', animal, 'Replace', false); 
+makeKernels('Animal', animal); 
 fprintf('  << makeKernels complete\n');
 
 % ---- Make beta session summaries ----
@@ -38,17 +39,14 @@ fprintf('  << makeBetaSessionData complete\n');
 % various sorts (including session beta regressions, which use an
 % across-session kernel for temporally weighting the noise signal.
 
-% ---- Beta temporal weights ----
-fprintf('  >> beta fits start\n');
-makeBetaKernel('Animal', animal);
-fprintf('  << beta fits complete\n');
-
 % ---- Probe-session regressions and across-offset beta summary ----
-fprintf('  >> make, fit and plot regressions start\n');
+fprintf('  >> makeRegressions start\n');
 makeRegressions('Replace', replace, 'Animal', animal);
-fitAcrossOffsetBetaMeasurements('NBoot', nBoot, 'Animal', animal);
-plotAcrossOffsetBetaSummary('Animal', animal);
-fprintf('  << make, fit and plot regressions complete\n');
+fprintf('  >> makeRegressions complete\n');
+
+fprintf('  >> fitBetaAcrossOffsets start\n');
+fitBetaAcrossOffsets('NBoot', nBoot, 'Animal', animal);
+fprintf('  << fitBetaAcrossOffsets complete\n');
 
 % ---- Average Kernels ----
 fprintf('  >> kernelAverage start\n');
@@ -63,16 +61,10 @@ plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', ani
 fprintf('  << plotSideTypeKernelAverage complete\n');
 
 % ---- Across-offset summary update ----
-% This should run even when no single-session files were stale, because it is cheap relative to the pipeline and 
-% keeps summary/plots synchronized with manual changes to summaries or exclusion rules.
-if ~isempty(staleProbeDirs) || doKernelBootstrap
-  fprintf('  >> updateAcrossOffsetSummaries start\n');
-  acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal, ...
+fprintf('  >> updateAcrossOffsetSummaries start\n');
+acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal, ...
     'Bin179With180', true); %#ok<NASGU>
-  fprintf('  << updateAcrossOffsetSummaries complete\n');
-else
-  fprintf('      no session-level updates detected; skipping across-offset bootstrap/fits.\n');
-end
+fprintf('  << updateAcrossOffsetSummaries complete\n');
 
 fprintf('<<< daily update complete\n');
 end

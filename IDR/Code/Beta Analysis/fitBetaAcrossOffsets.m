@@ -1,5 +1,5 @@
-function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
-% fitAcrossOffsetBetaMeasurements  Complete across-offset beta readout fit.
+function betaSummary = fitBetaAcrossOffsets(varargin)
+% fitBetaAcrossOffsets  Complete across-offset beta readout fit.
 %
 % Loads current per-probe regression products, estimates one shared
 % probe/preferred scale at each offset while allowing session-specific
@@ -15,15 +15,13 @@ function betaSummary = fitAcrossOffsetBetaMeasurements(varargin)
 %   'Bounds'            forwarded to fitAcrossOffsetReadout
 %   'Verbose'           default true
 
-
 p0 = makeParser();
 parse(p0, varargin{:});
 p = p0.Results;
 p.StepType = lower(char(string(p.StepType)));
 if ~isempty(p.RandomSeed), rng(p.RandomSeed); end
 
-% Scan through all ~IDR/Data/Probe*/Regression folders for
-% *_scalarNoiseRegression.mat files
+% Scan through all ~IDR/Data/Probe*/Regression folders for *_scalarNoiseRegression.mat files
 baseFolder = domainFolder(mfilename('fullpath'));
 dataDirs = dir(fullfile(baseFolder, 'Data', 'Probe*'));
 dataPaths = fullfile({dataDirs.folder}', {dataDirs.name}', 'Regression');
@@ -34,7 +32,7 @@ for i = 1:height(fileInfo)
   filePath = char(fileInfo{i, 'filePath'});
   S = load(filePath, 'reg');
   if ~isfield(S,'reg') || ~isfield(S.reg,'analysisName') || ...
-      ~strcmp(S.reg.analysisName,'kernelWeightedProbeRegression') || ...
+      ~strcmp(S.reg.analysisName, 'kernelWeightedProbeRegression') || ...
       ~isfield(S.reg,'fitByStep') || ~isfield(S.reg.fitByStep,p.StepType)
     continue
   end
@@ -70,7 +68,7 @@ for i = 1:height(fileInfo)
 end
 
 if isempty(sessionRecords)
-  error('fitAcrossOffsetBetaMeasurements:NoUsableFiles', 'No current usable regression products were found.');
+  error('fitBetaAcrossOffsets:NoUsableFiles', 'No current usable regression products were found.');
 end
 
 % Mirror the current kernel-readout eligibility: paired probes >1 and <=179.
@@ -112,10 +110,13 @@ for k = 1:numel(offsetKeys)
 
   if p.Verbose
     fprintf('       offset %g: %d sessions, %d trials, pooled scale %.6g\n', ...
-      thisOffset, offsetFits(k).nSessions, offsetFits(k).nTrials, fit.scale);
+                    thisOffset, offsetFits(k).nSessions, offsetFits(k).nTrials, fit.scale);
   end
 
   for b = 1:p.NBoot
+    if b == 1 || mod(b, p.NBoot/10) == 0
+      fprintf('      bootstrap %d of %d\n', b, p.NBoot);
+    end
     nS = numel(R);
     sampled = randi(nS,nS,1);
     Db = cell(nS,1);
@@ -162,7 +163,7 @@ end
 % Protect the shared readout fit against exactly zero numerical variances.
 finiteVar = variances(isfinite(variances) & variances > 0);
 if isempty(finiteVar)
-  error('fitAcrossOffsetBetaMeasurements:NoUsableVariance', 'No usable offset variance estimates were obtained.');
+  error('fitBetaAcrossOffsets:NoUsableVariance', 'No usable offset variance estimates were obtained.');
 end
 varFloor = max(1e-8,0.01*median(finiteVar));
 variances(isfinite(variances) & variances <= 0) = varFloor;
@@ -194,6 +195,9 @@ save(saveFile,'-v7.3');
 if p.Verbose
   fprintf('Saved %s\n', saveFile);
 end
+
+plotAcrossOffsetBetaSummary('Animal', p.Animal);
+
 end
 
 %% makeParser()

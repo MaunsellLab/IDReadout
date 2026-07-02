@@ -24,7 +24,7 @@ fileInfo = table();
 probeSessionDirs = dir([char(domainFolder(mfilename('fullpath'))), '/Data/Probe*']);
 for p = 1:numel(probeSessionDirs)
     probeSessionDir = [probeSessionDirs(p).folder, '/', probeSessionDirs(p).name, '/ProbeSessions/'];
-  [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, 'Animal', animal);
+  [theFiles, theFileInfo] = selectAnalysisFiles(probeSessionDir, 'Animal', R.Animal);
   files = [files; theFiles]; %#ok<AGROW>
   fileInfo = [fileInfo; theFileInfo]; %#ok<AGROW>
 end
