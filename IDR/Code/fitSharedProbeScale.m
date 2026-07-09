@@ -46,8 +46,7 @@ for s = 1:nSessions
   xp = xp(valid); xq = xq(valid); yy = yy(valid);
 
   if numel(yy) < 3 || all(yy == 0) || all(yy == 1)
-    error('fitSharedProbeScale:UnusableSession', ...
-      'Session %d lacks enough trials or both outcome classes.', s);
+    error('fitSharedProbeScale:UnusableSession', 'Session %d lacks enough trials or both outcome classes.', s);
   end
 
   xPref{s} = xp;
@@ -79,8 +78,7 @@ options = optimoptions('fminunc', ...
   'FunctionTolerance', 1e-12, ...
   'StepTolerance', 1e-12);
 
-[theta, nll, exitflag, output, gradient, hessian] = ...
-  fminunc(objective, theta0, options);
+[theta, nll, exitflag, output, gradient, hessian] = fminunc(objective, theta0, options);
 
 theta = full(double(theta));
 gradient = full(double(gradient));
@@ -95,8 +93,7 @@ scaleSE = se(1);
 
 fit = struct();
 fit.version = 1;
-fit.model = ['P(correct)=0.5+0.5*logistic(alpha_session+' ...
-  'betaPref_session*(xPref+scale*xProbe))'];
+fit.model = ['P(correct)=0.5+0.5*logistic(alpha_session+' 'betaPref_session*(xPref+scale*xProbe))'];
 fit.scale = scale;
 fit.scaleSE = scaleSE;
 fit.scaleCI95 = scale + 1.96*scaleSE*[-1 1];

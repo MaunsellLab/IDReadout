@@ -139,7 +139,6 @@ trialTable = makeTrialTable(trialData, sessionName);
 trialTable.rectNoisePredictor = rectNoisePredictor;                 % compatibility alias
 trialTable.rectSumNoise = rectSumNoise;                             % primary
 trialTable.rectMeanNoise = rectMeanNoise;                           % display / gain=3 convention
-% trialTable.rectDriftMinusNonNoise = rectDriftMinusNonNoise;         % legacy diagnostic
 sessionAnalysis.trialTable = trialTable;
 
 sessionAnalysis.fileName = sessionName;
@@ -159,8 +158,7 @@ sessionAnalysis.stepFrames = stepFrames;
 
 sessionAnalysis.trialTable = trialTable;
 sessionAnalysis.primaryNoisePredictor = 'rectSumNoise';
-sessionAnalysis.primaryNoiseDefinition = ...
-  'changed-side dir1 + dir2 + dir3 noise, averaged over step frames';
+sessionAnalysis.primaryNoiseDefinition = 'changed-side dir1 + dir2 + dir3 noise, averaged over step frames';
 
 % Primary and diagnostic framewise measures.
 sessionAnalysis.sumNoiseByFrameTrial = sumNoiseByFrameTrial;

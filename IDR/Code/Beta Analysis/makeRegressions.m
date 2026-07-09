@@ -29,14 +29,11 @@ weightData = W.weightData;
 
 probeDirs = dir(fullfile(dataRoot,'Probe*'));
 probeDirs = probeDirs([probeDirs.isdir]);
-% batch = struct('version',1,'Replace', p.Results.Replace, 'weightPath', weightPath, 'files',{{}},'regPaths',{{}}, ...
-%   'plotPaths',{{}}, 'ok',false(0,1), 'skippedIneligible',false(0,1), 'messages',{{}},'createdBy',mfilename, ...
-%   'createdDate',datetime('now'));
 for iProbe = 1:numel(probeDirs)
   probeTag = probeDirs(iProbe).name;
   sessionFolder = fullfile(probeDirs(iProbe).folder,probeTag,'ProbeSessions');
   if ~isfolder(sessionFolder), continue; end
-  regressionFolder = validFolder(fullfile(probeDirs(iProbe).folder,probeTag,'Regression'));
+  regressionFolder = validFolder(fullfile(probeDirs(iProbe).folder, probeTag, 'Regression'));
   plotFolder = fullfile(plotRoot,probeTag,'Regression');
   if opts.MakePlots, validFolder(plotFolder); end
   files = dir(fullfile(sessionFolder,'*.mat'));
@@ -47,20 +44,11 @@ for iProbe = 1:numel(probeDirs)
     [~,baseName] = fileparts(sourcePath);
     regPath = fullfile(regressionFolder,[baseName '_scalarNoiseRegression.mat']);
     plotPath = fullfile(plotFolder,[baseName '_scalarNoiseRegression.pdf']);
-    % batch.files{end+1,1}=sourcePath; 
-    % batch.regPaths{end+1,1}=regPath; 
-    % batch.plotPaths{end+1,1}=plotPath; 
-    % batch.ok(end+1,1)=false; 
-    % batch.skippedIneligible(end+1,1)=false; 
-    % batch.messages{end+1,1}=''; 
-    % ib = numel(batch.ok);
-
     current = isCurrentProduct(regPath);
     needReg = p.Results.Replace || ~current;
     needPlot = opts.MakePlots && (p.Results.Replace || needReg || ~isfile(plotPath));
     if ~needReg && ~needPlot
       if opts.Verbose, fprintf('Skipping current regression: %s [%s]\n',baseName,probeTag); end
-      % batch.ok(ib)=true; batch.messages{ib}='current outputs; skipped';
       continue;
     end
 
@@ -86,13 +74,10 @@ for iProbe = 1:numel(probeDirs)
         fprintf('Skipping ineligible session: %s [%s] — parent absent from BetaWeights\n', ...
           baseName, probeTag);
       end
-      % batch.messages{ib} = 'parent session absent from BetaWeights; skipped';
-      % batch.skippedIneligible(ib) = true;
       continue;
     elseif nWeightMatches > 1
       warning('makeRegressions:DuplicateWeightMatch', 'Skipping %s: parent session matched %d BetaWeights rows.', ...
         sourcePath, nWeightMatches);
-      % batch.messages{ib} = 'parent session matched multiple BetaWeights rows';
       continue;
     end
 
@@ -111,31 +96,15 @@ for iProbe = 1:numel(probeDirs)
         % exportgraphics(fig, plotPath, 'ContentType', 'vector');
         % close(fig);
       end
-      % batch.ok(ib)=true; batch.messages{ib}='ok';
       if opts.Verbose && reg.fitByStep.inc.fitUsable
         fprintf('  INC beta pref %.4g, probe %.4g, ratio %.4g\n', ...
           reg.fitByStep.inc.betaPref,reg.fitByStep.inc.betaProbe,reg.fitByStep.inc.betaRatio);
       end
     catch ME
       warning('makeRegressions:SessionFailed','Failed on %s:\n%s',sourcePath,ME.message);
-      % batch.messages{ib}=ME.message;
     end
   end
 end
-
-% summaryPath = fullfile(dataRoot, 'scalarNoiseRegression_batchSummary.mat');
-% save(summaryPath,'batch');
-% if opts.Verbose
-  % fprintf('\nRegression production complete: %d/%d successful.\n',sum(batch.ok),numel(batch.ok));
-  % nProduced = sum(batch.ok);
-  % nIneligible = sum(batch.skippedIneligible);
-  % nFailed = numel(batch.ok) - nProduced - nIneligible;
-  % fprintf('\nRegression production complete:\n');
-  % fprintf('  successful:          %d\n', nProduced);
-  % fprintf('  skipped ineligible:  %d\n', nIneligible);
-  % fprintf('  failed:              %d\n', nFailed);
-  % fprintf('Batch summary saved: %s\n', summaryPath);
-% end
 end
 
 function tf = isCurrentProduct(path)
@@ -154,45 +123,3 @@ function base = filepartsBase(pathOrName)
 [~, base] = fileparts(char(pathOrName));
 end
 
-%%---------------------------------------------------
-% function fig = plotKernelWeightedProbeRegression(reg)
-% % plotKernelWeightedProbeRegression  Per-session coefficient diagnostics.
-% 
-% labels = {'DEC','INC','Combined'};
-% fields = {'dec','inc','combined'};
-% fig = figure('Color','w','Position',[100 100 1050 360]);
-% tiledlayout(1,3,'TileSpacing','compact','Padding','compact');
-% 
-% for i = 1:3
-%   nexttile; hold on;
-%   F = reg.fitByStep.(fields{i});
-%   if isfield(F,'fitUsable') && F.fitUsable
-%     values = [F.betaPref F.betaProbe];
-%     errors = [F.betaPrefSE F.betaProbeSE];
-%     errorbar(1:2, values, errors, 'o', 'LineStyle','none', ...
-%       'MarkerFaceColor','auto','LineWidth',1.2);
-%     yline(0,':');
-%     xlim([0.5 2.5]);
-%     xticks([1 2]);
-%     xticklabels({'Preferred','Probe'});
-%     ylabel('\beta per % coherence');
-%     title(sprintf('%s, n=%d',labels{i},F.nTrials));
-%     txt = sprintf('probe/pref = %.3g\nSE = %.3g\ngrad = %.2g', ...
-%       F.betaRatio,F.betaRatioSE,F.gradientInfNorm);
-%     yl = ylim;
-%     text(0.58,yl(2)-0.08*range(yl),txt,'VerticalAlignment','top');
-%   else
-%     axis off;
-%     title(labels{i});
-%     if isfield(F,'message'), text(0.05,0.5,F.message,'Interpreter','none'); end
-%   end
-%   box off;
-% end
-% 
-% sessionID = '';
-% probeTag = '';
-% if isfield(reg.sessionProbeHeader,'sessionID'), sessionID = reg.sessionProbeHeader.sessionID; end
-% if isfield(reg.sessionProbeHeader,'probeTag'), probeTag = reg.sessionProbeHeader.probeTag; end
-% sgtitle(sprintf('%s %s kernel-weighted preferred/probe regression',sessionID,probeTag), ...
-%   'Interpreter','none');
-% end

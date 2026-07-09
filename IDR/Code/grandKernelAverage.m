@@ -394,7 +394,7 @@ function p = makeParser()
 
 p = inputParser;
 addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-addParameter(p, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(p, 'SummarySideType', 'change', @(x) ischar(x) || isstring(x));
 addParameter(p, 'verbose', true, @islogical);

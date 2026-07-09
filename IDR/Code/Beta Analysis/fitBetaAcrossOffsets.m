@@ -11,7 +11,7 @@ function betaSummary = fitBetaAcrossOffsets(varargin)
 %   'StepType'          'inc' (default), 'dec', or 'combined'
 %   'NBoot'             hierarchical bootstrap count (default 1000)
 %   'RandomSeed'        bootstrap seed (default 1)
-%   'Bin179With180'     combine 179 and 180 deg (default false)
+%   'Bin180Into179'     bin 180 into 179 
 %   'Bounds'            forwarded to fitAcrossOffsetReadout
 %   'Verbose'           default true
 
@@ -74,7 +74,7 @@ end
 % Mirror the current kernel-readout eligibility: paired probes >1 and <=179.
 offsets = [sessionRecords.probeOffsetDeg];
 eligible = isfinite(offsets) & offsets > 1 & offsets <= 180;
-if p.Bin179With180
+if p.Bin180Into179
   for i = 1:numel(sessionRecords)
     if sessionRecords(i).probeOffsetDeg == 180
       sessionRecords(i).probeOffsetDeg = 179;
@@ -115,7 +115,7 @@ for k = 1:numel(offsetKeys)
 
   for b = 1:p.NBoot
     if b == 1 || mod(b, p.NBoot/10) == 0
-      fprintf('      bootstrap %d of %d\n', b, p.NBoot);
+      fprintf('       bootstrap %d of %d\n', b, p.NBoot);
     end
     nS = numel(R);
     sampled = randi(nS,nS,1);
@@ -124,8 +124,7 @@ for k = 1:numel(offsetKeys)
       src = R(sampled(j));
       nT = numel(src.correct);
       idx = randi(nT,nT,1);
-      Db{j} = struct('xPref',src.xPref(idx), ...
-        'xProbe',src.xProbe(idx),'correct',src.correct(idx));
+      Db{j} = struct('xPref', src.xPref(idx), 'xProbe', src.xProbe(idx), 'correct', src.correct(idx));
     end
     try
       Fb = fitSharedProbeScale(Db);
@@ -177,7 +176,7 @@ betaSummary.version = 1;
 betaSummary.analysisName = 'acrossOffsetBetaMeasurements';
 betaSummary.meta = struct( ...
   'createdDate', datetime('now'), 'stepType', p.StepType, 'nBoot', p.NBoot,  'randomSeed', p.RandomSeed, ...
-  'bin179With180', p.Bin179With180, 'model', ['session-specific intercept and preferred beta; ' ...
+  'Bin180Into179', p.Bin180Into179, 'model', ['session-specific intercept and preferred beta; ' ...
    'shared probe/preferred scale within offset']);
 betaSummary.sessionRecords = sessionRecords;
 betaSummary.offsetFits = offsetFits;
@@ -209,7 +208,7 @@ addParameter(P, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(P, 'StepType', 'inc', @(x) any(strcmpi(string(x),["inc","dec","combined"])));
 addParameter(P, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x >= 0 && mod(x,1)==0);
 addParameter(P, 'RandomSeed', 1, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
-addParameter(P, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'Bounds', struct(), @isstruct);
 addParameter(P, 'Verbose', true, @(x) islogical(x) && isscalar(x));
 end

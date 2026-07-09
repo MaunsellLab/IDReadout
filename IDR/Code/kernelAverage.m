@@ -22,11 +22,15 @@ if ~exist(dataFolder, 'dir')
   return;
 end
 
-[selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, 'Bin179With180', R.Bin179With180, 'Animal', R.Animal);
+[selectedFiles, fileInfo] = selectAnalysisFiles({dataFolder}, 'Bin180Into179', R.Bin180Into179, 'Animal', R.Animal);
+if isempty(selectedFiles)
+  fprintf('      Found no sessions\n');
+  return;
+end
 if R.Verbose
   nFiles = numel(fileInfo.fileName);
   if nFiles > 0
-    fprintf('  Found %d sessions:\n', nFiles);
+    fprintf('   Found %d sessions:\n', nFiles);
     fileNames = fileInfo.("fileName");
     for f = 1:nFiles
       fprintf('     %s\n', fileNames{f});
@@ -229,7 +233,7 @@ if doBootstrap
 end
 
 % check whether this needs to be flagged as combining 179 and 180
-if (R.probeDirDeg == 179 || R.probeDirDeg == 180) && R.Bin179With180
+if (R.probeDirDeg == 179 || R.probeDirDeg == 180) && R.Bin180Into179
   probeDirStr = '179°/180°';
 else
   probeDirStr = sprintf('%d°', R.probeDirDeg);
@@ -352,7 +356,7 @@ end
 function p = makeParser()
   p = inputParser;
   addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-  addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+  addParameter(p, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
   addParameter(p, 'probeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
   addParameter(p, 'SummarySideType', 'Change', @(x) ischar(x) || isstring(x));
   addParameter(p, 'Verbose', false, @islogical);

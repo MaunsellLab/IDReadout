@@ -1,7 +1,31 @@
 IDReadout To Do:
 
-Remove CIs from scale plots
-Clip the scale fit plot for Neesha
+
+Beta fitting ------
+
+IDR: 
+
+makeBetaSessionData('Animal', animal, 'Replace', false);
+makeRegressions('Replace', replace, 'Animal', animal);
+  makeBetaKernel();
+  computeKernelWeightedProbeRegression();
+fitBetaAcrossOffsets('NBoot', 250, 'Animal', animal);
+  fitAcrossOffsetReadout();
+  fitSharedProbeScale();
+  plotAcrossOffsetBetaSummary();
+
+IDQ:
+
+preprocessIDQSession();
+  makeIDQSessionSummaries();
+    makeIDQSessionAnalyses();  -- seems to prepare preliminaries for regression, but not perform regression
+makeIDQAcrossSessionSummary();  -- creates an across session kernel for weighting, performs regression
+  computeIDQDirectionDiagnostics.m
+  computeIDQLOONoisePredictor.m
+  fitIDQAcrossAlignedWeibull.m
+  fitIDQInitialSessionThresholds.m
+  fitIDQNoiseGain.m
+  fitIDQRectGainByDirection.m
   
 IDReadout Analysis Overview:
 ============================
@@ -38,9 +62,9 @@ Standard Analysis:
 convertIDRData.m 
 ----------------
 Converts the .dat files into a standard .mat file.  By convention, that
-file contains a header structure and a trials structure.  convertIDRData
+file contains a header structure and a trials structure. convertIDRData
 also does a bit of clean up correcting some mis-assignment of events that
-occurred in early IDR files.  The converted .mat files are placed int 
+occurred in early IDR files. The converted .mat files are placed int 
 $PATH/Data/FullSessions, with the same name as the base .dat file (e.g.,
 baseName.mat). An additional information files is also spun off in that 
 sub-folder, with the name baseName_info.mat, but it is not used in 
@@ -48,6 +72,27 @@ analysis.
 
 Conversion from .dat to .mat is slow, so we try to do that once for each
 .dat file. 
+
+makeProbeSession.m
+------------------
+
+makeProbeSession takes the converted sessions and breaks them down into
+"probeSessions", which are separated by the probe offset direction.  For
+sessions with a single probe offset, there is only one probe session. 
+ProbeSessions are the functional unit for virtually all subsequent analysis
+
+Each probe session contains a subset of the trials associated with the
+particular probe direction, along with a sessionProbeHeader that contains
+probe specific information that is not found in the sessionHeader that each
+probe session file inherits.  
+
+Output is stored in $PATH/Data/probe45, where the final digits are the relevant
+probe direction
+
+--------------
+Subsequent analysis splits between kernel analysis and regression analysis. 
+
+Kernel Analaysis:
 
 makeKernels.m
 -------------
@@ -74,6 +119,18 @@ When makeKernels produces output files, it also creates pdf plots showing kernel
 each probe direction within a session. These are placed in $PATH/Plots/probeXX/Kernels.
 
 
+Regression Analysis:
+
+makeBetaSessionData()
+---------------------
+
+makeBetaSessionData 
+
+fprintf('  << makeBetaSessionData complete\n');
+
+makeIDRGainAcrossSessionPrefFit('Animal', animal);
+makeIDRGainProbeOffsetFits('Animal', animal);
+makeIDRGainProbeOffsetSummary('Animal', animal);
 
 
 

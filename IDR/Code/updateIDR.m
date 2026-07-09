@@ -1,4 +1,4 @@
-function updateIDR()
+function updateIDR
 % dailyUpdate  Run the daily MT-kernel analysis update pipeline.
 %%
 %   Pipeline:
@@ -9,9 +9,9 @@ function updateIDR()
 %     5) refresh across-offset summaries/plots
 
 fprintf('>>> dailyUpdate start\n');
-replace = false;
+% replace = false;
 nBoot = 500;
-animal = 'All';
+% animal = 'All';
 % animal = 'Meetz';
 % animal = 'Neesha';
 
@@ -22,48 +22,61 @@ fprintf('  << convertIDRData complete\n');
 
 % ---- Session-level probe-specific data files ----
 fprintf('  >> makeProbeSessions start\n');
-staleProbeDirs = makeProbeSessions('Animal', animal, 'Replace', false); 
+makeProbeSessions(); 
 fprintf('  << makeProbeSessions complete\n');
 
 % ---- Make probe session kernels and kernel plots ----
 fprintf('  >> makeKernels start\n');
-makeKernels('Animal', animal); 
+makeKernels(); 
 fprintf('  << makeKernels complete\n');
 
 % ---- Make beta session summaries ----
 fprintf('  >> makeBetaSessionData start\n');
-makeBetaSessionData('Animal', animal, 'Replace', false);
+makeBetaSessionData();
 fprintf('  << makeBetaSessionData complete\n');
 
 % The following stages of the update all involve across-session analyses of
 % various sorts (including session beta regressions, which use an
 % across-session kernel for temporally weighting the noise signal.
 
-% ---- Probe-session regressions and across-offset beta summary ----
-fprintf('  >> makeRegressions start\n');
-makeRegressions('Replace', replace, 'Animal', animal);
-fprintf('  >> makeRegressions complete\n');
 
-fprintf('  >> fitBetaAcrossOffsets start\n');
-fitBetaAcrossOffsets('NBoot', nBoot, 'Animal', animal);
-fprintf('  << fitBetaAcrossOffsets complete\n');
+% ---- Probe-session regressions and across-offset beta summary ----
+
+%IDQ Analysis
+
+fprintf('  >> makeBetaKernel start\n');
+makeBetaKernel('Animal', 'Meetz');
+fprintf('  >> makeBetaKernel complete\n');
+
+fprintf('  >> makeIDRGainAcrossSessionPrefFit start\n');
+makeIDRGainAcrossSessionPrefFit('Animal', 'Meetz');
+fprintf('  >> makeIDRGainAcrossSessionPrefFit complete\n');
+
+fprintf('  >> makeIDRGainProbeOffsetFits start\n');
+makeIDRGainProbeOffsetFits('Animal', 'Meetz');
+fprintf('  >> makeIDRGainProbeOffsetFits complete\n');
+
+fprintf('  >> makeIDRGainProbeOffsetSummary start\n');
+makeIDRGainProbeOffsetSummary('Animal', 'Meetz');
+fprintf('  >> makeIDRGainProbeOffsetSummary complete\n');
+
+%IDR Analysis
 
 % ---- Average Kernels ----
 fprintf('  >> kernelAverage start\n');
 for p = [10, 25, 45, 90, 135, 179, 180]
   fprintf('      updating average for probe %d\n', p);
-  kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', animal);
+  kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', 'Neesha');
 end
 fprintf('  << kernelAverage complete\n');
 
 fprintf('  >> plotSideTypeKernelAverage start\n');
-plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', animal);
+plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', 'Neesha');
 fprintf('  << plotSideTypeKernelAverage complete\n');
 
 % ---- Across-offset summary update ----
 fprintf('  >> updateAcrossOffsetSummaries start\n');
-acrossOffsetSummary = updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal, ...
-    'Bin179With180', true); %#ok<NASGU>
+updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', 'Neesha');
 fprintf('  << updateAcrossOffsetSummaries complete\n');
 
 fprintf('<<< daily update complete\n');

@@ -61,6 +61,7 @@ if isempty(offsetData) || all([offsetData.nSessions] == 0)
     saveAcrossOffsetSummary(opts, acrossOffsetSummary);
     return;
 end
+acrossOffsetSummary.type = 'Kernels';
 acrossOffsetSummary.offsetData = offsetData;
 acrossOffsetSummary.meta.offsetKeysDeg = offsetKeys;
 acrossOffsetSummary.meta.summaryFilesUsed = usedFiles;
@@ -100,9 +101,8 @@ acrossOffsetSummary.readoutModel = readoutFitSummary.readoutModel;
 acrossOffsetSummary.history = updateHistory(acrossOffsetSummary, opts);
 
 saveAcrossOffsetSummary(opts, acrossOffsetSummary);
-if opts.MakePlots
-  makeAcrossOffsetPlots(acrossOffsetSummary, opts);
-end
+makeAcrossOffsetPlots(acrossOffsetSummary, opts);
+
 if opts.Verbose
   fprintf('updateAcrossOffsetSummaries: done.\n');
 end
@@ -133,9 +133,9 @@ addRequired(p, 'dataDir', @(x) ischar(x) || isstring(x) || iscell(x));
 addParameter(p, 'PlotDir',  ...
           fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits', 'Kernels'), ...
           @(x) ischar(x) || isstring(x));
-addParameter(p, 'NBoot', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'NBoot', 500, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'CILevels', [68 95], @(x) isnumeric(x) && isvector(x) && all(x > 0) && all(x < 100));
-addParameter(p, 'Bin179With180', true, @(x) islogical(x) && isscalar(x));
+addParameter(p, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'MakePlots', true, @(x) islogical(x) && isscalar(x));
 addParameter(p, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(p, 'OffsetField', 'probeOffsetDeg', @(x) ischar(x) || isstring(x));
@@ -146,7 +146,6 @@ addParameter(p, 'ScaleStepType', 'inc', @(x) ischar(x) || isstring(x) || isnumer
 addParameter(p, 'Bounds', struct(), @(x) isstruct(x));
 addParameter(p, 'RandomSeed', [], @(x) isempty(x) || (isscalar(x) && isnumeric(x)));
 addParameter(p, 'Verbose', false, @(x) islogical(x) && isscalar(x));
-
 
 parse(p, dataDir, varargin{:});
 opts = p.Results;
@@ -189,7 +188,6 @@ for iFile = 1:numel(files)
     sessionRecord = emptySessionStruct();
     sessionRecord.sessionHeader = sessionHeader;
     sessionRecord.sessionProbeHeader = sessionProbeHeader;
-    sessionRecord.probeOffsetDeg = sessionProbeHeader.probeDirDeg;
     sessionRecord.sessionName = sessionHeader.fileName;
     sessionRecord.compStats = compStats;
     sessionRecord.hitStats  = hitStats;
@@ -199,13 +197,18 @@ for iFile = 1:numel(files)
     sessionRecord.nTrialsByStep = hitStats.nTrials;
     sessionRecord.noiseFile  = sessionProbeHeader.probeSessionPath;
 
-
+    % If we are binning 180 into 179, make that adjustment in the record
+    if opts.Bin180Into179 && sessionProbeHeader.probeDirDeg == 180
+      sessionRecord.probeOffsetDeg = 179;
+    else
+      sessionRecord.probeOffsetDeg = sessionProbeHeader.probeDirDeg;
+    end
     if ~isempty(fileInfo) && height(fileInfo) >= iFile
         sessionRecord.fileInfo = fileInfo(iFile, :);
     end
 
     [tfExclude, reasonStr] = excludeFromReadoutFit(sessionRecord.probeOffsetDeg, ...
-              sessionRecord.sessionProbeHeader.probeCohNoisePC, opts.Bin179With180);
+              sessionRecord.sessionProbeHeader.probeCohNoisePC, opts.Bin180Into179);
     sessionRecord.isExcluded = tfExclude;
     sessionRecord.excludeReason = reasonStr;
     sessionList(end+1, 1) = sessionRecord; %#ok<AGROW>
@@ -255,9 +258,9 @@ s = struct( ...
     'sourceFile', '', ...
     'fileInfo', table() );
 end
-% 'kernelFile', '', ...
 
-function [exclude, reason] = excludeFromReadoutFit(probeDirDeg, probeCohNoisePC, Bin179With180)
+% ========================================================================
+function [exclude, reason] = excludeFromReadoutFit(probeDirDeg, probeCohNoisePC, Bin180Into179)
 %excludeFromReadoutFit  Exclude sessions not eligible for paired-probe readout fitting.
 %
 % These exclusions are specific to the across-offset readout model. They do
@@ -272,7 +275,7 @@ reason = '';
 
 % Paired-probe offsets are strictly between 0 and 180 deg.
 % Exact 0 and exact 180 are single-stream probes.
-if Bin179With180
+if Bin180Into179
   limitDeg = 180;
 else 
   limitDeg = 179;
@@ -358,37 +361,37 @@ for k = 1:numel(offsetKeys)
   offsetData(k).sessionStructs = included;
 end
 
-% if we are binning 179° with 180°, combine them if both are preset
-if opts.Bin179With180
-  index179 = find(offsetKeys == 179, 1);
-  index180 = find(offsetKeys == 180, 1);
-  if ~isempty(index179) && ~isempty(index180)
-    offsetData(index179).sessionNames = [offsetData(index179).sessionNames, offsetData(index180).sessionNames];
-    offsetData(index179).sessionDates = [offsetData(index179).sessionDates, offsetData(index180).sessionDates];
-    offsetData(index179).nSessions = offsetData(index179).nSessions + offsetData(index180).nSessions;
-    offsetData(index179).nSessionsTotal = offsetData(index179).nSessionsTotal + offsetData(index180).nSessionsTotal;
-    offsetData(index179).nTrialsBySession = [offsetData(index179).nTrialsBySession, offsetData(index180).nTrialsBySession];
-    offsetData(index179).nTrialsByStep = ...
-          offsetData(index179).nTrialsByStep + offsetData(index180).nTrialsByStep;
-    offsetData(index179).nTrials = offsetData(index179).nSessionsTotal + offsetData(index180).nTrials;
-    offsetData(index179).scaleBySession = [offsetData(index179).scaleBySession, offsetData(index180).scaleBySession];
-
-    offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
-    offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
-    offsetData(index179).scaleCILoBySession = nan(size(offsetData(index179).scaleBySession));
-    offsetData(index179).scaleCIHiBySession = nan(size(offsetData(index179).scaleBySession));
-    offsetData(index179).prefEnergyBySession = nan(size(offsetData(index179).scaleBySession));
-    offsetData(index179).fitR2BySession = nan(size(offsetData(index179).scaleBySession));
-
-    offsetData(index179).includeMask = [offsetData(index179).includeMask, offsetData(index180).includeMask];
-    offsetData(index179).excludeReasons = [offsetData(index179).excludeReasons, offsetData(index180).excludeReasons];
-    offsetData(index179).sourceSummaryFiles = [offsetData(index179).sourceSummaryFiles, offsetData(index180).sourceSummaryFiles];
-    offsetData(index179).sessionStructs = [offsetData(index179).sessionStructs; offsetData(index180).sessionStructs];
-
-    offsetData(index180) = [];
-    offsetKeys(index180) = [];
-  end
-end
+% if we are binning 179° with 180°, combine them into 179°
+% if opts.Bin180Into179
+%   index179 = find(offsetKeys == 179, 1);
+%   index180 = find(offsetKeys == 180, 1);
+%   if ~isempty(index179) && ~isempty(index180)
+%     offsetData(index179).sessionNames = [offsetData(index179).sessionNames, offsetData(index180).sessionNames];
+%     offsetData(index179).sessionDates = [offsetData(index179).sessionDates, offsetData(index180).sessionDates];
+%     offsetData(index179).nSessions = offsetData(index179).nSessions + offsetData(index180).nSessions;
+%     offsetData(index179).nSessionsTotal = offsetData(index179).nSessionsTotal + offsetData(index180).nSessionsTotal;
+%     offsetData(index179).nTrialsBySession = [offsetData(index179).nTrialsBySession, offsetData(index180).nTrialsBySession];
+%     offsetData(index179).nTrialsByStep = ...
+%           offsetData(index179).nTrialsByStep + offsetData(index180).nTrialsByStep;
+%     offsetData(index179).nTrials = offsetData(index179).nSessionsTotal + offsetData(index180).nTrials;
+%     offsetData(index179).scaleBySession = [offsetData(index179).scaleBySession, offsetData(index180).scaleBySession];
+% 
+%     offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
+%     offsetData(index179).scaleSEMBySession = nan(size(offsetData(index179).scaleBySession));
+%     offsetData(index179).scaleCILoBySession = nan(size(offsetData(index179).scaleBySession));
+%     offsetData(index179).scaleCIHiBySession = nan(size(offsetData(index179).scaleBySession));
+%     offsetData(index179).prefEnergyBySession = nan(size(offsetData(index179).scaleBySession));
+%     offsetData(index179).fitR2BySession = nan(size(offsetData(index179).scaleBySession));
+% 
+%     offsetData(index179).includeMask = [offsetData(index179).includeMask, offsetData(index180).includeMask];
+%     offsetData(index179).excludeReasons = [offsetData(index179).excludeReasons, offsetData(index180).excludeReasons];
+%     offsetData(index179).sourceSummaryFiles = [offsetData(index179).sourceSummaryFiles, offsetData(index180).sourceSummaryFiles];
+%     offsetData(index179).sessionStructs = [offsetData(index179).sessionStructs; offsetData(index180).sessionStructs];
+% 
+%     offsetData(index180) = [];
+%     offsetKeys(index180) = [];
+%   end
+% end
 
 % update summary file list with included files only
 includedMask = ~[sessionList.isExcluded];
@@ -637,114 +640,6 @@ pooledScale = selectCompStatsEntry(scaleMat, opts.ScaleSideType, opts.ScaleStepT
 end
 
 % ========================================================================
-function plotReadoutDiagnostics(figNum, acrossOffsetSummary, opts)
-% Plot fitted readout, MT templates, and their products to visualize how
-% overlap determines predicted normalized scale.
-
-  rm = acrossOffsetSummary.readoutModel;
-  if isfield(rm, 'templateMode')
-      templateMode = rm.templateMode;
-  else
-      templateMode = 'signed';
-  end
-  if ~isfield(rm, 'fit') || isempty(rm.fit) || ~rm.fit.fitSuccess
-      return;
-  end
-
-  phiDeg = rm.phiDeg(:)';
-  aPhi   = rm.readoutPhi(:)';   % normalized display readout, a(0)=1
-  mtp = rm.mtForwardModelParams;
-  mtModel = makeMTReadoutForwardModel('sigmaMTDeg', mtp.sigmaMTDeg, 'phiDeg', mtp.phiDeg);
-  offsetsDeg = [0, rm.fit.offsetsDeg];  
-  nOffsets = numel(offsetsDeg);
-  
-  deltaM   = cell(1, nOffsets);
-  prodTerm = cell(1, nOffsets);
-  overlap  = nan(1, nOffsets);
-  posPart  = nan(1, nOffsets);
-  negPart  = nan(1, nOffsets);
-
-  for i = 1:nOffsets
-      deltaM{i} = mtReadoutTemplate(offsetsDeg(i), mtModel, 'TemplateMode', templateMode);
-      prodTerm{i} = aPhi .* deltaM{i};
-      overlap(i) = sum(prodTerm{i});
-      posPart(i) = sum(max(prodTerm{i}, 0));
-      negPart(i) = sum(min(prodTerm{i}, 0));
-  end
-  
-  idx0 = find(abs(offsetsDeg) < 1e-9, 1, 'first');
-  if isempty(idx0)
-      warning('plotReadoutDiagnostics: OffsetsDeg does not include 0. Ratios will not be shown.');
-  end
-  
-  % ---- Build fit-vs-flat comparison figure ----
-  prodTermFit  = cell(1, nOffsets);
-  prodTermFlat = cell(1, nOffsets);
-  for i = 1:nOffsets
-      prodTermFit{i}  = aPhi .* deltaM{i};
-      prodTermFlat{i} = ones(size(aPhi)) .* deltaM{i};   % flat readout = 1
-  end
-
-  % -- set up figure to plot three panels
-  fig = figure(figNum);
-  clf(fig);
-  tiledlayout(3, 1, 'TileSpacing', 'compact', 'Padding', 'compact');
-  lineCol = lines(nOffsets);
-  
-  % ---- top panel: readout function ----
-  nexttile; hold on;
-  hFitReadout  = plot(phiDeg, aPhi, 'k-', 'LineWidth', 2);
-  plot(phiDeg, zeros(size(phiDeg)), 'k:', 'LineWidth', 1);
-  xlabel('\phi (deg)');
-  ylabel('a(\phi)');
-  title(sprintf('%s -- Fitted DOG readout (%s template, %d bootstraps)', opts.Animal, templateMode, opts.NBoot));
-  legend(hFitReadout, {'Fitted readout a(\phi)'}, 'Location', 'northeast');
-  paramText = cell(rm.nFreeParams, 1);
-  for p = 1:rm.nFreeParams
-    paramText{p} = sprintf('%s: %.4f', rm.paramNames{p}, rm.params(p));
-  end
-  text(-100, 0.95, paramText, 'horizontalAlignment', 'right', 'VerticalAlignment', 'top');
-  ylimits = ylim();
-  ylim([min(0.2, ylimits(1)), max(1.1, ylimits(2))]);
-  box off;
-  
-  % ---- middle panel: MT populations responses ----
-  nexttile; hold on;
-  title(sprintf('MT Population Responses to Probes (%s template; Flat Readout)', templateMode));
-  % MT templates, same colors used in the lower panel
-  hTemplates = gobjects(1, nOffsets);
-  for i = 1:nOffsets
-      hTemplates(i) = plot(phiDeg, deltaM{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 1.5);
-  end
-  yline(0, 'k:');
-  xlabel('\phi (deg)');
-  ylabel('\Delta m(\phi;\delta)');
-  legend(hTemplates, [arrayfun(@(d) sprintf('\\Delta m(\\phi;%g^\\circ)', d), offsetsDeg, ...
-       'UniformOutput', false)], 'Location', 'best');
-  box off;
-  
-  % ---- Bottom panel: overlap contribution functions ----
-  nexttile; hold on;
-  title('Weighted Population Responses (Fit)');
-  legendHandles = gobjects(0);
-  legendLabels = {};
-  
-  for i = 1:nOffsets
-      h1 = plot(phiDeg, prodTermFit{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 2);
-      legendHandles(end+1) = h1; %#ok<AGROW>
-      legendLabels{end+1} = sprintf('%g^\\circ fit, <a,\\Deltam> = %.2g; S_{fit} %.2f', ...
-        offsetsDeg(i), overlap(i), overlap(i)/overlap(1)); %#ok<AGROW>
-  end
-  yline(0, 'k:');
-  xlabel('\phi (deg)');
-  ylabel('a(\phi)\Delta m(\phi;\delta)');
-  legend(legendHandles, legendLabels, 'Location', 'best');
-  box off;
-
-  saveas(fig, fullfile(opts.PlotDir, sprintf('ReadoutFunctions_%s_%s.pdf', templateMode, opts.Animal)));
-end
-
-% ========================================================================
 function history = updateHistory(acrossOffsetSummary, opts)
 
 history = struct( ...
@@ -767,130 +662,6 @@ if ~exist(saveDir, 'dir')
 end
 save(opts.SaveFile, 'acrossOffsetSummary', '-v7.3');
 
-end
-
-% ========================================================================
-function makeAcrossOffsetPlots(acrossOffsetSummary, opts)
-% Primary plots for the DOG readout models:
-%   1) observed scale values by probe offset, with signed and rectified DOG
-%      predictions overlaid when fits are available
-%   2) fitted readout/template diagnostics for each successful model
-
-emp = acrossOffsetSummary.empirical;
-offsets = [emp.probeOffsetDeg];
-obsScale = [emp.pooledScale];
-ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
-
-% ---- Plot 1: observed and fit scale by offset ----
-fig1 = figure(300); clf; hold on;
-hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci95(:,1)'], [0, ci95(:,2)' - obsScale], ...
-    'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
-plot([0, 180], [0,0], 'k:');
-
-% Typical MT Gaussian direction tuning, normalized to 1 at 0 deg
-mtSigmaDeg = 37.5;
-mtOffsetsDeg = linspace(0, 180, 361);
-mtTuning = exp(-0.5 * (mtOffsetsDeg ./ mtSigmaDeg).^2);
-hMT = plot(mtOffsetsDeg, mtTuning, 'k:', 'LineWidth', 1.0, 'DisplayName', 'Typical MT tuning');
-legendHandles = [hObs, hMT];
-legendLabels = {'Observed Scale (95% CI)', 'Typical MT tuning (\sigma = 37.5 deg)'};
-signedRM = acrossOffsetSummary.readoutModels.signedDOG;
-rectRM   = acrossOffsetSummary.readoutModels.rectifiedDOG;
-hasSignedFit = isfield(signedRM, 'fit') && ~isempty(signedRM.fit) && ...
-  isfield(signedRM.fit, 'fitSuccess') && signedRM.fit.fitSuccess;
-if hasSignedFit
-  hSigned = plot(signedRM.plotOffsetsDeg, signedRM.plotPredictedScale, 'm-', 'LineWidth', 1.2);
-  % DOGFitText(0.35, 0.98, 'Signed DOG', signedRM);
-  legendHandles(end+1) = hSigned;
-  legendLabels{end+1} = 'Fitted Signed DOG';
-end
-hasRectFit = isfield(rectRM, 'fit') && ~isempty(rectRM.fit) && ...
-  isfield(rectRM.fit, 'fitSuccess') && rectRM.fit.fitSuccess;
-if hasRectFit
-  hRect = plot(rectRM.plotOffsetsDeg, rectRM.plotPredictedScale, 'b-', 'LineWidth', 1.2);
-  DOGFitText(0.98, 0.02, 'Rectified DOG', rectRM);
-  legendHandles(end+1) = hRect;
-  legendLabels{end+1} = 'Fitted Rectified DOG';
-end
-legend(legendHandles, legendLabels, 'Location', 'southwest');
-if hasSignedFit || hasRectFit
-    title(sprintf('%s -- DOG Fits to Normalized Scales (%d bootstraps)', opts.Animal, opts.NBoot));
-else
-    title(sprintf('%s -- Normalized Scales (No Fit Over %d bootstraps)', opts.Animal, opts.NBoot));
-end
-scaleText(0.98, 0.98, offsets, obsScale, ci95, emp);
-xlabel('Probe Offset (deg)');
-ylabel('Normalized Scale');
-xlim([0, 180]);
-box off;
-saveas(fig1, fullfile(opts.PlotDir, sprintf('ScaleFits_%s.pdf', opts.Animal)));
-
-% ---- Plots 2/3: fitted readout over MT preferred direction ----
-if hasSignedFit
-    tmpSummary = acrossOffsetSummary;
-    tmpSummary.readoutModel = signedRM;
-    plotReadoutDiagnostics(301, tmpSummary, opts);
-end
-if hasRectFit
-  tmpSummary = acrossOffsetSummary;
-  tmpSummary.readoutModel = rectRM;
-  plotReadoutDiagnostics(302, tmpSummary, opts);
-end
-end
-
-% ========================================================================
-function DOGFitText(x, y, label, rm)
-% One-model parameter/goodness-of-fit text block.
-
-lines = {label};
-for p = 1:min(numel(rm.params), numel(rm.paramNames))
-    lines{end+1} = sprintf('  %s = %.4g', rm.paramNames{p}, rm.params(p)); %#ok<AGROW>
-end
-if isfield(rm, 'fit') && ~isempty(rm.fit) && isfield(rm.fit, 'goodnessOfFit') && isstruct(rm.fit.goodnessOfFit)
-    g = rm.fit.goodnessOfFit;
-    if isfield(g, 'weightedLoss') && isfinite(g.weightedLoss)
-        lines{end+1} = sprintf('  loss = %.4g', g.weightedLoss); 
-    end
-    if isfield(g, 'reducedChiSq') && isfinite(g.reducedChiSq)
-      lines{end+1} = sprintf('  red chi2 = %.4g', g.reducedChiSq); 
-    end
-    if isfield(g, 'aicc') && isfinite(g.aicc)
-        lines{end+1} = sprintf('  AICc = %.4g', g.aicc); 
-    end
-end
-txt = strjoin(lines, newline);
-text(x, y, txt, 'Units', 'normalized', 'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'right', 'FontSize', 8, ...
-  'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], 'Margin', 4, 'Interpreter', 'none');
-end
-
-% ========================================================================
-function y = valueOrNaN(x)
-if isempty(x)
-  y = [NaN NaN];
-else
-  y = double(x);
-end
-end
-
-% ========================================================================
-function scaleText(x, y, offsets, obsScale, ci95, emp)
-% One-model parameter/goodness-of-fit text block.
-
-C = arrayfun(@(x) valueOrNaN(x.nTrialsByStep), emp, 'UniformOutput', false);
-nTrialsByStep = vertcat(C{:});
-stepTypes = [emp.stepType];
-lines = {};
-for index = 1:numel(offsets)
-  if isnan(obsScale(index))
-    continue;
-  end
-  nTrials = nTrialsByStep(index, stepTypes(index));
-  lines{end+1} = sprintf('%3d°: scale %.2f, %.2f-%.2f 95%% CI (n = %5d)', ...
-    offsets(index), obsScale(index), ci95(index, 1),  ci95(index, 2), nTrials); %#ok<AGROW>
-end
-txt = strjoin(lines, newline);
-text(x, y, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', 'FontSize', 8, ...
-  'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], 'Margin', 4, 'Interpreter', 'none');
 end
 
 % ========================================================================

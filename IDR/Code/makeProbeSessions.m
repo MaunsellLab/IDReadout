@@ -16,6 +16,10 @@ function staleProbeDirs = makeProbeSessions(varargin)
 %
 % Derived per-probe files written by makeProbeSessions contain both headers:
 %   Data/ProbeXX/ProbeSessions
+%
+% NOTE: trialIdx saved in each derived file is restricted to the same
+% validated trials represented by trialOutcomesAll, changeSidesAll,
+% chosenSidesAll, changeIndicesAll, prefNoiseByPatch, and probeNoiseByPatch.
 
 p = inputParser;
 addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
@@ -80,9 +84,24 @@ for k = 1:numel(dataFilePaths)
     sessionProbeHeader.probeSessionPath = probeSessionPath;
     probeTrials = probeSessions(p).probeTrials;
     lr = sessionLRMap(probeTrials);
-    trialIdx = probeSessions(p).trialIdx';
-    [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, chosenSidesAll, changeIndicesAll] = ...
+    trialIdxAll = probeSessions(p).trialIdx(:)';
+    [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, chosenSidesAll, changeIndicesAll, validIdx] = ...
                   extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, probeTrials, [1 2]);
+
+    % Keep trialIdx aligned to the validated trials only.  trialIdx indexes
+    % the original parent full-session trial numbers.  It is intentionally
+    % the same length/order as trialOutcomesAll and the third dimension of
+    % prefNoiseByPatch/probeNoiseByPatch.
+    trialIdx = trialIdxAll(validIdx);
+
+    % Make the probe header counts describe the saved analysis rows, not the
+    % broader candidate set of noise trials that shared this probe direction.
+    sessionProbeHeader.nCandidateProbeTrials = numel(trialIdxAll);
+    sessionProbeHeader.nTrials = numel(trialIdx);
+    sessionProbeHeader.nNoiseTrials = numel(trialIdx);
+    sessionProbeHeader.nNoNoiseTrials = 0;
+    sessionProbeHeader.trialIdxContract = ...
+      'trialIdx indexes original parent trials for the validated saved analysis rows only';
 
     save(probeSessionPath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'probeTrials', 'trialIdx', 'lr', ...
       'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', ...
@@ -257,7 +276,7 @@ assert(H.nNoiseTrials == H.nTrials, 'makeSessionProbeHeader:UnexpectedNoNoiseTri
 end
 
 %%================================================
-function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, changeIndices] = ...
+function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, changeIndices, validIdx] = ...
   extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, trials, stepTypes)
 % extractPatchNoiseMatrices
 % Return patch-wise noise matrices for all valid trials.
@@ -272,6 +291,7 @@ function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, change
 %   changeSides    : 1 x nTrials       (0=RF changed, 1=Opp changed)
 %   chosenSides    : 1 x nTrials       (0=RF chosen, 1=Opp chosen)
 %   changeIndices  : 1 x nTrials       (1=DEC, 2=INC)
+%   validIdx       : 1 x nTrials       local indices into the input trials cell array
 
 % trials = sessionProbeHeader.probeTrials;
 nTrials = numel(trials);
@@ -419,26 +439,3 @@ else
       probeDirDeg);
 end
 end
-
-%%=========================================================================
-% function x = localHeaderScalar(v)
-% % Accept either modern scalar fields or older struct-with-data fields.
-% 
-% if isstruct(v) && isfield(v, 'data')
-%   v = v.data;
-% end
-% 
-% x = v(1);
-% end
-% 
-% %%=========================================================================
-% function v = localDataValue(x)
-% if isstruct(x) && isfield(x, 'data')
-%   v = x.data;
-% else
-%   v = x;
-% end
-% if isnumeric(v) && ~isscalar(v)
-%   v = v(1);
-% end
-% end

@@ -3,14 +3,23 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 %
 %   [files, fileInfo] = selectAnalysisFiles(dataFolders, ...)
 %
-% File structure is represented by hasSessionHeader / hasSessionProbeHeader.
-% Parent acquisition context is represented by parentNProbeDirections and
-% parentProbeDirectionsDeg. Filename conventions are used only for hard
-% exclusions before loading metadata.
+% Selects .mat files with specified constraints.  Decisions are based
+% primary on information in sessionHeader (which every .mat file must
+% contain) or sometimes sessionProbeHeader (for more detailed selectivity).
+%
+% dataFolders can be a single data folder, or an array of folders that will
+% all be scanned to return a single list
+% 
+% Top level exclusions are made based on a list of hard excluded file name
+% and excluded probe directions, but otherwise all decisions are based on 
+% header content
+%
+% Typically this function is used by passing a dataFolder and an animal
+% specification.
 %
 % Supported selection arguments:
 %   Animal                            char array with the name of selection
-%   Bin179With180                     count 179° and 180° as a single offset
+%   Bin180Into179                     count 179° and 180° as a single offset
 %   FilePattern                       default '*.mat'
 %   HardExcludeFileNames              filenames excluded before loading
 %   MaxParentNProbeDirections         maximum parent n-probe-directions
@@ -32,29 +41,33 @@ R = P.Results;
 fileInfo = [];
 excludedInfo = [];
 for dIndex = 1:numel(R.dataFolders)
-  [dirFileInfo, dirExcludedInfo] = doOneDataFolder(R.dataFolders{dIndex}, R);
-  fileInfo = [fileInfo; dirFileInfo]; %#ok<AGROW>
-  excludedInfo = [excludedInfo; dirExcludedInfo]; %#ok<AGROW>
+
+  % Special execution is implemented for Bin180Into179, which combines
+  % probe directions 179° and 180°
   % If binning 179 with 180, check whether either offset is selected
-  if R.Bin179With180
+  if R.Bin180Into179
     [path, name] = fileparts(R.dataFolders{dIndex});
-    otherDataFolder = [];
-    if contains(path, 'Probe179')
-      otherDataFolder = [path(1:end-numel('Probe179')) 'Probe180/' name];
-      otherProbeDir = 180;
-    elseif contains(path, 'Probe180')
-      otherDataFolder = [path(1:end-numel('Probe180')) 'Probe179/' name];
-      otherProbeDir = 179;
-    end
-    % If 179 or 180 has been selected, concatenate entries for the other;
-    if ~isempty(otherDataFolder) && exist(otherDataFolder, 'dir')
-      modArgs = removeParameterPair(varargin, 'Bin179With180');
-      modArgs = removeParameterPair(modArgs, 'ProbeDirDeg');
-      [~, otherFileInfo] = selectAnalysisFiles(otherDataFolder, ...
-                                    modArgs{:}, 'Bin179With180', false, 'ProbeDirDeg', otherProbeDir);
-      fileInfo = [fileInfo; otherFileInfo]; %#ok<AGROW>
+    if contains(path, 'Probe180')   % do not process 180 when it is requested
+      continue;
+    elseif contains(path, 'Probe179')
+      % if this is a 179° folder, pull in data for 180°
+      dataFolder180 = [path(1:end-numel('Probe179')) 'Probe180/' name];
+      if exist(dataFolder180, 'dir')
+        % we need to modify args to get past this exclusion code on
+        % recursive call
+        modArgs = removeParameterPair(varargin, 'Bin180Into179');
+        modArgs = removeParameterPair(modArgs, 'ProbeDirDeg');
+        [~, fileInfo180] = selectAnalysisFiles(dataFolder180, ...
+          modArgs{:}, 'Bin180Into179', false, 'ProbeDirDeg', 180);
+        fileInfo = [fileInfo; fileInfo180]; %#ok<AGROW>
+      end
     end
   end
+
+  [dirFileInfo, dirExcludedInfo] = doOneDataFolder(R.dataFolders{dIndex}, R);
+  
+  fileInfo = [fileInfo; dirFileInfo]; %#ok<AGROW>
+  excludedInfo = [excludedInfo; dirExcludedInfo]; %#ok<AGROW>
 end
 
 if isempty(fileInfo)
@@ -77,15 +90,25 @@ end
 D = dir(fullfile(dataFolder, char(R.FilePattern)));
 D = D(~[D.isdir]);
 hardExcludeNames = cellstr(R.HardExcludeFileNames);
+hardExcludedStrings = cellstr(R.HardExcludeNameStrings);
 selectedRows = {};
 excludedRows = {};
+fileInfo = emptyFileInfoTable();
+excludedInfo = emptyExcludeTable();
 
 for k = 1:numel(D)
     fileName = D(k).name;
-    if endsWith(fileName, '_fileInfo.mat')
-        continue;
-    end
+    % if endsWith(fileName, '_fileInfo.mat')
+    %     continue;
+    % end
     filePath = fullfile(D(k).folder, fileName);
+
+    % check for any path string exclusions -- used for excluded probe
+    % directions and info files
+    if any(contains(filePath, hardExcludedStrings))
+      excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
+      continue;
+    end
 
     % Hard filename exclusions happen before loading metadata.
     % Match the filename stem exactly, not just the beginning of the name.
@@ -181,14 +204,10 @@ for k = 1:numel(D)
     end
 end
 
-if isempty(selectedRows)
-    fileInfo = emptyFileInfoTable();
-else
+if ~isempty(selectedRows)
     fileInfo = vertcat(selectedRows{:});
 end
-if isempty(excludedRows)
-  excludedInfo = emptyExcludeTable();
-else
+if ~isempty(excludedRows)
   excludedInfo = vertcat(excludedRows{:});
 end
 end
@@ -200,7 +219,7 @@ P.FunctionName = mfilename;
 
 addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x));
 addParameter(P, 'Animal', 'All', @(x) ischar(x) || isstring(x));
-addParameter(P, 'Bin179With180', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
 addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
@@ -223,6 +242,12 @@ addParameter(P, 'HardExcludeFileNames', { ...
     'IDReadout_Meetz_20260311', ...
     'IDReadout_Meetz_20260312', ...
     }, @(x) iscellstr(x) || isstring(x));
+
+addParameter(P, 'HardExcludeNameStrings', { ...
+  '_fileInfo.mat', ...
+  'Probe1/', ...
+  }, @(x) iscellstr(x) || isstring(x));
+
 end
 
 % -------------------------------------------------------------------------
@@ -250,18 +275,6 @@ if ~isfinite(row.parentNProbeDirections)
         criterionName, filePath);
 end
 end
-
-% -------------------------------------------------------------------------
-% function row = stripExclusionColumns(row)
-% % Protect the selector contract: returned fileInfo must describe selected
-% % files only, and must not carry stale exclusion bookkeeping columns.
-% 
-% varsToDrop = intersect({'isExcluded', 'excludeReasons'}, row.Properties.VariableNames);
-% 
-% if ~isempty(varsToDrop)
-%     row(:, varsToDrop) = [];
-% end
-% end
 
 %% -------------------------------------------------------------------------
 function T = emptyExcludeTable()

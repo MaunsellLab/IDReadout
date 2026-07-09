@@ -100,7 +100,7 @@ psych.finalSessionFits = psychPass2.sessionFits;
 psych.finalAlignedWeibull = alignedWeibullPass2;
 
 psychometric = computeAcrossPsychometric(trialTable);
-kernel = computeAcrossSignedNoiseKernel(sessionAnalyses);
+kernel = computeAcrossKernel(sessionAnalyses);
 rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses);
 looPredictor = computeIDQLOONoisePredictor(sessionAnalyses);
 trialTable.xNoiseLOO = looPredictor.xNoiseLOO;
@@ -282,7 +282,7 @@ psychometric.Properties.VariableNames{1} = 'stepCoh';
 end
 
 %% -------------------------------------------------------------------------
-function kernel = computeAcrossSignedNoiseKernel(sessionAnalyses)
+function kernel = computeAcrossKernel(sessionAnalyses)
 % This assumes all sessions have the same tMS and stepFrames. If they do not,
 % the code should crash or produce an obvious mismatch.
 
@@ -410,7 +410,7 @@ axText = nexttile(tl, 1);
 plotAcrossTextSummary(axText, acrossSummary);
 
 axPsych = nexttile(tl, 2);
-plotAlignedPsychometricWithWeibull(axPsych, acrossSummary);
+plotAlignedWeibull(axPsych, acrossSummary);
 
 axKernel = nexttile(tl, 3);
 plotAcrossKernel(axKernel, acrossSummary.kernel);
@@ -435,33 +435,28 @@ R = acrossSummary.sessionRecords;
 fit1 = acrossSummary.psychFit.pass1.alignedWeibull;
 fit = acrossSummary.psychFit.pass2.alignedWeibull;
 gainFit = acrossSummary.noiseGain.rect;
-looDiag = acrossSummary.looPredictor.weightDiagnostics;
+% looDiag = acrossSummary.looPredictor.weightDiagnostics;
 txt = {
     sprintf('Plot Created: %s', string(acrossSummary.createdAt))
     sprintf('%ld Sessions, %ld Trials', acrossSummary.nSessions, acrossSummary.nTrials)
     ''
-    sprintf('Mean performance: %.1f%%', mean(R.meanCorrect, 'omitnan') * 100.0)
-    sprintf('Mean noise step performance: %.1f%%', mean(R.meanCorrectStepNoise, 'omitnan') * 100.0)
-    sprintf('Step coh: %.0f%%', mean(R.noisyStepCoh, 'omitnan'))
+    sprintf('Mean perf.: all %.1f%%, noise %.1f%%', ...
+            mean(R.meanCorrect, 'omitnan') * 100.0, mean(R.meanCorrectStepNoise, 'omitnan') * 100.0)
+    sprintf('Mean noise step coh: %.0f%%', mean(R.noisyStepCoh, 'omitnan'))
     ''
-    sprintf('Rect summed-noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
+    sprintf('Int. noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
     ''
-    sprintf('Pass1 beta/lapse: %.3f / %.3f', fit1.betaWeibull, fit1.lapse)
-    sprintf('Pass2 beta/lapse: %.3f / %.3f', fit.betaWeibull, fit.lapse)
+    sprintf('Pass1 beta & lapse: %.3f, %.3f', fit1.betaWeibull, fit1.lapse)
+    sprintf('Pass2 beta & lapse: %.3f, %.3f', fit.betaWeibull, fit.lapse)
     sprintf('Normalization Threshold: %.0f%%', 100 * fit.thresholdPerformance)
     ''
-    sprintf('Rect noise gain: %.3f; 95%% CI: [%.3f %.3f]', gainFit.gain, gainFit.CI95(1), gainFit.CI95(2))
-    sprintf('Flat prediction: %.1f', gainFit.flatPrediction)
-    sprintf('z vs flat: %.2f', gainFit.zVsFlat)
+    sprintf('Int. noise gain: %.2f', gainFit.gain)
+    sprintf('Int. noise 95%% CI: [%.2f %.2f]', gainFit.CI95(1), gainFit.CI95(2))
+    sprintf('z vs flat (%.1f): %.2f', gainFit.flatPrediction, gainFit.zVsFlat)
     ''
-    sprintf('Across kernel step mean (SD): %.2f%% (%.2f%%)', ...
-            acrossSummary.kernel.stepMean, acrossSummary.kernel.stepSD);
-    sprintf('Across kernel preStep mean (SD): %.2f%% (%.2f%%)', ...
-            acrossSummary.kernel.preStepMean, acrossSummary.kernel.preStepSD)
-    sprintf('Across kernel step z: %.2f', acrossSummary.kernel.stepMeanZPreSD)
-    ''
-    sprintf('LOO Min Effective Step Frames: %.2f', min(looDiag.effectiveNFrames))
-    sprintf('LOO Max Frac Neg Weights: %.2f', max(looDiag.fracNegativeWeights))
+    sprintf('Step mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.stepMean, acrossSummary.kernel.stepSD);
+    sprintf('PreStep mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.preStepMean, acrossSummary.kernel.preStepSD)
+    sprintf('Step z: %.2f', acrossSummary.kernel.stepMeanZPreSD)
     };
 
 
@@ -486,31 +481,31 @@ patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7],  'EdgeColor',
     'FaceAlpha', 0.35, 'HandleVisibility', 'off');
 
 % Replot on top of patch.
-plot(ax, kernel.tMS, kernel.meanDiff, '-b', 'LineWidth', 1.2, 'DisplayName', 'correct - error');
-plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName', 'step-mean rectangle');
-xlabel(ax, 'Time from trial start (ms)');
-ylabel(ax, 'Summed changed-side noise, correct - error');
-title(ax, 'Across summed-noise kernel', 'Interpreter', 'none');
+plot(ax, kernel.tMS, kernel.meanDiff, '-b', 'LineWidth', 1.2, 'DisplayName', 'Kernel');
+plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName', 'Mean Pre/Post Step');
+xlabel(ax, 'Trial Time (ms)');
+ylabel(ax, 'Change Side Mean Hit - Mean Miss Noise');
+title(ax, 'Average Kernel', 'Interpreter', 'none');
 grid(ax, 'on');
 box(ax, 'off');
 
-txt = sprintf(['correct n=%d\n' 'error n=%d\n' 'step mean %.2f%%\n' 'preStep SD %.2f%%\n' 'step z %.2f'], ...
-    kernel.nCorrect, kernel.nError,  kernel.stepMean,  kernel.preStepSD, kernel.stepMeanZPreSD);
+txt = sprintf(['Hit n=%d, Miss n=%d\n' 'PreStep Mean %.2f%%\n' 'Step Mean %.2f%%\n'], ...
+    kernel.nCorrect, kernel.nError,  kernel.preStepMean,  kernel.stepMean);
 text(ax, 0.02, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
   'FontSize', 8);
-
-legend(ax, 'Location', 'southwest', 'FontSize', 7);
+xticks(ax, 0:250:1000);
+legend(ax, 'Location', 'southeast', 'FontSize', 7);
 
 end
 %% -------------------------------------------------------------------------
 function plotSessionPerformance(ax, sessionRecords)
 
-plot(ax, sessionRecords.meanCorrectStepNoise, 'ko-', 'LineWidth', 1.2, 'MarkerSize', 4);
-
+plot(ax, sessionRecords.meanCorrectStepNoise, 'ko', 'LineWidth', 1.2, 'MarkerSize', 6, 'MarkerFaceColor', 'k');
 xlabel(ax, 'Session');
 ylabel(ax, 'P(hit), noise step');
 title(ax, 'Noise Step Performance by Session');
-ylim(ax, [0.45 1.02]);
+xlim(ax, [0, numel(sessionRecords.meanCorrectStepNoise) + 1]);
+ylim(ax, [0.5 1.0]);
 grid(ax, 'on');
 box(ax, 'off');
 
@@ -520,13 +515,13 @@ end
 function plotSessionKernelMeans(ax, sessionRecords)
 
 hold(ax, 'on');
-
-plot(ax, sessionRecords.kernelStepMean, 'ko-', 'LineWidth', 1.2, 'MarkerSize', 4);
+plot(ax, sessionRecords.kernelStepMean, 'ko', 'LineWidth', 1.2, 'MarkerSize', 6, 'MarkerFaceColor', 'k');
 yline(ax, 0, 'k:');
 xlabel(ax, 'Session');
 ylabel(ax, 'Kernel Mean Over Step');
 ytickformat(ax, 'percentage');
-title(ax, 'Session Summed-Noise Kernel Means');
+xlim(ax, [0, numel(sessionRecords.kernelStepMean) + 1]);
+title(ax, 'Session Kernel Means');
 grid(ax, 'on');
 box(ax, 'off');
 
