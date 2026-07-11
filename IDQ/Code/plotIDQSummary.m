@@ -1,5 +1,5 @@
-function acrossSummary = makeIDQAcrossSessionSummary()
-% makeIDQAcrossSessionSummary
+function plotIDQSummary()
+% plotIDQSummary
 %
 % Minimal first across-session IDQ summary.
 %
@@ -15,18 +15,15 @@ function acrossSummary = makeIDQAcrossSessionSummary()
 % sessionAnalysis products.
 
 domainPath = domainFolder(mfilename('fullpath'));
-
 sessionAnalysisFolder = fullfile(domainPath, 'Data', 'SessionAnalysis');
 summaryFolder = validFolder(fullfile(domainPath, 'Data', 'AcrossSessionSummaries'));
 plotFolder = validFolder(fullfile(domainPath, 'Plots', 'AcrossSessionSummaries'));
 
 files = dir(fullfile(sessionAnalysisFolder, '*_sessionAnalysis.mat'));
 if isempty(files)
-    error('makeIDQAcrossSessionSummary:NoSessionAnalysisFiles', ...
-        'No sessionAnalysis files found in %s.', sessionAnalysisFolder);
+    error('plotIDQSummary:NoSessionAnalysisFiles', 'No sessionAnalysis files found in %s.', sessionAnalysisFolder);
 end
-
-fprintf('makeIDQAcrossSessionSummary: loading %d sessionAnalysis files\n', numel(files));
+fprintf('plotIDQSummary: loading %d sessionAnalysis files\n', numel(files));
 
 sessionAnalyses = cell(numel(files), 1);
 for iFile = 1:numel(files)
@@ -35,114 +32,129 @@ for iFile = 1:numel(files)
     sessionAnalyses{iFile} = sessionAnalysis;
 end
 
+% compile the absolute-, relative-, and all-direction kernels
+nDirs = sessionAnalyses{1}.sessionHeader.nDirs;
+dirStepDeg = 360 / nDirs;
+absDirLabels = strings(1, nDirs);
+for d = 1:nDirs
+  absDirLabels(d) = sprintf('%.0f°-%.0f°', (d - 1) * dirStepDeg, d * dirStepDeg - 1);
+end
+dirOffset = 360 / nDirs;
+relDirLabels = {'Drift Direction', sprintf('Drift - %.0f%%', dirOffset), sprintf('Drift + %.0f%%', dirOffset)};
+kernel = computeAllDirKernel(sessionAnalyses, 'All Directions');
+absKernels = computeDirKernels(sessionAnalyses, nDirs, true, absDirLabels);
+relKernels = computeDirKernels(sessionAnalyses, nDirs, false, relDirLabels);
+
+% fit the across session psychometric functions
 trialTable = concatenateTrialTables(sessionAnalyses);
 sessionRecords = makeSessionRecords(sessionAnalyses);
-initialBetaWeibull = 3;
-initialLapse = 0.02;
-targetPerformance = 0.75;
-lapseBounds = [0 0.05];
+% initialBetaWeibull = 2;
+% initialLapse = 0.02;
+% lapseBounds = [0 0.05];
 
-% Pass 1: fixed guessed beta/lapse for session thresholds.
-psychPass1 = fitIDQInitialSessionThresholds( ...
-    trialTable, ...
-    initialBetaWeibull, ...
-    initialLapse, ...
-    targetPerformance);
+[psych, trialTable] = fitPsychometric(trialTable, [1, 2, 3]);
+% Fit all directions with a psychometric function
+% psychAllDir = fitIDQInitialSessionThresholds(trialTable, initialBetaWeibull, initialLapse, targetPerformance);
+sessionRecords.threshold75 = psych.sessionFits.threshold;
+sessionRecords.noisyStepAlignedCoh = psych.sessionFits.noisyStepCoh ./ psych.sessionFits.threshold;
+% alignedWeibullAllDir = fitIDQAcrossAlignedWeibull(trialTable.alignedCoh, trialTable.correct, ...
+%     targetPerformance, lapseBounds);
 
-trialTable.alignedCoh_pass1 = psychPass1.alignedCoh;
-trialTable.noisyStepAlignedCoh_pass1 = psychPass1.noisyStepAlignedCoh;
+% psych = struct();
+% psych.initialBetaWeibull = initialBetaWeibull;
+% psych.initialLapse = initialLapse;
+% psych.targetPerformance = targetPerformance;
+% psych.lapseBounds = lapseBounds;
+% psych.sessionFits = psychAllDir.sessionFits;
+% psych.alignedWeibull = alignedWeibullAllDir;
 
-alignedWeibullPass1 = fitIDQAcrossAlignedWeibull( ...
-    trialTable.alignedCoh_pass1, ...
-    trialTable.correct, ...
-    targetPerformance, ...
-    lapseBounds);
+% psych.finalSessionFits = psychAllDir.sessionFits;
+% psych.finalAlignedWeibull = alignedWeibullAllDir;
+% psych.sessionFits = psychAllDir.sessionFits;
+% psych.alignedWeibull = alignedWeibullAllDir;
+% psychometric = computeAcrossPsychometric(trialTable);
+psychByDir = cell(1, nDirs);
+dirTrialTables = cell(1, nDirs);
+for d = 1:nDirs
+  [psychByDir{d}, dirTrialTables{d}] = fitPsychometric(trialTable, d);
+end
 
-% Pass 2: refit session thresholds using pass-1 beta/lapse.
-psychPass2 = fitIDQInitialSessionThresholds( ...
-    trialTable, ...
-    alignedWeibullPass1.betaWeibull, ...
-    alignedWeibullPass1.lapse, ...
-    targetPerformance);
 
-trialTable.alignedCoh_pass2 = psychPass2.alignedCoh;
-trialTable.noisyStepAlignedCoh_pass2 = psychPass2.noisyStepAlignedCoh;
 
-alignedWeibullPass2 = fitIDQAcrossAlignedWeibull( ...
-    trialTable.alignedCoh_pass2, ...
-    trialTable.correct, ...
-    targetPerformance, ...
-    lapseBounds);
-
-sessionRecords.threshold75_pass1 = psychPass1.sessionFits.threshold;
-sessionRecords.threshold75_pass2 = psychPass2.sessionFits.threshold;
-sessionRecords.noisyStepAlignedCoh_pass1 = ...
-  psychPass1.sessionFits.noisyStepCoh ./ psychPass1.sessionFits.threshold;
-sessionRecords.noisyStepAlignedCoh_pass2 = ...
-  psychPass2.sessionFits.noisyStepCoh ./ psychPass2.sessionFits.threshold;
-sessionRecords.threshold75_changeFrac = ...
-  (sessionRecords.threshold75_pass2 - sessionRecords.threshold75_pass1) ./ ...
-  sessionRecords.threshold75_pass1;
-
-psych = struct();
-psych.initialBetaWeibull = initialBetaWeibull;
-psych.initialLapse = initialLapse;
-psych.targetPerformance = targetPerformance;
-psych.lapseBounds = lapseBounds;
-
-psych.pass1.sessionFits = psychPass1.sessionFits;
-psych.pass1.alignedWeibull = alignedWeibullPass1;
-
-psych.pass2.sessionFits = psychPass2.sessionFits;
-psych.pass2.alignedWeibull = alignedWeibullPass2;
-
-psych.finalSessionFits = psychPass2.sessionFits;
-psych.finalAlignedWeibull = alignedWeibullPass2;
-
-psychometric = computeAcrossPsychometric(trialTable);
-kernel = computeAcrossKernel(sessionAnalyses);
 rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses);
 looPredictor = computeIDQLOONoisePredictor(sessionAnalyses);
 trialTable.xNoiseLOO = looPredictor.xNoiseLOO;
 
-
-noiseGainRect = fitIDQNoiseGain(trialTable, 'rectSumNoise', psych.pass2.sessionFits, ...
-  psych.pass2.alignedWeibull, targetPerformance);
-noiseGainLOO = fitIDQNoiseGain(trialTable, 'xNoiseLOO', psych.pass2.sessionFits, psych.pass2.alignedWeibull, ...
+targetPerformance = 0.75;
+noiseGainRect = fitIDQNoiseGain(trialTable, 'rectSumNoise', psych.sessionFits, ...
+  psych.alignedWeibull, targetPerformance);
+noiseGainLOO = fitIDQNoiseGain(trialTable, 'xNoiseLOO', psych.sessionFits, psych.alignedWeibull, ...
   targetPerformance);
 directionDiagnostics = computeIDQDirectionDiagnostics(sessionAnalyses, trialTable);
-directionDiagnostics.absolute.rectGainByDirection = fitIDQRectGainByDirection(trialTable, psych.pass2.sessionFits, ...
-  psych.pass2.alignedWeibull, targetPerformance, directionDiagnostics.absolute.directionLabels);
+directionDiagnostics.absolute.rectGainByDirection = fitIDQRectGainByDirection(trialTable, psych.sessionFits, ...
+  psych.alignedWeibull, targetPerformance, directionDiagnostics.absolute.directionLabels);
 
 acrossSummary = struct();
-acrossSummary.looPredictor = looPredictor;
-acrossSummary.psychFit = psych;
-acrossSummary.psychometric = psychometric;
-acrossSummary.noiseGain.primary = 'rect';
-acrossSummary.noiseGain.rect = noiseGainRect;
-acrossSummary.noiseGain.looKernel = noiseGainLOO;
+acrossSummary.sessionRecords = sessionRecords;
+acrossSummary.trialTable = trialTable;
 acrossSummary.createdBy = mfilename;
 acrossSummary.createdAt = datetime('now');
 acrossSummary.sessionAnalysisFolder = sessionAnalysisFolder;
 acrossSummary.nSessions = numel(sessionAnalyses);
 acrossSummary.nTrials = height(trialTable);
 acrossSummary.nStepNoiseTrials = sum(trialTable.hasStepNoise);
-acrossSummary.directionDiagnostics = directionDiagnostics;
 
-acrossSummary.sessionRecords = sessionRecords;
-acrossSummary.trialTable = trialTable;
+acrossSummary.psychFit = psych;
+acrossSummary.psychByDir = psychByDir;
+acrossSummary.dirTrialTables = dirTrialTables;
+
 acrossSummary.kernel = kernel;
+acrossSummary.absKernels = absKernels;
+acrossSummary.relKernels = relKernels;
+
 acrossSummary.rectPredictor = rectPredictor;
+acrossSummary.noiseGain.primary = 'rect';
+acrossSummary.noiseGain.rect = noiseGainRect;
+acrossSummary.noiseGain.looKernel = noiseGainLOO;
+
+acrossSummary.directionDiagnostics = directionDiagnostics;
+acrossSummary.looPredictor = looPredictor;
 
 summaryMatFile = fullfile(summaryFolder, 'IDQ_AcrossSessionSummary.mat');
 save(summaryMatFile, 'acrossSummary', '-v7.3');
 fprintf('  saved %s\n', summaryMatFile);
 
-summaryPDFFile = fullfile(plotFolder, 'IDQ_AcrossSessionSummary.pdf');
-fig = plotIDQAcrossSessionSummary(acrossSummary);
+summaryPDFFile = fullfile(plotFolder, 'IDQSessionSummary.pdf');
+fig = plotSessionSummary(acrossSummary);
 exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector');
-fig = plotIDQDirectionDiagnosticsSummary(acrossSummary);
-exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector', 'Append', true);
+% fig = plotIDQDirectionDiagnosticsSummary(acrossSummary);
+% exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector', 'Append', true);
+
+end
+
+%% -------------------------------------------------------------------------
+function [psych, dirTrialTable] = fitPsychometric(trialTable, dirIndices)
+% Fit selected drift directions with a psychometric function
+
+initialBetaWeibull = 2;
+initialLapse = 0.02;
+targetPerformance = 0.75;
+lapseBounds = [0 0.05];
+
+dirTrialTable = trialTable(ismember(trialTable.dirIndex, dirIndices), :);
+psychDir = fitIDQInitialSessionThresholds(dirTrialTable, initialBetaWeibull, initialLapse, targetPerformance);
+alignedWeibull = fitIDQAcrossAlignedWeibull(psychDir.alignedCoh, dirTrialTable.correct, ...
+  targetPerformance, lapseBounds);
+dirTrialTable.alignedCoh = psychDir.alignedCoh;
+dirTrialTable.noisyStepAlignedCoh = psychDir.noisyStepAlignedCoh;
+
+psych = struct();
+psych.initialBetaWeibull = initialBetaWeibull;
+psych.initialLapse = initialLapse;
+psych.targetPerformance = targetPerformance;
+psych.lapseBounds = lapseBounds;
+psych.sessionFits = psychDir.sessionFits;
+psych.alignedWeibull = alignedWeibull;
 
 end
 
@@ -159,14 +171,8 @@ for iSession = 1:numel(sessionAnalyses)
   T.noisyStepCoh = repmat(SA.noisyStepCoh, height(T), 1);
   T.rectSumNoise = SA.rectSumNoise(:);
   T.rectMeanNoise = SA.rectMeanNoise(:);
-  % T.rectDriftMinusNonNoise = SA.rectDriftMinusNonNoise(:);
-
-  % Compatibility alias used by older fitting/plotting code.
-  % Primary IDQ flat-readout predictor is now rectSumNoise.
-  T.rectNoisePredictor = T.rectSumNoise;
   tables{iSession} = T;
 end
-
 trialTable = vertcat(tables{:});
 
 % Put sessionIndex near the front for readability.
@@ -194,160 +200,74 @@ kernelStepPeak = nan(nSessions, 1);
 for iSession = 1:nSessions
   SA = sessionAnalyses{iSession};
   T = SA.trialTable;
-
   fileName(iSession) = string(SA.fileName);
   nTrials(iSession) = SA.nTrials;
   nStepNoiseTrials(iSession) = SA.nStepNoiseTrials;
   noisyStepCoh(iSession) = SA.noisyStepCoh;
-
   meanCorrect(iSession) = mean(T.correct, 'omitnan');
-
   idxNoise = T.hasStepNoise;
   meanCorrectStepNoise(iSession) = mean(T.correct(idxNoise), 'omitnan');
-
   x = SA.rectSumNoise(idxNoise);
   meanRectNoise(iSession) = mean(x, 'omitnan');
   stdRectNoise(iSession) = std(x, 'omitnan');
-
   k = SA.sumNoiseKernel.kernel;
   kStep = k(SA.stepFrames);
-
   kernelStepIntegral(iSession) = sum(kStep, 'omitnan');
   kernelStepMean(iSession) = mean(kStep, 'omitnan');
   kernelStepPeak(iSession) = max(abs(kStep), [], 'omitnan');
 end
 
-sessionRecords = table( ...
-    fileName, ...
-    nTrials, ...
-    nStepNoiseTrials, ...
-    noisyStepCoh, ...
-    meanCorrect, ...
-    meanCorrectStepNoise, ...
-    meanRectNoise, ...
-    stdRectNoise, ...
-    kernelStepIntegral, ...
-    kernelStepMean, ...
-    kernelStepPeak);
+sessionRecords = table(fileName, nTrials, nStepNoiseTrials, noisyStepCoh, meanCorrect, ...
+    meanCorrectStepNoise, meanRectNoise, stdRectNoise, kernelStepIntegral, kernelStepMean, kernelStepPeak);
 
 end
 
-%% -------------------------------------------------------------------------
-function psychometric = computeAcrossPsychometric(trialTable)
+% %% -------------------------------------------------------------------------
+% function psychometric = computeAcrossPsychometric(trialTable)
+% 
+% cohLevels = unique(trialTable.stepCoh);
+% cohLevels = cohLevels(:);
+% 
+% nLevels = numel(cohLevels);
+% 
+% nTrials = nan(nLevels, 1);
+% nCorrect = nan(nLevels, 1);
+% pCorrect = nan(nLevels, 1);
+% 
+% nTrialsNoise = nan(nLevels, 1);
+% nCorrectNoise = nan(nLevels, 1);
+% pCorrectNoise = nan(nLevels, 1);
+% 
+% nTrialsNoNoise = nan(nLevels, 1);
+% nCorrectNoNoise = nan(nLevels, 1);
+% pCorrectNoNoise = nan(nLevels, 1);
+% 
+% for iLevel = 1:nLevels
+%     coh = cohLevels(iLevel);
+% 
+%     idx = trialTable.stepCoh == coh;
+%     nTrials(iLevel) = sum(idx);
+%     nCorrect(iLevel) = sum(trialTable.correct(idx));
+%     pCorrect(iLevel) = mean(trialTable.correct(idx), 'omitnan');
+% 
+%     idxNoise = idx & trialTable.hasStepNoise;
+%     nTrialsNoise(iLevel) = sum(idxNoise);
+%     nCorrectNoise(iLevel) = sum(trialTable.correct(idxNoise));
+%     pCorrectNoise(iLevel) = mean(trialTable.correct(idxNoise), 'omitnan');
+% 
+%     idxNoNoise = idx & ~trialTable.hasStepNoise;
+%     nTrialsNoNoise(iLevel) = sum(idxNoNoise);
+%     nCorrectNoNoise(iLevel) = sum(trialTable.correct(idxNoNoise));
+%     pCorrectNoNoise(iLevel) = mean(trialTable.correct(idxNoNoise), 'omitnan');
+% end
+% 
+% psychometric = table(cohLevels, nTrials, nCorrect, pCorrect, nTrialsNoise, nCorrectNoise, pCorrectNoise, ...
+%     nTrialsNoNoise, nCorrectNoNoise, pCorrectNoNoise);
+% 
+% psychometric.Properties.VariableNames{1} = 'stepCoh';
+% 
+% end
 
-cohLevels = unique(trialTable.stepCoh);
-cohLevels = cohLevels(:);
-
-nLevels = numel(cohLevels);
-
-nTrials = nan(nLevels, 1);
-nCorrect = nan(nLevels, 1);
-pCorrect = nan(nLevels, 1);
-
-nTrialsNoise = nan(nLevels, 1);
-nCorrectNoise = nan(nLevels, 1);
-pCorrectNoise = nan(nLevels, 1);
-
-nTrialsNoNoise = nan(nLevels, 1);
-nCorrectNoNoise = nan(nLevels, 1);
-pCorrectNoNoise = nan(nLevels, 1);
-
-for iLevel = 1:nLevels
-    coh = cohLevels(iLevel);
-
-    idx = trialTable.stepCoh == coh;
-    nTrials(iLevel) = sum(idx);
-    nCorrect(iLevel) = sum(trialTable.correct(idx));
-    pCorrect(iLevel) = mean(trialTable.correct(idx), 'omitnan');
-
-    idxNoise = idx & trialTable.hasStepNoise;
-    nTrialsNoise(iLevel) = sum(idxNoise);
-    nCorrectNoise(iLevel) = sum(trialTable.correct(idxNoise));
-    pCorrectNoise(iLevel) = mean(trialTable.correct(idxNoise), 'omitnan');
-
-    idxNoNoise = idx & ~trialTable.hasStepNoise;
-    nTrialsNoNoise(iLevel) = sum(idxNoNoise);
-    nCorrectNoNoise(iLevel) = sum(trialTable.correct(idxNoNoise));
-    pCorrectNoNoise(iLevel) = mean(trialTable.correct(idxNoNoise), 'omitnan');
-end
-
-psychometric = table( ...
-    cohLevels, ...
-    nTrials, nCorrect, pCorrect, ...
-    nTrialsNoise, nCorrectNoise, pCorrectNoise, ...
-    nTrialsNoNoise, nCorrectNoNoise, pCorrectNoNoise);
-
-psychometric.Properties.VariableNames{1} = 'stepCoh';
-
-end
-
-%% -------------------------------------------------------------------------
-function kernel = computeAcrossKernel(sessionAnalyses)
-% This assumes all sessions have the same tMS and stepFrames. If they do not,
-% the code should crash or produce an obvious mismatch.
-
-tMS = sessionAnalyses{1}.tMS;
-stepFrames = sessionAnalyses{1}.stepFrames;
-
-allCorrectNoise = [];
-allErrorNoise = [];
-
-for iSession = 1:numel(sessionAnalyses)
-  SA = sessionAnalyses{iSession};
-  if numel(SA.tMS) ~= numel(tMS) || any(SA.tMS(:) ~= tMS(:))
-    error('makeIDQAcrossSessionSummary:TimeVectorMismatch', 'Session %s has a different tMS vector.', SA.fileName);
-  end
-
-  if numel(SA.stepFrames) ~= numel(stepFrames) || any(SA.stepFrames(:) ~= stepFrames(:))
-    error('makeIDQAcrossSessionSummary:StepFrameMismatch', 'Session %s has different stepFrames.', SA.fileName);
-  end
-
-  T = SA.trialTable;
-  idxUse = T.hasStepNoise;
-  correctUse = idxUse & T.correct;
-  errorUse = idxUse & ~T.correct;
-  allCorrectNoise = [allCorrectNoise, SA.sumNoiseByFrameTrial(:, correctUse)]; %#ok<AGROW>
-  allErrorNoise = [allErrorNoise, SA.sumNoiseByFrameTrial(:, errorUse)]; %#ok<AGROW>
-end
-
-meanCorrect = mean(allCorrectNoise, 2, 'omitnan');
-meanError = mean(allErrorNoise, 2, 'omitnan');
-
-kernel = struct();
-
-kernel.tMS = tMS;
-kernel.stepFrames = stepFrames;
-
-kernel.meanCorrect = meanCorrect;
-kernel.meanError = meanError;
-kernel.meanDiff = meanCorrect - meanError;
-
-kernel.nCorrect = size(allCorrectNoise, 2);
-kernel.nError = size(allErrorNoise, 2);
-kernel.nTrials = kernel.nCorrect + kernel.nError;
-
-kernel.stepIntegral = sum(kernel.meanDiff(stepFrames), 'omitnan');
-kernel.stepMean = mean(kernel.meanDiff(stepFrames), 'omitnan');
-kernel.stepSD = std(kernel.meanDiff(stepFrames), 'omitnan');
-kernel.stepPeak = max(abs(kernel.meanDiff(stepFrames)), [], 'omitnan');
-
-preStepFrames = find(tMS < tMS(stepFrames(1)));
-
-kernel.preStepFrames = preStepFrames;
-
-kernel.preStepMean = mean(kernel.meanDiff(preStepFrames), 'omitnan');
-kernel.preStepSD = std(kernel.meanDiff(preStepFrames), 'omitnan');
-kernel.stepMinusPreMean = kernel.stepMean - kernel.preStepMean;
-
-if kernel.preStepSD > 0
-  kernel.stepMeanZPreSD = kernel.stepMinusPreMean / kernel.preStepSD;
-else
-  kernel.stepMeanZPreSD = NaN;
-end
-
-kernel.rectReference = ones(size(kernel.meanDiff)) .* kernel.preStepMean;
-kernel.rectReference(stepFrames) = kernel.stepMean;
-end
 
 %% -------------------------------------------------------------------------
 function rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses)
@@ -396,33 +316,60 @@ rectPredictor.bySession = table(fileName, nTrials, meanX, sdX, meanCorrectX, mea
 end
 
 %% -------------------------------------------------------------------------
-function fig = plotIDQAcrossSessionSummary(acrossSummary)
+function fig = plotSessionSummary(acrossSummary)
 
 fig = figure(500);
-set(fig, 'Color', 'w', 'Units', 'inches', 'Position', [1 1 14 8], 'WindowStyle', 'docked');
+set(fig, 'Color', 'w', 'WindowStyle', 'docked');
 
-tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+tl = tiledlayout(fig, 4, 4, 'TileSpacing', 'compact', 'Padding', 'compact');
 
-title(tl, sprintf('IDQ Across-session summary (%d sessions)', acrossSummary.nSessions), ...
+title(tl, sprintf('IDQ Summary (%d sessions)', acrossSummary.nSessions), ...
     'Interpreter', 'none', 'FontWeight', 'bold');
 
-axText = nexttile(tl, 1);
-plotAcrossTextSummary(axText, acrossSummary);
+% axText = nexttile(tl, 1);
+% plotAcrossTextSummary(axText, acrossSummary);
 
-axPsych = nexttile(tl, 2);
-plotAlignedWeibull(axPsych, acrossSummary);
+kernelAx = gobjects(7,1);
+stepPatch = gobjects(7,1);
+for d = 1:3
+  kernelAx(d) = nexttile(tl, d);
+  stepPatch(d) = plotKernel(kernelAx(d), acrossSummary.relKernels{d}, d == 1, false);
+end
 
-axKernel = nexttile(tl, 3);
-plotAcrossKernel(axKernel, acrossSummary.kernel);
+kernelAx(4) = nexttile(tl, 4);
+stepPatch(4) = plotKernel(kernelAx(4), acrossSummary.kernel);
 
-axSessPerf = nexttile(tl, 4);
-plotSessionPerformance(axSessPerf, acrossSummary.sessionRecords);
+for d = 1:3
+  kernelAx(d + 4) = nexttile(tl, d + 4);
+  stepPatch(d+ 4) = plotKernel(kernelAx(d+4), acrossSummary.absKernels{d});
+end
 
-axGain = nexttile(tl, 5);
-plotNoiseGainSummary(axGain, acrossSummary.noiseGain);
+yl = cell2mat(get(kernelAx, 'YLim'));
+sharedYLim = [min(yl(:,1)), max(yl(:,2))];
+set(kernelAx, 'YLim', sharedYLim);
+for k = 1:7
+  stepPatch(k).YData = sharedYLim([1 1 2 2]);
+end
 
-axKernelSess = nexttile(tl, 6);
-plotSessionKernelMeans(axKernelSess, acrossSummary.sessionRecords);
+for d = 1:3
+  axPsych = nexttile(tl, d + 8);
+  plotAlignedWeibull(axPsych,  acrossSummary.dirTrialTables{d}, acrossSummary.psychByDir{d}.alignedWeibull);
+end
+
+axPsych = nexttile(tl, 12);
+plotAlignedWeibull(axPsych, acrossSummary.trialTable, acrossSummary.psychFit.alignedWeibull);
+
+
+
+
+% axSessPerf = nexttile(tl, 12);
+% plotSessionPerformance(axSessPerf, acrossSummary.sessionRecords);
+% 
+% axGain = nexttile(tl, 5);
+% plotNoiseGainSummary(axGain, acrossSummary.noiseGain);
+% 
+% axKernelSess = nexttile(tl, 6);
+% plotSessionKernelMeans(axKernelSess, acrossSummary.sessionRecords);
 
 end
 
@@ -432,8 +379,7 @@ function plotAcrossTextSummary(ax, acrossSummary)
 axis(ax, 'off');
 
 R = acrossSummary.sessionRecords;
-fit1 = acrossSummary.psychFit.pass1.alignedWeibull;
-fit = acrossSummary.psychFit.pass2.alignedWeibull;
+fit = acrossSummary.psychFit.alignedWeibull;
 gainFit = acrossSummary.noiseGain.rect;
 % looDiag = acrossSummary.looPredictor.weightDiagnostics;
 txt = {
@@ -446,8 +392,7 @@ txt = {
     ''
     sprintf('Int. noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
     ''
-    sprintf('Pass1 beta & lapse: %.3f, %.3f', fit1.betaWeibull, fit1.lapse)
-    sprintf('Pass2 beta & lapse: %.3f, %.3f', fit.betaWeibull, fit.lapse)
+    sprintf('Beta & lapse: %.3f, %.3f', fit.betaWeibull, fit.lapse)
     sprintf('Normalization Threshold: %.0f%%', 100 * fit.thresholdPerformance)
     ''
     sprintf('Int. noise gain: %.2f', gainFit.gain)
@@ -465,9 +410,16 @@ text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'Horizont
 
 end
 
-%% -------------------------------------------------------------------------%% -------------------------------------------------------------------------
-function plotAcrossKernel(ax, kernel)
 
+%% -------------------------------------------------------------------------
+function stepPatch = plotKernel(ax, kernel, showLegend, showXLabel)
+
+if nargin < 4
+  showXLabel = true;
+end
+if nargin < 3
+  showLegend = false;
+end
 hold(ax, 'on');
 plot(ax, kernel.tMS, zeros(size(kernel.tMS)), ':', 'HandleVisibility', 'off');
 x1 = kernel.tMS(kernel.stepFrames(1));
@@ -477,15 +429,17 @@ x2 = kernel.tMS(kernel.stepFrames(end));
 plot(ax, kernel.tMS, kernel.meanDiff, '-', 'LineWidth', 1.2,  'HandleVisibility', 'off');
 plot(ax, kernel.tMS, kernel.rectReference, '--', 'LineWidth', 1.0, 'HandleVisibility', 'off');
 yl = ylim(ax);
-patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7],  'EdgeColor', 'none', ...
+stepPatch = patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7],  'EdgeColor', 'none', ...
     'FaceAlpha', 0.35, 'HandleVisibility', 'off');
 
 % Replot on top of patch.
 plot(ax, kernel.tMS, kernel.meanDiff, '-b', 'LineWidth', 1.2, 'DisplayName', 'Kernel');
 plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName', 'Mean Pre/Post Step');
-xlabel(ax, 'Trial Time (ms)');
-ylabel(ax, 'Change Side Mean Hit - Mean Miss Noise');
-title(ax, 'Average Kernel', 'Interpreter', 'none');
+if showXLabel 
+  xlabel(ax, 'Trial Time (ms)');
+end
+ylabel(ax, 'Change Side Kernel');
+title(ax, kernel.title, 'Interpreter', 'none');
 grid(ax, 'on');
 box(ax, 'off');
 
@@ -494,9 +448,61 @@ txt = sprintf(['Hit n=%d, Miss n=%d\n' 'PreStep Mean %.2f%%\n' 'Step Mean %.2f%%
 text(ax, 0.02, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
   'FontSize', 8);
 xticks(ax, 0:250:1000);
-legend(ax, 'Location', 'southeast', 'FontSize', 7);
-
+if showLegend
+  legend(ax, 'Location', 'southeast', 'FontSize', 7);
 end
+end
+
+%% -------------------------------------------------------------------------
+function plotAlignedWeibull(ax, T, fit)
+hold(ax, 'on'); 
+% T = acrossSummary.trialTable; 
+% fit = acrossSummary.psychFit.alignedWeibull; 
+x = T.alignedCoh; 
+correct = T.correct; 
+
+% Bin aligned coherence for plotting. 
+
+binEdges = linspace(min(x), max(x), 10); 
+binCenters = 0.5 * (binEdges(1:end-1) + binEdges(2:end)); 
+pCorrect = nan(numel(binCenters), 1); 
+nTrials = nan(numel(binCenters), 1); 
+
+for iBin = 1:numel(binCenters) 
+  idx = x >= binEdges(iBin) & x < binEdges(iBin + 1); 
+
+  % Include right edge in final bin. 
+  if iBin == numel(binCenters) 
+    idx = x >= binEdges(iBin) & x <= binEdges(iBin + 1); 
+  end 
+  nTrials(iBin) = sum(idx); 
+  if nTrials(iBin) > 0 
+    pCorrect(iBin) = mean(correct(idx), 'omitnan'); 
+  end 
+end 
+idxPlot = nTrials > 0; 
+plot(ax, binCenters(idxPlot), pCorrect(idxPlot), 'ko', ... 
+  'MarkerFaceColor', 'k', 'MarkerSize', 4, 'DisplayName', 'binned data');
+for i = find(idxPlot(:))' 
+  text(ax, binCenters(i), pCorrect(i), sprintf(' %d', nTrials(i)), 'FontSize', 7, 'VerticalAlignment', 'bottom'); 
+end 
+xGrid = linspace(0, max(x) * 1.05, 300); 
+pFit = idqWeibullP(xGrid, fit.alpha, fit.betaWeibull, fit.lapse); 
+plot(ax, xGrid, pFit, '-', 'LineWidth', 1.5, 'DisplayName', ...
+  sprintf('Weibull \\beta=%.2f, \\lambda=%.3f', fit.betaWeibull, fit.lapse));
+xline(ax, fit.threshold, ':', 'DisplayName', sprintf('%.0f%% threshold = %.2f', ...
+  100 * fit.thresholdPerformance, fit.threshold)); 
+yline(ax, fit.thresholdPerformance, ':', 'HandleVisibility', 'off'); 
+xlabel(ax, sprintf('Coherence / Session %.0f%% Threshold', 100 * fit.thresholdPerformance)); 
+ylabel(ax, 'P(correct)'); 
+title(ax, 'Aligned Weibull fit'); 
+ylim(ax, [0.95 * min(pCorrect(idxPlot)), 1.02]);
+xlim(ax, [0 max(xGrid)]); 
+grid(ax, 'on'); 
+box(ax, 'off'); 
+legend(ax, 'Location', 'southeast', 'FontSize', 7); 
+end
+
 %% -------------------------------------------------------------------------
 function plotSessionPerformance(ax, sessionRecords)
 
@@ -565,6 +571,8 @@ ax = nexttile(tl, 6);
 plotDirectionDiagnosticsText(ax, acrossSummary);
 
 end
+
+
 
 %% -------------------------------------------------------------------------
 function plotDirectionBehavior(ax, behavior)
@@ -720,5 +728,119 @@ for i = 1:height(S)
   text(ax, x(i), S.CI95High(i), sprintf('zF %.1f', S.zVsFlat(i)), ...
     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 7);
 end
+
+end
+
+%% -------------------------------------------------------------------------
+function kernel = computeAllDirKernel(sessionAnalyses, title)
+
+tMS = sessionAnalyses{1}.tMS;
+stepFrames = sessionAnalyses{1}.stepFrames;
+allCorrect = [];
+allError = [];
+
+for iSession = 1:numel(sessionAnalyses)
+  SA = sessionAnalyses{iSession};
+  if numel(SA.tMS) ~= numel(tMS) || any(SA.tMS(:) ~= tMS(:))
+    error('plotIDQSummary:TimeVectorMismatch', 'Session %s has a different tMS vector.', SA.fileName);
+  end
+  if numel(SA.stepFrames) ~= numel(stepFrames) || any(SA.stepFrames(:) ~= stepFrames(:))
+    error('plotIDQSummary:StepFrameMismatch', 'Session %s has different stepFrames.', SA.fileName);
+  end
+
+  T = SA.trialTable;
+  idxUse = T.hasStepNoise;
+  correctUse = idxUse & T.correct;
+  errorUse = idxUse & ~T.correct;
+  allCorrect = [allCorrect, SA.sumNoiseByFrameTrial(:, correctUse)]; %#ok<AGROW>
+  allError = [allError, SA.sumNoiseByFrameTrial(:, errorUse)]; %#ok<AGROW>
+end
+
+kernel = packageKernel(tMS, stepFrames, allCorrect, allError, title);
+
+end
+
+%% ------------------------------------------------------------------------
+function kernels = computeDirKernels(sessionAnalyses, nDirs, absolute, titles)
+
+tMS = sessionAnalyses{1}.tMS;
+stepFrames = sessionAnalyses{1}.stepFrames;
+kernels = cell(1, nDirs);
+nCorrect = nan(nDirs, 1);
+nError = nan(nDirs, 1);
+
+for iDir = 1:nDirs
+  allCorrect = [];
+  allError = [];
+
+  for iSession = 1:numel(sessionAnalyses)
+    SA = sessionAnalyses{iSession};
+    T = SA.trialTable;
+    idxUse = T.hasStepNoise;
+    sideIndex = T.sideIndex(:)';
+    driftDirIndex = T.dirIndex(:);
+    dirIndex = iDir;
+    nTrial = height(T);
+    noiseThisDir = nan(numel(tMS), nTrial);
+    for iTrial = 1:nTrial
+      if ~absolute
+        if iDir == 1
+          dirIndex = driftDirIndex(iTrial);
+        elseif iDir == 2
+          dirIndex = mod(driftDirIndex(iTrial), 3) + 1;
+        else
+          dirIndex = mod(driftDirIndex(iTrial) - 2, 3) + 1;
+        end
+      end
+      noiseThisDir(:, iTrial) = squeeze(SA.noiseBySideDir(sideIndex(iTrial), dirIndex, :, iTrial));
+    end
+    allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)]; %#ok<AGROW>
+    allError = [allError, noiseThisDir(:, idxUse & ~T.correct)]; %#ok<AGROW>
+  end
+  nCorrect(iDir) = size(allCorrect, 2);
+  nError(iDir) = size(allError, 2);
+
+  kernels{iDir} = packageKernel(tMS, stepFrames, allCorrect, allError, titles(iDir));
+end
+
+end
+
+%%-----------------------------------------------------------------------------
+function kernel = packageKernel(tMS, stepFrames, allCorrect, allError, title)
+
+meanCorrect = mean(allCorrect, 2, 'omitnan');
+meanError = mean(allError, 2, 'omitnan');
+
+kernel = struct();
+kernel.title = title;
+kernel.tMS = tMS;
+kernel.stepFrames = stepFrames;
+kernel.meanCorrect = meanCorrect;
+kernel.meanError = meanError;
+kernel.meanDiff = meanCorrect - meanError;
+
+kernel.nCorrect = size(allCorrect, 2);
+kernel.nError = size(allError, 2);
+kernel.nTrials = kernel.nCorrect + kernel.nError;
+
+kernel.stepIntegral = sum(kernel.meanDiff(stepFrames), 'omitnan');
+kernel.stepMean = mean(kernel.meanDiff(stepFrames), 'omitnan');
+kernel.stepSD = std(kernel.meanDiff(stepFrames), 'omitnan');
+kernel.stepPeak = max(abs(kernel.meanDiff(stepFrames)), [], 'omitnan');
+
+preStepFrames = find(tMS < tMS(stepFrames(1)));
+kernel.preStepFrames = preStepFrames;
+
+kernel.preStepMean = mean(kernel.meanDiff(preStepFrames), 'omitnan');
+kernel.preStepSD = std(kernel.meanDiff(preStepFrames), 'omitnan');
+kernel.stepMinusPreMean = kernel.stepMean - kernel.preStepMean;
+
+if kernel.preStepSD > 0
+  kernel.stepMeanZPreSD = kernel.stepMinusPreMean / kernel.preStepSD;
+else
+  kernel.stepMeanZPreSD = NaN;
+end
+kernel.rectReference = ones(size(kernel.meanDiff)) .* kernel.preStepMean;
+kernel.rectReference(stepFrames) = kernel.stepMean;
 
 end

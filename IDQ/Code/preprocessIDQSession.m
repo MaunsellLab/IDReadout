@@ -3,7 +3,7 @@ function preprocessIDQSession(varargin)
 %
 % Build processed IDQ session files from converted FullSessions files.
 %
-% Converted files live in:
+% Input files live in:
 %   Data/FullSessions
 %
 % Processed files are written to:
@@ -14,48 +14,41 @@ function preprocessIDQSession(varargin)
 %   sessionHeader
 %   trialData
 %   noiseBySideDir
-%
-% Raw 'trials' is not propagated.
 
-% ---- File selection criteria: keep visible and centralized ----
+% ---- File selection criteria ----
 selectArgs = { ...
-  % Future examples:
   % 'MinTrials', 500, ...
-  % 'TaskVersion', '...', ...
   };
 
 % ---- Run options ----
 p = inputParser;
 p.addParameter('Replace', false, @islogical);
+p.addParameter('Verbose', false, @islogical);
 p.parse(varargin{:});
-
-replace = p.Results.Replace;
+opts = p.Results;
 
 domainPath = domainFolder(mfilename('fullpath'));
-
 fullSessionFolder = fullfile(domainPath, 'Data', 'FullSessions');
-processedSessionFolder = fullfile(domainPath, 'Data', 'ProcessedSessions');
-
-if ~isfolder(processedSessionFolder)
-  mkdir(processedSessionFolder);
-end
-
+processedSessionFolder = validFolder(fullfile(domainPath, 'Data', 'ProcessedSessions'));
 files = selectIDQFiles(fullSessionFolder, selectArgs{:});
-
-fprintf('preprocessIDQSession: %d files selected\n', numel(files));
-
+if opts.Verbose
+  fprintf('preprocessIDQSession: %d files selected\n', numel(files));
+end
 for iFile = 1:numel(files)
 
   inPath = files(iFile).path;
   [~, baseName] = fileparts(inPath);
   outPath = fullfile(processedSessionFolder, [baseName '.mat']);
 
-  if isfile(outPath) && ~replace
-    % fprintf('  %3d/%3d  exists, skipping: %s\n', iFile, numel(files), files(iFile).name);
+  if isfile(outPath) && ~opts.Replace
+    if opts.Verbose
+      fprintf('  %3d/%3d  exists, skipping: %s\n', iFile, numel(files), files(iFile).name);
+    end
     continue
   end
-
-  fprintf('  %3d/%3d  processing: %s\n', iFile, numel(files), files(iFile).name);
+  if opts.Verbose
+    fprintf('  %3d/%3d  processing: %s\n', iFile, numel(files), files(iFile).name);
+  end
   S = load(inPath, 'header', 'trials');
   header = S.header;
   trials = S.trials;
@@ -67,7 +60,7 @@ for iFile = 1:numel(files)
 end
 
 makeIDQSessionAnalyses();
-makeIDQSessionSummaries();
+plotIDQSessionSummaries();
 
 fprintf('preprocessIDQSession complete\n');
 

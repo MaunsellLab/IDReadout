@@ -16,40 +16,14 @@ function sessionAnalysisAll = makeIDQSessionAnalyses(processedFile)
 %
 % Output files:
 %   Data/SessionAnalysis/<sessionName>_sessionAnalysis.mat
-%
-% Required variables in processed session files:
-%   header
-%   sessionHeader
-%   trialData
-%   noiseBySideDir
-%
-% Required trialData fields:
-%   correct
-%   validIdx
-%   sideIndex
-%   chosenSideIndex
-%   dirIndex
-%   stepCoh
-%   hasStepNoise
-%
-% Required sessionHeader fields:
-%   fileName
-%   frameRateHz
-%   preStepMS
-%   stepMS
 
 if nargin < 1
   processedFile = '';
 end
-
 thisFolder = domainFolder(mfilename('fullpath'));
 
 processedFolder = fullfile(thisFolder, 'Data', 'ProcessedSessions');
-analysisFolder  = fullfile(thisFolder, 'Data', 'SessionAnalysis');
-
-if ~exist(analysisFolder, 'dir')
-  mkdir(analysisFolder);
-end
+analysisFolder  = validFolder(fullfile(thisFolder, 'Data', 'SessionAnalysis'));
 
 if isempty(processedFile)
   files = dir(fullfile(processedFolder, '*.mat'));
@@ -64,7 +38,6 @@ for iFile = 1:numel(processedFiles)
   sessionAnalysis = makeOneSessionAnalysis(processedFiles{iFile}, analysisFolder);
   sessionAnalysisAll{iFile} = sessionAnalysis;
 end
-
 if isscalar(sessionAnalysisAll)
   sessionAnalysisAll = sessionAnalysisAll{1};
 end
@@ -82,28 +55,16 @@ sessionName = erase(sessionName, '.dat');
 
 fprintf('makeIDQSessionAnalyses: %s\n', sessionName);
 
-[nSides, nDirs, nFrames, nTrialsNoise] = size(noiseBySideDir);
-
+[~, ~, nFrames, nTrialsNoise] = size(noiseBySideDir);
 nTrials = numel(trialData.correct);
-
-if nSides ~= 2
-  error('Expected noiseBySideDir side dimension to be 2.');
-end
-
-if nDirs ~= 3
-  error('Expected noiseBySideDir direction dimension to be 3.');
-end
-
 if nTrialsNoise ~= nTrials
   error('noiseBySideDir trial dimension does not match trialData.');
 end
 
 frameMS = 1000 / sessionHeader.frameRateHz;
 tMS = (0:nFrames - 1)' * frameMS;
-stepFrames = find(tMS >= sessionHeader.preStepMS & ...
-                  tMS <  sessionHeader.preStepMS + sessionHeader.stepMS);
+stepFrames = find(tMS >= sessionHeader.preStepMS & tMS <  sessionHeader.preStepMS + sessionHeader.stepMS);
 noiseMeasures = computeNoiseMeasuresByFrameTrial(noiseBySideDir, trialData);
-
 sumNoiseByFrameTrial = noiseMeasures.sumNoiseByFrameTrial;
 meanNoiseByFrameTrial = noiseMeasures.meanNoiseByFrameTrial;
 dirNoiseByFrameTrial = noiseMeasures.dirNoiseByFrameTrial;
@@ -114,20 +75,11 @@ rectSumNoise = mean(sumNoiseByFrameTrial(stepFrames, :), 1, 'omitnan')';
 % Convenience/display predictor.  If used in a gain fit, flat readout predicts gain = 3.
 rectMeanNoise = mean(meanNoiseByFrameTrial(stepFrames, :), 1, 'omitnan')';
 
-% Legacy diagnostic only: old drift-minus-nondrift convention.
-% rectDriftMinusNonNoise = mean(driftMinusNonNoiseByFrameTrial(stepFrames, :), 1, 'omitnan')';
-
 % Compatibility alias for downstream code.  This is now the summed-noise predictor.
 rectNoisePredictor = rectSumNoise;
 
-sumNoiseKernel = computeNoiseKernel( ...
-    sumNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
-
-meanNoiseKernel = computeNoiseKernel( ...
-    meanNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
-
-% driftMinusNonNoiseKernel = computeNoiseKernel( ...
-    % driftMinusNonNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
+sumNoiseKernel = computeNoiseKernel(sumNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
+meanNoiseKernel = computeNoiseKernel(meanNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
 noisyStepCoh = unique(trialData.stepCoh(trialData.hasStepNoise));
 if numel(noisyStepCoh) ~= 1
   error('Expected exactly one noisy step coherence in session %s.', sessionName);
@@ -160,7 +112,7 @@ sessionAnalysis.trialTable = trialTable;
 sessionAnalysis.primaryNoisePredictor = 'rectSumNoise';
 sessionAnalysis.primaryNoiseDefinition = 'changed-side dir1 + dir2 + dir3 noise, averaged over step frames';
 
-% Primary and diagnostic framewise measures.
+% Primary and diagnostic frame-wise measures.
 sessionAnalysis.sumNoiseByFrameTrial = sumNoiseByFrameTrial;
 sessionAnalysis.meanNoiseByFrameTrial = meanNoiseByFrameTrial;
 % sessionAnalysis.driftMinusNonNoiseByFrameTrial = driftMinusNonNoiseByFrameTrial;
@@ -177,16 +129,13 @@ sessionAnalysis.sumNoiseKernel = sumNoiseKernel;
 sessionAnalysis.meanNoiseKernel = meanNoiseKernel;
 % sessionAnalysis.driftMinusNonNoiseKernel = driftMinusNonNoiseKernel;
 
-% Compatibility alias for downstream code.  This is now summed-noise, not
-% drift-minus-nondrift signed noise.
+% Compatibility alias for downstream code.  This is now summed-noise,.
 sessionAnalysis.signedNoiseByFrameTrial = sumNoiseByFrameTrial;
 sessionAnalysis.signedNoiseKernel = sumNoiseKernel;
 sessionAnalysis.noiseBySideDir = noiseBySideDir;
 
 outFile = fullfile(analysisFolder, sprintf('%s_sessionAnalysis.mat', sessionName));
 save(outFile, 'sessionAnalysis', '-v7.3');
-
-% fprintf('  saved %s\n', outFile);
 
 end
 
@@ -206,6 +155,7 @@ trialTable.validIdx = trialData.validIdx(:);
 trialTable.sideIndex = trialData.sideIndex(:);
 trialTable.chosenSideIndex = trialData.chosenSideIndex(:);
 trialTable.dirIndex = trialData.dirIndex(:);
+
 
 trialTable.stepCoh = trialData.stepCoh(:);
 trialTable.hasStepNoise = logical(trialData.hasStepNoise(:));
@@ -255,14 +205,11 @@ for iTrial = 1:nTrials
   if size(changedSideDirNoise, 1) ~= nDirs
     changedSideDirNoise = changedSideDirNoise';
   end
-
   dirNoiseByFrameTrial(:, iTrial, :) = changedSideDirNoise';
 
-  % Primary flat-readout measure:
-  % all three changed-side direction streams contribute with the same sign.
+  % Primary flat-readout measure: all three changed-side direction streams contribute with the same sign.
   sumNoiseByFrameTrial(:, iTrial) = sum(changedSideDirNoise, 1)';
   meanNoiseByFrameTrial(:, iTrial) = mean(changedSideDirNoise, 1)';
-
 end
 
 noiseMeasures = struct();

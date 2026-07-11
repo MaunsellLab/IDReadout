@@ -1,5 +1,5 @@
 function summaryData = makeIDRGainAcrossSessionPrefSummary(varargin)
-% makeIDRGainAcrossSessionPrefSummary_v2
+% makeIDRGainAcrossSessionPrefSummary
 % Summarize and plot the stabilized IDR preferred-noise gain fit.
 %
 % Reads:
@@ -13,14 +13,14 @@ function summaryData = makeIDRGainAcrossSessionPrefSummary(varargin)
 % clean likelihood improvement for adding one session-specific gain term.
 %
 % Outputs:
-%   Data/AcrossOffsetSummaries/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>_v2.mat
-%   Data/AcrossOffsetSummaries/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>_v2_sessionTable.csv
-%   Plots/AcrossProbes/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>_v2.pdf
+%   Data/AcrossOffsetSummaries/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>.mat
+%   Data/AcrossOffsetSummaries/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>_sessionTable.csv
+%   Plots/AcrossProbes/GainAnalysis/IDRGainAcrossSessionPrefSummary_<Animal>.pdf
 %
 % Usage:
-%   S = makeIDRGainAcrossSessionPrefSummary_v2();
-%   S = makeIDRGainAcrossSessionPrefSummary_v2('Animal','Meetz');
-%   S = makeIDRGainAcrossSessionPrefSummary_v2('Replace',true);
+%   S = makeIDRGainAcrossSessionPrefSummary();
+%   S = makeIDRGainAcrossSessionPrefSummary('Animal','Meetz');
+%   S = makeIDRGainAcrossSessionPrefSummary('Replace',true);
 
 p = inputParser;
 p.FunctionName = mfilename;
@@ -37,10 +37,10 @@ gainFolder = validFolder(fullfile(root, 'Data', 'AcrossOffsetSummaries', 'GainAn
 plotFolder = validFolder(fullfile(root, 'Plots', 'AcrossProbes', 'GainAnalysis'));
 
 fitPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefFit_%s_v1.mat', animalTag));
-summaryPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_v2.mat', animalTag));
-csvPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_v2_sessionTable.csv', animalTag));
-popCsvPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_v2_population.csv', animalTag));
-plotPath = fullfile(plotFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_v2.pdf', animalTag));
+summaryPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s.mat', animalTag));
+csvPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_sessionTable.csv', animalTag));
+popCsvPath = fullfile(gainFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s_population.csv', animalTag));
+plotPath = fullfile(plotFolder, sprintf('IDRGainAcrossSessionPrefSummary_%s.pdf', animalTag));
 
 if isfile(summaryPath) && ~opts.Replace
   if opts.Verbose
@@ -206,7 +206,7 @@ if isempty(x)
   q = NaN;
   return;
 end
-if numel(x) == 1
+if isscalar(x)
   q = x;
   return;
 end
@@ -257,10 +257,10 @@ append('medianAlphaGainOverNoGain', P.medianAlphaGainOverNoGain);
 append('iqrAlphaGainOverNoGain', P.iqrAlphaGainOverNoGain);
 T = table(metric, value);
 
-  function append(name, val)
-    metric(end+1,1) = string(name); %#ok<AGROW>
-    value(end+1,1) = double(val); %#ok<AGROW>
-  end
+function append(name, val)
+  metric(end+1,1) = string(name); %#ok<AGROW>
+  value(end+1,1) = double(val); %#ok<AGROW>
+end
 end
 
 % -------------------------------------------------------------------------

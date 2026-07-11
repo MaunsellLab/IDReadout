@@ -9,14 +9,19 @@ function directionDiagnostics = computeIDQDirectionDiagnostics(sessionAnalyses, 
 directionDiagnostics = struct();
 
 directionDiagnostics.absolute = computeAbsoluteDirectionDiagnostics(sessionAnalyses, trialTable);
-directionDiagnostics.aligned = computeAlignedDirectionDiagnostics(sessionAnalyses, trialTable);
+directionDiagnostics.aligned = computeAlignedDirectionDiagnostics(sessionAnalyses);
 
 end
 
 %% ------------------------------------------------------------------------
 function D = computeAbsoluteDirectionDiagnostics(sessionAnalyses, trialTable)
 
-dirLabels = getAbsoluteDirectionLabels(sessionAnalyses);
+nDirs = sessionAnalyses{1}.sessionHeader.nDirs;
+dirStepDeg = 360 / nDirs;
+dirLabels = strings(1, nDirs);
+for d = 1:nDirs
+    dirLabels(d) = sprintf('%.0f°-%.0f°', (d - 1) * dirStepDeg, d * dirStepDeg - 1);
+end
 
 D = struct();
 D.mode = 'absolute';
@@ -29,7 +34,7 @@ D.kernels = computeAbsoluteNoiseKernels(sessionAnalyses, dirLabels);
 end
 
 %% ------------------------------------------------------------------------
-function D = computeAlignedDirectionDiagnostics(sessionAnalyses, trialTable)
+function D = computeAlignedDirectionDiagnostics(sessionAnalyses)
 
 dirLabels = ["drift", "non-drift +1", "non-drift -1"];
 
@@ -43,26 +48,6 @@ D.directionLabels = dirLabels;
 D.behavior = table();
 
 D.kernels = computeAlignedNoiseKernels(sessionAnalyses, dirLabels);
-
-end
-
-%% ------------------------------------------------------------------------
-function dirLabels = getAbsoluteDirectionLabels(sessionAnalyses)
-
-dirsDeg = sessionAnalyses{1}.sessionHeader.dirsDeg(:)';
-
-for iSession = 2:numel(sessionAnalyses)
-    thisDirsDeg = sessionAnalyses{iSession}.sessionHeader.dirsDeg(:)';
-    if numel(thisDirsDeg) ~= numel(dirsDeg) || any(thisDirsDeg ~= dirsDeg)
-        error('computeIDQDirectionDiagnostics:DirDegMismatch', 'sessionHeader.dirsDeg differs across sessions.');
-    end
-end
-
-dirLabels = strings(1, numel(dirsDeg));
-for iDir = 1:numel(dirsDeg)
-    % dirLabels(iDir) = sprintf('%g deg', dirsDeg(iDir));
-    dirLabels(iDir) = sprintf('%.0f°', dirsDeg(iDir));
-end
 
 end
 
@@ -156,8 +141,8 @@ for iDir = 1:nDirs
                 sideIndex(iTrial), dirIndex, :, iTrial));
         end
 
-        allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)];
-        allError = [allError, noiseThisDir(:, idxUse & ~T.correct)];
+        allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)]; %#ok<AGROW>
+        allError = [allError, noiseThisDir(:, idxUse & ~T.correct)]; %#ok<AGROW>
     end
 
     meanCorrect(:, iDir) = mean(allCorrect, 2, 'omitnan');
@@ -221,8 +206,8 @@ for iRel = 1:nDirs
                 sideIndex(iTrial), dirIndex, :, iTrial));
         end
 
-        allCorrect = [allCorrect, noiseThisRel(:, idxUse & T.correct)];
-        allError = [allError, noiseThisRel(:, idxUse & ~T.correct)];
+        allCorrect = [allCorrect, noiseThisRel(:, idxUse & T.correct)]; %#ok<AGROW>
+        allError = [allError, noiseThisRel(:, idxUse & ~T.correct)]; %#ok<AGROW>
     end
 
     meanCorrect(:, iRel) = mean(allCorrect, 2, 'omitnan');

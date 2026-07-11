@@ -1,20 +1,11 @@
-function out = makeIDQSessionSummaries(varargin)
-% makeIDQSessionSummary
+function out = plotIDQSessionSummaries(varargin)
+% makeIDQSessionSummaries
 %
 % Create daily single-session IDQ summary PDFs from processed session files.
 %
 % This function reads only:
 %
 %   Data/ProcessedSessions/ relative to: domainFolder(mfilename('fullpath'))
-%
-% Required variables in each processed session file:
-%   header
-%   sessionHeader
-%   trialData
-%   noiseBySideDir
-%
-% noiseBySideDir:
-%   2 sides x 3 directions x nFrames x nTrials
 %
 % Conventions:
 %   side dim 1 = RF, 2 = Opp
@@ -25,12 +16,7 @@ function out = makeIDQSessionSummaries(varargin)
 %   trialData.correct is logical
 %   trialData.stepCoh is step coherence
 %   trialData.hasStepNoise is definitive inclusion flag for kernel analyses
-%
-% Example:
-%   makeIDQSessionSummary
-%   makeIDQSessionSummary('Replace', true)
-%   makeIDQSessionSummary('ProcessedFile', 'IDQ_Animal_20260620.mat')
-%
+%%
 % Name-value inputs:
 %   'ProcessedFile' : string/char/cellstr; default processes all .mat files
 %   'Replace'       : logical; default false
@@ -86,7 +72,6 @@ for iFile = 1:numel(processedFiles)
     if opts.CloseFigures
         close(fig);
     end
-
     thisOut.status = 'created';
     thisOut.message = 'Created session summary PDF and MAT.';
     out(end+1,1) = thisOut; %#ok<AGROW>
