@@ -48,38 +48,16 @@ relKernels = computeDirKernels(sessionAnalyses, nDirs, false, relDirLabels);
 % fit the across session psychometric functions
 trialTable = concatenateTrialTables(sessionAnalyses);
 sessionRecords = makeSessionRecords(sessionAnalyses);
-% initialBetaWeibull = 2;
-% initialLapse = 0.02;
-% lapseBounds = [0 0.05];
 
 [psych, trialTable] = fitPsychometric(trialTable, [1, 2, 3]);
-% Fit all directions with a psychometric function
-% psychAllDir = fitIDQInitialSessionThresholds(trialTable, initialBetaWeibull, initialLapse, targetPerformance);
 sessionRecords.threshold75 = psych.sessionFits.threshold;
 sessionRecords.noisyStepAlignedCoh = psych.sessionFits.noisyStepCoh ./ psych.sessionFits.threshold;
-% alignedWeibullAllDir = fitIDQAcrossAlignedWeibull(trialTable.alignedCoh, trialTable.correct, ...
-%     targetPerformance, lapseBounds);
 
-% psych = struct();
-% psych.initialBetaWeibull = initialBetaWeibull;
-% psych.initialLapse = initialLapse;
-% psych.targetPerformance = targetPerformance;
-% psych.lapseBounds = lapseBounds;
-% psych.sessionFits = psychAllDir.sessionFits;
-% psych.alignedWeibull = alignedWeibullAllDir;
-
-% psych.finalSessionFits = psychAllDir.sessionFits;
-% psych.finalAlignedWeibull = alignedWeibullAllDir;
-% psych.sessionFits = psychAllDir.sessionFits;
-% psych.alignedWeibull = alignedWeibullAllDir;
-% psychometric = computeAcrossPsychometric(trialTable);
 psychByDir = cell(1, nDirs);
 dirTrialTables = cell(1, nDirs);
 for d = 1:nDirs
   [psychByDir{d}, dirTrialTables{d}] = fitPsychometric(trialTable, d);
 end
-
-
 
 rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses);
 looPredictor = computeIDQLOONoisePredictor(sessionAnalyses);
@@ -351,13 +329,18 @@ for k = 1:7
   stepPatch(k).YData = sharedYLim([1 1 2 2]);
 end
 
+psychAx = gobjects(4,1);
 for d = 1:3
-  axPsych = nexttile(tl, d + 8);
-  plotAlignedWeibull(axPsych,  acrossSummary.dirTrialTables{d}, acrossSummary.psychByDir{d}.alignedWeibull);
+  psychAx(d) = nexttile(tl, d + 8);
+  plotAlignedWeibull(psychAx(d),  acrossSummary.dirTrialTables{d}, acrossSummary.psychByDir{d}.alignedWeibull);
 end
 
-axPsych = nexttile(tl, 12);
-plotAlignedWeibull(axPsych, acrossSummary.trialTable, acrossSummary.psychFit.alignedWeibull);
+psychAx(4) = nexttile(tl, 12);
+plotAlignedWeibull(psychAx(4), acrossSummary.trialTable, acrossSummary.psychFit.alignedWeibull);
+
+yl = cell2mat(get(psychAx, 'YLim'));
+sharedYLim = [min(yl(:,1)), max(yl(:,2))];
+set(psychAx, 'YLim', sharedYLim);
 
 
 
@@ -456,13 +439,10 @@ end
 %% -------------------------------------------------------------------------
 function plotAlignedWeibull(ax, T, fit)
 hold(ax, 'on'); 
-% T = acrossSummary.trialTable; 
-% fit = acrossSummary.psychFit.alignedWeibull; 
 x = T.alignedCoh; 
 correct = T.correct; 
 
 % Bin aligned coherence for plotting. 
-
 binEdges = linspace(min(x), max(x), 10); 
 binCenters = 0.5 * (binEdges(1:end-1) + binEdges(2:end)); 
 pCorrect = nan(numel(binCenters), 1); 
@@ -493,14 +473,17 @@ plot(ax, xGrid, pFit, '-', 'LineWidth', 1.5, 'DisplayName', ...
 xline(ax, fit.threshold, ':', 'DisplayName', sprintf('%.0f%% threshold = %.2f', ...
   100 * fit.thresholdPerformance, fit.threshold)); 
 yline(ax, fit.thresholdPerformance, ':', 'HandleVisibility', 'off'); 
-xlabel(ax, sprintf('Coherence / Session %.0f%% Threshold', 100 * fit.thresholdPerformance)); 
-ylabel(ax, 'P(correct)'); 
+xlabel(ax, 'Norm. Coh. Step'); 
+ylabel(ax, 'P(hit)'); 
 title(ax, 'Aligned Weibull fit'); 
 ylim(ax, [0.95 * min(pCorrect(idxPlot)), 1.02]);
 xlim(ax, [0 max(xGrid)]); 
 grid(ax, 'on'); 
 box(ax, 'off'); 
-legend(ax, 'Location', 'southeast', 'FontSize', 7); 
+
+txt = sprintf('Weibull\n\\beta=%.2f\n\\lambda=%.3f', fit.betaWeibull, fit.lapse);
+text(ax, 0.98, 0.02, txt, 'Units', 'normalized', ...
+  'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 8);
 end
 
 %% -------------------------------------------------------------------------
@@ -571,8 +554,6 @@ ax = nexttile(tl, 6);
 plotDirectionDiagnosticsText(ax, acrossSummary);
 
 end
-
-
 
 %% -------------------------------------------------------------------------
 function plotDirectionBehavior(ax, behavior)
