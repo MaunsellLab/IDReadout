@@ -66,20 +66,16 @@ tMS = (0:nFrames - 1)' * frameMS;
 stepFrames = find(tMS >= sessionHeader.preStepMS & tMS <  sessionHeader.preStepMS + sessionHeader.stepMS);
 noiseMeasures = computeNoiseMeasuresByFrameTrial(noiseBySideDir, trialData);
 sumNoiseByFrameTrial = noiseMeasures.sumNoiseByFrameTrial;
-meanNoiseByFrameTrial = noiseMeasures.meanNoiseByFrameTrial;
 dirNoiseByFrameTrial = noiseMeasures.dirNoiseByFrameTrial;
 
-% Primary flat-readout predictor: changed-side dir1 + dir2 + dir3, averaged over the step window.
-rectSumNoise = mean(sumNoiseByFrameTrial(stepFrames, :), 1, 'omitnan')';
-
-% Convenience/display predictor.  If used in a gain fit, flat readout predicts gain = 3.
-rectMeanNoise = mean(meanNoiseByFrameTrial(stepFrames, :), 1, 'omitnan')';
-
-% Compatibility alias for downstream code.  This is now the summed-noise predictor.
-rectNoisePredictor = rectSumNoise;
+% Rectangularly weighted direction predictors. These are retained in the
+% session trial table as the fallback predictor family. Across-session code
+% may replace them with leave-one-session-out kernel-weighted predictors.
+noisePredDir1 = mean(dirNoiseByFrameTrial(stepFrames, :, 1), 1, 'omitnan')';
+noisePredDir2 = mean(dirNoiseByFrameTrial(stepFrames, :, 2), 1, 'omitnan')';
+noisePredDir3 = mean(dirNoiseByFrameTrial(stepFrames, :, 3), 1, 'omitnan')';
 
 sumNoiseKernel = computeNoiseKernel(sumNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
-meanNoiseKernel = computeNoiseKernel(meanNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
 noisyStepCoh = unique(trialData.stepCoh(trialData.hasStepNoise));
 if numel(noisyStepCoh) ~= 1
   error('Expected exactly one noisy step coherence in session %s.', sessionName);
@@ -88,9 +84,9 @@ end
 sessionAnalysis = struct();
 
 trialTable = makeTrialTable(trialData, sessionName);
-trialTable.rectNoisePredictor = rectNoisePredictor;                 % compatibility alias
-trialTable.rectSumNoise = rectSumNoise;                             % primary
-trialTable.rectMeanNoise = rectMeanNoise;                           % display / gain=3 convention
+trialTable.noisePredDir1 = noisePredDir1;
+trialTable.noisePredDir2 = noisePredDir2;
+trialTable.noisePredDir3 = noisePredDir3;
 sessionAnalysis.trialTable = trialTable;
 
 sessionAnalysis.fileName = sessionName;
@@ -109,29 +105,19 @@ sessionAnalysis.tMS = tMS;
 sessionAnalysis.stepFrames = stepFrames;
 
 sessionAnalysis.trialTable = trialTable;
-sessionAnalysis.primaryNoisePredictor = 'rectSumNoise';
-sessionAnalysis.primaryNoiseDefinition = 'changed-side dir1 + dir2 + dir3 noise, averaged over step frames';
+sessionAnalysis.noisePredictorWeighting = 'rectangular';
+sessionAnalysis.noisePredictorDefinition = ...
+  'changed-side direction noise, averaged over step frames';
 
 % Primary and diagnostic frame-wise measures.
 sessionAnalysis.sumNoiseByFrameTrial = sumNoiseByFrameTrial;
-sessionAnalysis.meanNoiseByFrameTrial = meanNoiseByFrameTrial;
 % sessionAnalysis.driftMinusNonNoiseByFrameTrial = driftMinusNonNoiseByFrameTrial;
 sessionAnalysis.dirNoiseByFrameTrial = dirNoiseByFrameTrial;
 
-% Primary and diagnostic rectangular predictors.
-sessionAnalysis.rectNoisePredictor = rectNoisePredictor;   % compatibility alias
-sessionAnalysis.rectSumNoise = rectSumNoise;
-sessionAnalysis.rectMeanNoise = rectMeanNoise;
-% sessionAnalysis.rectDriftMinusNonNoise = rectDriftMinusNonNoise;
-
 % Primary and diagnostic kernels.
 sessionAnalysis.sumNoiseKernel = sumNoiseKernel;
-sessionAnalysis.meanNoiseKernel = meanNoiseKernel;
 % sessionAnalysis.driftMinusNonNoiseKernel = driftMinusNonNoiseKernel;
 
-% Compatibility alias for downstream code.  This is now summed-noise,.
-sessionAnalysis.signedNoiseByFrameTrial = sumNoiseByFrameTrial;
-sessionAnalysis.signedNoiseKernel = sumNoiseKernel;
 sessionAnalysis.noiseBySideDir = noiseBySideDir;
 
 outFile = fullfile(analysisFolder, sprintf('%s_sessionAnalysis.mat', sessionName));
@@ -173,7 +159,6 @@ if nDirs ~= 3
 end
 
 sumNoiseByFrameTrial = nan(nFrames, nTrials);
-meanNoiseByFrameTrial = nan(nFrames, nTrials);
 dirNoiseByFrameTrial = nan(nFrames, nTrials, nDirs);
 
 for iTrial = 1:nTrials
@@ -209,12 +194,10 @@ for iTrial = 1:nTrials
 
   % Primary flat-readout measure: all three changed-side direction streams contribute with the same sign.
   sumNoiseByFrameTrial(:, iTrial) = sum(changedSideDirNoise, 1)';
-  meanNoiseByFrameTrial(:, iTrial) = mean(changedSideDirNoise, 1)';
 end
 
 noiseMeasures = struct();
 noiseMeasures.sumNoiseByFrameTrial = sumNoiseByFrameTrial;
-noiseMeasures.meanNoiseByFrameTrial = meanNoiseByFrameTrial;
 noiseMeasures.dirNoiseByFrameTrial = dirNoiseByFrameTrial;
 
 end

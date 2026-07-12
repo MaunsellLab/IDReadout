@@ -41,6 +41,7 @@ initialBetaWeibull = 3;
 initialLapse = 0.02;
 targetPerformance = 0.75;
 lapseBounds = [0 0.05];
+noisePredictorWeighting = 'looKernel';  % 'looKernel' or 'rectangular'
 
 % Pass 1: fixed guessed beta/lapse for session thresholds.
 psychPass1 = fitIDQInitialSessionThresholds( ...
@@ -101,26 +102,31 @@ psych.finalAlignedWeibull = alignedWeibullPass2;
 
 psychometric = computeAcrossPsychometric(trialTable);
 kernel = computeAcrossKernel(sessionAnalyses);
-rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses);
 looPredictor = computeIDQLOONoisePredictor(sessionAnalyses);
-trialTable.xNoiseLOO = looPredictor.xNoiseLOO;
 
+switch noisePredictorWeighting
+  case 'looKernel'
+    trialTable.noisePredDir1 = looPredictor.noisePredDir1;
+    trialTable.noisePredDir2 = looPredictor.noisePredDir2;
+    trialTable.noisePredDir3 = looPredictor.noisePredDir3;
+  case 'rectangular'
+    % The concatenated session trial tables already contain rectangularly
+    % weighted values under the same neutral predictor names.
+  otherwise
+    error('makeIDQAcrossSessionSummary:BadNoisePredictorWeighting', ...
+      'Unknown noisePredictorWeighting: %s', noisePredictorWeighting);
+end
 
-noiseGainRect = fitIDQNoiseGain(trialTable, 'rectSumNoise', psych.pass2.sessionFits, ...
+noiseGain = fitIDQNoiseGain(trialTable, psych.pass2.sessionFits, ...
   psych.pass2.alignedWeibull, targetPerformance);
-noiseGainLOO = fitIDQNoiseGain(trialTable, 'xNoiseLOO', psych.pass2.sessionFits, psych.pass2.alignedWeibull, ...
-  targetPerformance);
 directionDiagnostics = computeIDQDirectionDiagnostics(sessionAnalyses, trialTable);
-directionDiagnostics.absolute.rectGainByDirection = fitIDQRectGainByDirection(trialTable, psych.pass2.sessionFits, ...
-  psych.pass2.alignedWeibull, targetPerformance, directionDiagnostics.absolute.directionLabels);
 
 acrossSummary = struct();
 acrossSummary.looPredictor = looPredictor;
 acrossSummary.psychFit = psych;
 acrossSummary.psychometric = psychometric;
-acrossSummary.noiseGain.primary = 'rect';
-acrossSummary.noiseGain.rect = noiseGainRect;
-acrossSummary.noiseGain.looKernel = noiseGainLOO;
+acrossSummary.noisePredictorWeighting = noisePredictorWeighting;
+acrossSummary.noiseGain = noiseGain;
 acrossSummary.createdBy = mfilename;
 acrossSummary.createdAt = datetime('now');
 acrossSummary.sessionAnalysisFolder = sessionAnalysisFolder;
@@ -132,7 +138,6 @@ acrossSummary.directionDiagnostics = directionDiagnostics;
 acrossSummary.sessionRecords = sessionRecords;
 acrossSummary.trialTable = trialTable;
 acrossSummary.kernel = kernel;
-acrossSummary.rectPredictor = rectPredictor;
 
 summaryMatFile = fullfile(summaryFolder, 'IDQ_AcrossSessionSummary.mat');
 save(summaryMatFile, 'acrossSummary', '-v7.3');
@@ -157,13 +162,6 @@ for iSession = 1:numel(sessionAnalyses)
 
   T.sessionIndex = repmat(iSession, height(T), 1);
   T.noisyStepCoh = repmat(SA.noisyStepCoh, height(T), 1);
-  T.rectSumNoise = SA.rectSumNoise(:);
-  T.rectMeanNoise = SA.rectMeanNoise(:);
-  % T.rectDriftMinusNonNoise = SA.rectDriftMinusNonNoise(:);
-
-  % Compatibility alias used by older fitting/plotting code.
-  % Primary IDQ flat-readout predictor is now rectSumNoise.
-  T.rectNoisePredictor = T.rectSumNoise;
   tables{iSession} = T;
 end
 
@@ -185,8 +183,6 @@ nStepNoiseTrials = nan(nSessions, 1);
 noisyStepCoh = nan(nSessions, 1);
 meanCorrect = nan(nSessions, 1);
 meanCorrectStepNoise = nan(nSessions, 1);
-meanRectNoise = nan(nSessions, 1);
-stdRectNoise = nan(nSessions, 1);
 kernelStepIntegral = nan(nSessions, 1);
 kernelStepMean = nan(nSessions, 1);
 kernelStepPeak = nan(nSessions, 1);
@@ -205,10 +201,6 @@ for iSession = 1:nSessions
   idxNoise = T.hasStepNoise;
   meanCorrectStepNoise(iSession) = mean(T.correct(idxNoise), 'omitnan');
 
-  x = SA.rectSumNoise(idxNoise);
-  meanRectNoise(iSession) = mean(x, 'omitnan');
-  stdRectNoise(iSession) = std(x, 'omitnan');
-
   k = SA.sumNoiseKernel.kernel;
   kStep = k(SA.stepFrames);
 
@@ -224,8 +216,6 @@ sessionRecords = table( ...
     noisyStepCoh, ...
     meanCorrect, ...
     meanCorrectStepNoise, ...
-    meanRectNoise, ...
-    stdRectNoise, ...
     kernelStepIntegral, ...
     kernelStepMean, ...
     kernelStepPeak);
@@ -350,52 +340,6 @@ kernel.rectReference(stepFrames) = kernel.stepMean;
 end
 
 %% -------------------------------------------------------------------------
-function rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses)
-
-idxNoise = trialTable.hasStepNoise;
-
-x = trialTable.rectSumNoise(idxNoise);
-correct = trialTable.correct(idxNoise);
-
-rectPredictor = struct();
-
-rectPredictor.nTrials = numel(x);
-rectPredictor.mean = mean(x, 'omitnan');
-rectPredictor.sd = std(x, 'omitnan');
-rectPredictor.meanCorrectTrials = mean(x(correct), 'omitnan');
-rectPredictor.meanErrorTrials = mean(x(~correct), 'omitnan');
-rectPredictor.meanDiffCorrectMinusError =  rectPredictor.meanCorrectTrials - rectPredictor.meanErrorTrials;
-
-% Per-session version for diagnostics.
-nSessions = numel(sessionAnalyses);
-fileName = strings(nSessions, 1);
-nTrials = nan(nSessions, 1);
-meanX = nan(nSessions, 1);
-sdX = nan(nSessions, 1);
-meanCorrectX = nan(nSessions, 1);
-meanErrorX = nan(nSessions, 1);
-meanDiffCorrectMinusError = nan(nSessions, 1);
-
-for iSession = 1:nSessions
-  SA = sessionAnalyses{iSession};
-  T = SA.trialTable;
-  idx = T.hasStepNoise;
-
-  xs = SA.rectSumNoise(idx);
-  cs = T.correct(idx);
-
-  fileName(iSession) = string(SA.fileName);
-  nTrials(iSession) = numel(xs);
-  meanX(iSession) = mean(xs, 'omitnan');
-  sdX(iSession) = std(xs, 'omitnan');
-  meanCorrectX(iSession) = mean(xs(cs), 'omitnan');
-  meanErrorX(iSession) = mean(xs(~cs), 'omitnan');
-  meanDiffCorrectMinusError(iSession) = meanCorrectX(iSession) - meanErrorX(iSession);
-end
-rectPredictor.bySession = table(fileName, nTrials, meanX, sdX, meanCorrectX, meanErrorX,  meanDiffCorrectMinusError);
-end
-
-%% -------------------------------------------------------------------------
 function fig = plotIDQAcrossSessionSummary(acrossSummary)
 
 fig = figure(500);
@@ -434,7 +378,7 @@ axis(ax, 'off');
 R = acrossSummary.sessionRecords;
 fit1 = acrossSummary.psychFit.pass1.alignedWeibull;
 fit = acrossSummary.psychFit.pass2.alignedWeibull;
-gainFit = acrossSummary.noiseGain.rect;
+gainFit = acrossSummary.noiseGain.combined;
 % looDiag = acrossSummary.looPredictor.weightDiagnostics;
 txt = {
     sprintf('Plot Created: %s', string(acrossSummary.createdAt))
@@ -444,15 +388,13 @@ txt = {
             mean(R.meanCorrect, 'omitnan') * 100.0, mean(R.meanCorrectStepNoise, 'omitnan') * 100.0)
     sprintf('Mean noise step coh: %.0f%%', mean(R.noisyStepCoh, 'omitnan'))
     ''
-    sprintf('Int. noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
-    ''
     sprintf('Pass1 beta & lapse: %.3f, %.3f', fit1.betaWeibull, fit1.lapse)
     sprintf('Pass2 beta & lapse: %.3f, %.3f', fit.betaWeibull, fit.lapse)
     sprintf('Normalization Threshold: %.0f%%', 100 * fit.thresholdPerformance)
     ''
-    sprintf('Int. noise gain: %.2f', gainFit.gain)
-    sprintf('Int. noise 95%% CI: [%.2f %.2f]', gainFit.CI95(1), gainFit.CI95(2))
-    sprintf('z vs flat (%.1f): %.2f', gainFit.flatPrediction, gainFit.zVsFlat)
+    sprintf('Predictor weighting: %s', acrossSummary.noisePredictorWeighting)
+    sprintf('Combined noise gain: %.2f', gainFit.gain)
+    sprintf('Combined 95%% CI: [%.2f %.2f]', gainFit.CI95(1,1), gainFit.CI95(1,2))
     ''
     sprintf('Step mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.stepMean, acrossSummary.kernel.stepSD);
     sprintf('PreStep mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.preStepMean, acrossSummary.kernel.preStepSD)
@@ -553,7 +495,7 @@ ax = nexttile(tl, 2);
 plotDirectionKernelSummary(ax, Dabs.kernels, 'Absolute direction kernel step means');
 
 ax = nexttile(tl, 3);
-plotRectGainByDirection(ax, Dabs.rectGainByDirection);
+plotDirectionalGainModels(ax, acrossSummary.noiseGain);
 
 ax = nexttile(tl, 4);
 plotDirectionKernels(ax, Dabs.kernels, 'Absolute changed-side kernels');
@@ -683,7 +625,7 @@ txt = {
     sprintf('  %s: %.2g', Saln.directionLabel(2), Saln.stepMean(2))
     sprintf('  %s: %.2g', Saln.directionLabel(3), Saln.stepMean(3))
     ''
-    'Diagnostic only; primary gain remains collapsed across directions.'
+    'Directional shared-gain models use all noise trials.'
     };
 
 text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
@@ -692,33 +634,38 @@ text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'Horizont
 end
 
 %% -------------------------------------------------------------------------
-function plotRectGainByDirection(ax, rectGainByDirection)
+function plotNoiseGainSummary(ax, noiseGain)
 
-S = rectGainByDirection.summaryTable;
+fit = noiseGain.combined;
+bar(ax, 1, fit.gain);
 hold(ax, 'on');
-x = 1:height(S);
-bar(ax, x, S.gain);
-
-for i = 1:height(S)
-  plot(ax, [x(i) x(i)], [S.CI95Low(i) S.CI95High(i)], 'k-', 'LineWidth', 1.3);
-end
-
-plot(ax, x, S.gain, 'ko', 'MarkerFaceColor', 'k', 'MarkerSize', 5);
-yline(ax, rectGainByDirection.flatPrediction, 'k--', 'DisplayName', 'flat prediction');
+plot(ax, [1 1], fit.CI95(1, :), 'k-', 'LineWidth', 1.3);
+plot(ax, 1, fit.gain, 'ko', 'MarkerFaceColor', 'k', 'MarkerSize', 5);
 yline(ax, 0, 'k:', 'HandleVisibility', 'off');
-set(ax, 'XTick', x, 'XTickLabel', S.directionLabel);
-xtickangle(ax, 30);
-ylabel(ax, 'Rect noise gain');
-title(ax, 'Rectangular gain by drift direction', 'Interpreter', 'none');
+set(ax, 'XTick', 1, 'XTickLabel', {'Combined'});
+ylabel(ax, 'Noise gain');
+title(ax, 'Combined three-direction gain');
 grid(ax, 'on');
 box(ax, 'off');
 
-yl = ylim(ax);
-ylim(ax, [min([yl(1), min(S.CI95Low)-0.1, -0.1]), max([yl(2), rectGainByDirection.flatPrediction+0.1])]);
-
-for i = 1:height(S)
-  text(ax, x(i), S.CI95High(i), sprintf('zF %.1f', S.zVsFlat(i)), ...
-    'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 7);
 end
+
+%% -------------------------------------------------------------------------
+function plotDirectionalGainModels(ax, noiseGain)
+
+rel = noiseGain.driftRelative;
+absFit = noiseGain.absolute;
+
+y = [rel.gain(:), absFit.gain(:)];
+bar(ax, y);
+hold(ax, 'on');
+yline(ax, 0, 'k:', 'HandleVisibility', 'off');
+set(ax, 'XTick', 1:3, 'XTickLabel', {'Drift/Dir1', '+120/Dir2', '-120/Dir3'});
+xtickangle(ax, 20);
+ylabel(ax, 'Noise gain');
+title(ax, 'Shared directional gains');
+legend(ax, {'Drift-relative', 'Absolute'}, 'Location', 'best', 'FontSize', 7);
+grid(ax, 'on');
+box(ax, 'off');
 
 end

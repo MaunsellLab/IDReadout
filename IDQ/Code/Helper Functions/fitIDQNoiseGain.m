@@ -1,35 +1,43 @@
-function gainFit = fitIDQNoiseGain(trialTable, predictorName, sessionFits, alignedWeibull, targetPerformance)
+function gainFits = fitIDQNoiseGain(trialTable, sessionFits, alignedWeibull, targetPerformance)
 % fitIDQNoiseGain
 %
-% Fit one shared gain for rectangular-weighted signed noise.
+% Fit shared gains for four IDQ directional-noise models:
+%   combined         one gain for the sum of all three streams
+%   driftRelative    separate gains for drift, +120, and -120 streams
+%   absolute         separate gains for absolute direction streams 1:3
+%   driftNonDrift    separate gains for drift and pooled non-drift streams
 %
-% Model:
-%   effectiveCoh = stepCoh + gain * rectNoisePredictor
-%   P(correct)  = Weibull(effectiveCoh; threshold_session, betaWeibull, lapse)
-%
-% Flat-readout prediction:
-%   gain = 1
-%
-% Inputs:
-%   trialTable        across-session trial table
-%   sessionFits       pass-2 session fit table, with sessionIndex, threshold
-%   alignedWeibull    pass-2 across aligned Weibull fit
-%   targetPerformance threshold-defining performance, e.g. 0.75
+% Required trialTable variables:
+%   sessionIndex, stepCoh, correct, hasStepNoise, dirIndex,
+%   noisePredDir1, noisePredDir2, noisePredDir3
+
+requiredVars = ["sessionIndex", "stepCoh", "correct", "hasStepNoise", ...
+    "dirIndex", "noisePredDir1", "noisePredDir2", "noisePredDir3"];
+missingVars = setdiff(requiredVars, string(trialTable.Properties.VariableNames));
+if ~isempty(missingVars)
+    error('fitIDQNoiseGain:MissingVariables', ...
+        'trialTable is missing required variables: %s', strjoin(missingVars, ', '));
+end
 
 idx = trialTable.hasStepNoise;
 
-sessionIndex = trialTable.sessionIndex(idx);
+sessionIndex = double(trialTable.sessionIndex(idx));
 stepCoh = double(trialTable.stepCoh(idx));
-xNoise = double(trialTable.(predictorName)(idx));
 correct = double(trialTable.correct(idx));
+dirIndex = double(trialTable.dirIndex(idx));
+Xabs = double([trialTable.noisePredDir1(idx), ...
+               trialTable.noisePredDir2(idx), ...
+               trialTable.noisePredDir3(idx)]);
 
-valid = isfinite(sessionIndex) & isfinite(stepCoh) & ...
-        isfinite(xNoise) & isfinite(correct);
+valid = isfinite(sessionIndex) & isfinite(stepCoh) & isfinite(correct) & ...
+    isfinite(dirIndex) & all(isfinite(Xabs), 2) & ...
+    dirIndex >= 1 & dirIndex <= 3 & dirIndex == round(dirIndex);
 
 sessionIndex = sessionIndex(valid);
 stepCoh = stepCoh(valid);
-xNoise = xNoise(valid);
 correct = correct(valid);
+dirIndex = dirIndex(valid);
+Xabs = Xabs(valid, :);
 
 betaWeibull = alignedWeibull.betaWeibull;
 lapse = alignedWeibull.lapse;
@@ -41,85 +49,104 @@ for i = 1:height(sessionFits)
 end
 
 if any(~isfinite(sessionThreshold))
-    error('fitIDQNoiseGainRect:MissingSessionThreshold', ...
+    error('fitIDQNoiseGain:MissingSessionThreshold', ...
         'Could not assign threshold to all noisy trials.');
 end
 
 sessionAlpha = idqWeibullAlphaForThreshold( ...
     targetPerformance, sessionThreshold, betaWeibull, lapse);
 
-gainFit = struct();
-gainFit.predictor = predictorName;
-gainFit.model = sprintf('Weibull(stepCoh + gain * %s)', predictorName);
-gainFit.flatPrediction = 1;
+nTrials = numel(correct);
+row = (1:nTrials)';
+plusDir = mod(dirIndex, 3) + 1;
+minusDir = mod(dirIndex - 2, 3) + 1;
 
-gainFit.gain = NaN;
-gainFit.SE = NaN;
-gainFit.CI95 = [NaN NaN];
-gainFit.negLogLikelihood = NaN;
-gainFit.exitflag = NaN;
-gainFit.nTrials = numel(correct);
-gainFit.nCorrect = sum(correct == 1);
-gainFit.betaWeibull = betaWeibull;
-gainFit.lapse = lapse;
-gainFit.targetPerformance = targetPerformance;
+xDrift = Xabs(sub2ind(size(Xabs), row, dirIndex));
+xPlus120 = Xabs(sub2ind(size(Xabs), row, plusDir));
+xMinus120 = Xabs(sub2ind(size(Xabs), row, minusDir));
 
-objective = @(gain) negLogLikelihoodGain(gain, stepCoh, xNoise, correct, sessionAlpha, betaWeibull, lapse);
+Xcombined = sum(Xabs, 2);
+Xrelative = [xDrift, xPlus120, xMinus120];
+XdriftNonDrift = [xDrift, xPlus120 + xMinus120];
 
-% Use a generous but finite bracket. Noise and signal are in the same units,
-% and gain near 1 is the main prediction.
-lb = -5;
-ub = 5;
+common = struct();
+common.stepCoh = stepCoh;
+common.correct = correct;
+common.sessionAlpha = sessionAlpha;
+common.betaWeibull = betaWeibull;
+common.lapse = lapse;
 
-opts = optimset( ...
-    'Display', 'off', ...
-    'TolX', 1e-8, ...
-    'MaxFunEvals', 2000, ...
-    'MaxIter', 2000);
-
-[gainHat, nll, exitflag] = fminbnd(objective, lb, ub, opts);
-
-gainFit.gain = gainHat;
-gainFit.negLogLikelihood = nll;
-gainFit.exitflag = exitflag;
-
-% Approximate SE from finite-difference second derivative.
-h = 1e-4;
-f0 = objective(gainHat);
-fp = objective(gainHat + h);
-fm = objective(gainHat - h);
-secondDeriv = (fp - 2 * f0 + fm) / h^2;
-
-gainFit.secondDerivative = secondDeriv;
-
-if isfinite(secondDeriv) && secondDeriv > 0
-    gainFit.SE = sqrt(1 / secondDeriv);
-    gainFit.CI95 = gainHat + [-1 1] * 1.96 * gainFit.SE;
-end
-
-% Useful descriptive diagnostic.
-gainFit.meanXNoise = mean(xNoise, 'omitnan');
-gainFit.stdXNoise = std(xNoise, 'omitnan');
-gainFit.meanXNoiseCorrect = mean(xNoise(correct == 1), 'omitnan');
-gainFit.meanXNoiseError = mean(xNoise(correct == 0), 'omitnan');
-gainFit.meanDiffCorrectMinusError = ...
-    gainFit.meanXNoiseCorrect - gainFit.meanXNoiseError;
-gainFit.nEffectiveCohClipped = sum(stepCoh + gainHat .* xNoise < 0);
-gainFit.zVsFlat = (gainFit.gain - gainFit.flatPrediction) / gainFit.SE;
-gainFit.zVsZero = gainFit.gain / gainFit.SE;
-gainFit.pVsFlat = 2 * normcdf(-abs(gainFit.zVsFlat));
-gainFit.pVsZero = 2 * normcdf(-abs(gainFit.zVsZero));
+gainFits = struct();
+gainFits.combined = fitGainModel( ...
+    'combined', ["allDirections"], Xcombined, 1/3, common);
+gainFits.driftRelative = fitGainModel( ...
+    'driftRelative', ["drift", "plus120", "minus120"], ...
+    Xrelative, [1; 0; 0], common);
+gainFits.absolute = fitGainModel( ...
+    'absolute', ["dir1", "dir2", "dir3"], ...
+    Xabs, repmat(1/3, 3, 1), common);
+gainFits.driftNonDrift = fitGainModel( ...
+    'driftNonDrift', ["drift", "nonDrift"], ...
+    XdriftNonDrift, [1; 0], common);
 
 end
 
 %% ------------------------------------------------------------------------
-function nll = negLogLikelihoodGain(gain, stepCoh, xNoise, correct, ...
+function fit = fitGainModel(modelName, predictorNames, X, gain0, common)
+
+nParameters = size(X, 2);
+lb = -5 * ones(nParameters, 1);
+ub =  5 * ones(nParameters, 1);
+gain0 = gain0(:);
+
+objective = @(gain) negLogLikelihoodGain(gain, X, common.stepCoh, ...
+    common.correct, common.sessionAlpha, common.betaWeibull, common.lapse);
+
+opts = optimoptions('fmincon', ...
+    'Display', 'off', ...
+    'Algorithm', 'interior-point', ...
+    'OptimalityTolerance', 1e-8, ...
+    'StepTolerance', 1e-10, ...
+    'MaxFunctionEvaluations', 5000, ...
+    'MaxIterations', 2000);
+
+[gainHat, nll, exitflag, ~, ~, ~, hessian] = ...
+    fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
+
+gainHat = gainHat(:);
+SE = nan(nParameters, 1);
+CI95 = nan(nParameters, 2);
+
+if all(isfinite(hessian), 'all')
+    covariance = pinv(hessian);
+    variance = diag(covariance);
+    validVariance = isfinite(variance) & variance > 0;
+    SE(validVariance) = sqrt(variance(validVariance));
+    CI95(validVariance, :) = gainHat(validVariance) + ...
+        [-1 1] .* (1.96 * SE(validVariance));
+end
+
+fit = struct();
+fit.model = modelName;
+fit.predictorNames = predictorNames(:)';
+fit.gain = gainHat;
+fit.SE = SE;
+fit.CI95 = CI95;
+fit.negLogLikelihood = nll;
+fit.exitflag = exitflag;
+fit.nParameters = nParameters;
+fit.nTrials = numel(common.correct);
+fit.nEffectiveCohClipped = sum(common.stepCoh + X * gainHat < 0);
+
+end
+
+%% ------------------------------------------------------------------------
+function nll = negLogLikelihoodGain(gain, X, stepCoh, correct, ...
     sessionAlpha, betaWeibull, lapse)
 
-effectiveCoh = stepCoh + gain .* xNoise;
+effectiveCoh = stepCoh + X * gain(:);
 
-% Pedestal/noise implementation should keep relevant effective coherences
-% nonnegative, but guard against numerical excursions during wide gain search.
+% Guard against numerical excursions during the bounded gain search.
 effectiveCoh = max(effectiveCoh, 0);
 
 p = idqWeibullP(effectiveCoh, sessionAlpha, betaWeibull, lapse);

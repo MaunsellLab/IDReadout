@@ -687,13 +687,13 @@ function kernel = makeKernelSummaryFromSessionAnalysis(sessionAnalysis)
 
 kernel = struct();
 
-kernel.correctMean = sessionAnalysis.signedNoiseKernel.meanCorrect';
-kernel.errorMean = sessionAnalysis.signedNoiseKernel.meanError';
-kernel.meanDiff = sessionAnalysis.signedNoiseKernel.kernel';
+kernel.correctMean = sessionAnalysis.sumNoiseKernel.meanCorrect';
+kernel.errorMean = sessionAnalysis.sumNoiseKernel.meanError';
+kernel.meanDiff = sessionAnalysis.sumNoiseKernel.kernel';
 
-kernel.nCorrect = sessionAnalysis.signedNoiseKernel.nCorrect;
-kernel.nError = sessionAnalysis.signedNoiseKernel.nError;
-kernel.nTrials = sessionAnalysis.signedNoiseKernel.nTrials;
+kernel.nCorrect = sessionAnalysis.sumNoiseKernel.nCorrect;
+kernel.nError = sessionAnalysis.sumNoiseKernel.nError;
+kernel.nTrials = sessionAnalysis.sumNoiseKernel.nTrials;
 
 kernel.timeIndex = 1:numel(sessionAnalysis.tMS);
 

@@ -20,7 +20,7 @@ nDirs = sessionAnalyses{1}.sessionHeader.nDirs;
 dirStepDeg = 360 / nDirs;
 dirLabels = strings(1, nDirs);
 for d = 1:nDirs
-    dirLabels(d) = sprintf('%.0f°-%.0f°', (d - 1) * dirStepDeg, d * dirStepDeg - 1);
+  dirLabels(d) = sprintf('%.0f°-%.0f°', (d - 1) * dirStepDeg, d * dirStepDeg - 1);
 end
 
 D = struct();
@@ -69,37 +69,37 @@ meanRectNoisePredictor = nan(nDirs, 1);
 
 for iDir = 1:nDirs
 
-    idx = trialTable.dirIndex == iDir;
-    idxNoise = idx & trialTable.hasStepNoise;
+  idx = trialTable.dirIndex == iDir;
+  idxNoise = idx & trialTable.hasStepNoise;
 
-    nTrials(iDir) = sum(idx);
-    nCorrect(iDir) = sum(trialTable.correct(idx));
-    pCorrect(iDir) = mean(trialTable.correct(idx), 'omitnan');
+  nTrials(iDir) = sum(idx);
+  nCorrect(iDir) = sum(trialTable.correct(idx));
+  pCorrect(iDir) = mean(trialTable.correct(idx), 'omitnan');
 
-    nStepNoiseTrials(iDir) = sum(idxNoise);
-    pCorrectStepNoise(iDir) = mean(trialTable.correct(idxNoise), 'omitnan');
+  nStepNoiseTrials(iDir) = sum(idxNoise);
+  pCorrectStepNoise(iDir) = mean(trialTable.correct(idxNoise), 'omitnan');
 
-    meanStepCoh(iDir) = mean(trialTable.stepCoh(idx), 'omitnan');
+  meanStepCoh(iDir) = mean(trialTable.stepCoh(idx), 'omitnan');
 
-    if ismember('rectNoisePredictor', trialTable.Properties.VariableNames)
-      if ismember('rectSumNoise', trialTable.Properties.VariableNames)
-        meanRectNoisePredictor(iDir) = mean(trialTable.rectSumNoise(idxNoise), 'omitnan');
-      elseif ismember('rectNoisePredictor', trialTable.Properties.VariableNames)
-        meanRectNoisePredictor(iDir) = mean(trialTable.rectNoisePredictor(idxNoise), 'omitnan');
-      end
+  if ismember('rectNoisePredictor', trialTable.Properties.VariableNames)
+    if ismember('rectSumNoise', trialTable.Properties.VariableNames)
+      meanRectNoisePredictor(iDir) = mean(trialTable.rectSumNoise(idxNoise), 'omitnan');
+    elseif ismember('rectNoisePredictor', trialTable.Properties.VariableNames)
+      meanRectNoisePredictor(iDir) = mean(trialTable.rectNoisePredictor(idxNoise), 'omitnan');
     end
+  end
 end
 
 behavior = table( ...
-    dirIndex, ...
-    directionLabel, ...
-    nTrials, ...
-    nCorrect, ...
-    pCorrect, ...
-    nStepNoiseTrials, ...
-    pCorrectStepNoise, ...
-    meanStepCoh, ...
-    meanRectNoisePredictor);
+  dirIndex, ...
+  directionLabel, ...
+  nTrials, ...
+  nCorrect, ...
+  pCorrect, ...
+  nStepNoiseTrials, ...
+  pCorrectStepNoise, ...
+  meanStepCoh, ...
+  meanRectNoisePredictor);
 
 end
 
@@ -120,42 +120,42 @@ nTrials = nan(nDirs, 1);
 
 for iDir = 1:nDirs
 
-    allCorrect = [];
-    allError = [];
+  allCorrect = [];
+  allError = [];
 
-    for iSession = 1:numel(sessionAnalyses)
+  for iSession = 1:numel(sessionAnalyses)
 
-        SA = sessionAnalyses{iSession};
-        T = SA.trialTable;
+    SA = sessionAnalyses{iSession};
+    T = SA.trialTable;
 
-        idxUse = T.hasStepNoise;
+    idxUse = T.hasStepNoise;
 
-        sideIndex = T.sideIndex(:)';
-        dirIndex = iDir;
+    sideIndex = T.sideIndex(:)';
+    dirIndex = iDir;
 
-        nTrial = height(T);
-        noiseThisDir = nan(numel(tMS), nTrial);
+    nTrial = height(T);
+    noiseThisDir = nan(numel(tMS), nTrial);
 
-        for iTrial = 1:nTrial
-            noiseThisDir(:, iTrial) = squeeze(SA.noiseBySideDir( ...
-                sideIndex(iTrial), dirIndex, :, iTrial));
-        end
-
-        allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)]; %#ok<AGROW>
-        allError = [allError, noiseThisDir(:, idxUse & ~T.correct)]; %#ok<AGROW>
+    for iTrial = 1:nTrial
+      noiseThisDir(:, iTrial) = squeeze(SA.noiseBySideDir( ...
+        sideIndex(iTrial), dirIndex, :, iTrial));
     end
 
-    meanCorrect(:, iDir) = mean(allCorrect, 2, 'omitnan');
-    meanError(:, iDir) = mean(allError, 2, 'omitnan');
-    meanDiff(:, iDir) = meanCorrect(:, iDir) - meanError(:, iDir);
+    allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)]; %#ok<AGROW>
+    allError = [allError, noiseThisDir(:, idxUse & ~T.correct)]; %#ok<AGROW>
+  end
 
-    nCorrect(iDir) = size(allCorrect, 2);
-    nError(iDir) = size(allError, 2);
-    nTrials(iDir) = nCorrect(iDir) + nError(iDir);
+  meanCorrect(:, iDir) = mean(allCorrect, 2, 'omitnan');
+  meanError(:, iDir) = mean(allError, 2, 'omitnan');
+  meanDiff(:, iDir) = meanCorrect(:, iDir) - meanError(:, iDir);
+
+  nCorrect(iDir) = size(allCorrect, 2);
+  nError(iDir) = size(allError, 2);
+  nTrials(iDir) = nCorrect(iDir) + nError(iDir);
 end
 
 kernels = packageKernelTable(tMS, stepFrames, dirLabels, ...
-    meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError);
+  meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError);
 
 end
 
@@ -176,57 +176,57 @@ nTrials = nan(nDirs, 1);
 
 for iRel = 1:nDirs
 
-    allCorrect = [];
-    allError = [];
+  allCorrect = [];
+  allError = [];
 
-    for iSession = 1:numel(sessionAnalyses)
+  for iSession = 1:numel(sessionAnalyses)
 
-        SA = sessionAnalyses{iSession};
-        T = SA.trialTable;
+    SA = sessionAnalyses{iSession};
+    T = SA.trialTable;
 
-        idxUse = T.hasStepNoise;
+    idxUse = T.hasStepNoise;
 
-        sideIndex = T.sideIndex(:);
-        driftDirIndex = T.dirIndex(:);
+    sideIndex = T.sideIndex(:);
+    driftDirIndex = T.dirIndex(:);
 
-        nTrial = height(T);
-        noiseThisRel = nan(numel(tMS), nTrial);
+    nTrial = height(T);
+    noiseThisRel = nan(numel(tMS), nTrial);
 
-        for iTrial = 1:nTrial
+    for iTrial = 1:nTrial
 
-            if iRel == 1
-                dirIndex = driftDirIndex(iTrial);
-            elseif iRel == 2
-                dirIndex = mod(driftDirIndex(iTrial), 3) + 1;
-            else
-                dirIndex = mod(driftDirIndex(iTrial) - 2, 3) + 1;
-            end
+      if iRel == 1
+        dirIndex = driftDirIndex(iTrial);
+      elseif iRel == 2
+        dirIndex = mod(driftDirIndex(iTrial), 3) + 1;
+      else
+        dirIndex = mod(driftDirIndex(iTrial) - 2, 3) + 1;
+      end
 
-            noiseThisRel(:, iTrial) = squeeze(SA.noiseBySideDir( ...
-                sideIndex(iTrial), dirIndex, :, iTrial));
-        end
-
-        allCorrect = [allCorrect, noiseThisRel(:, idxUse & T.correct)]; %#ok<AGROW>
-        allError = [allError, noiseThisRel(:, idxUse & ~T.correct)]; %#ok<AGROW>
+      noiseThisRel(:, iTrial) = squeeze(SA.noiseBySideDir( ...
+        sideIndex(iTrial), dirIndex, :, iTrial));
     end
 
-    meanCorrect(:, iRel) = mean(allCorrect, 2, 'omitnan');
-    meanError(:, iRel) = mean(allError, 2, 'omitnan');
-    meanDiff(:, iRel) = meanCorrect(:, iRel) - meanError(:, iRel);
+    allCorrect = [allCorrect, noiseThisRel(:, idxUse & T.correct)]; %#ok<AGROW>
+    allError = [allError, noiseThisRel(:, idxUse & ~T.correct)]; %#ok<AGROW>
+  end
 
-    nCorrect(iRel) = size(allCorrect, 2);
-    nError(iRel) = size(allError, 2);
-    nTrials(iRel) = nCorrect(iRel) + nError(iRel);
+  meanCorrect(:, iRel) = mean(allCorrect, 2, 'omitnan');
+  meanError(:, iRel) = mean(allError, 2, 'omitnan');
+  meanDiff(:, iRel) = meanCorrect(:, iRel) - meanError(:, iRel);
+
+  nCorrect(iRel) = size(allCorrect, 2);
+  nError(iRel) = size(allError, 2);
+  nTrials(iRel) = nCorrect(iRel) + nError(iRel);
 end
 
 kernels = packageKernelTable(tMS, stepFrames, dirLabels, ...
-    meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError);
+  meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError);
 
 end
 
 %% ------------------------------------------------------------------------
 function kernels = packageKernelTable(tMS, stepFrames, dirLabels, ...
-    meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError)
+  meanCorrect, meanError, meanDiff, nTrials, nCorrect, nError)
 
 nDirs = numel(dirLabels);
 
@@ -238,20 +238,20 @@ stepIntegral = nan(nDirs, 1);
 stepPeakAbs = nan(nDirs, 1);
 
 for iDir = 1:nDirs
-    stepMean(iDir) = mean(meanDiff(stepFrames, iDir), 'omitnan');
-    stepIntegral(iDir) = sum(meanDiff(stepFrames, iDir), 'omitnan');
-    stepPeakAbs(iDir) = max(abs(meanDiff(stepFrames, iDir)), [], 'omitnan');
+  stepMean(iDir) = mean(meanDiff(stepFrames, iDir), 'omitnan');
+  stepIntegral(iDir) = sum(meanDiff(stepFrames, iDir), 'omitnan');
+  stepPeakAbs(iDir) = max(abs(meanDiff(stepFrames, iDir)), [], 'omitnan');
 end
 
 summaryTable = table( ...
-    dirIndex, ...
-    directionLabel, ...
-    nTrials, ...
-    nCorrect, ...
-    nError, ...
-    stepMean, ...
-    stepIntegral, ...
-    stepPeakAbs);
+  dirIndex, ...
+  directionLabel, ...
+  nTrials, ...
+  nCorrect, ...
+  nError, ...
+  stepMean, ...
+  stepIntegral, ...
+  stepPeakAbs);
 
 kernels = struct();
 kernels.tMS = tMS;
