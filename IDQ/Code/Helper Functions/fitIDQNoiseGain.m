@@ -89,6 +89,14 @@ gainFits.driftNonDrift = fitGainModel( ...
     'driftNonDrift', ["drift", "nonDrift"], ...
     XdriftNonDrift, [1; 0], common);
 
+% 
+% 
+% fprintf('SD drift:      %.4f\n', std(xDrift));
+% fprintf('SD +120:       %.4f\n', std(xPlus120));
+% fprintf('SD -120:       %.4f\n', std(xMinus120));
+% fprintf('SD pooled non: %.4f\n', std(xPlus120 + xMinus120));
+% fprintf('Corr non-drift: %.4f\n', corr(xPlus120, xMinus120));
+
 end
 
 %% ------------------------------------------------------------------------
@@ -110,20 +118,57 @@ opts = optimoptions('fmincon', ...
     'MaxFunctionEvaluations', 5000, ...
     'MaxIterations', 2000);
 
-[gainHat, nll, exitflag, ~, ~, ~, hessian] = ...
-    fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
+% H = hessian;       % or temporarily capture it
+% disp(modelName);
+% disp(predictorNames);
+% C = inv(H);
+% H
+% C
+% eig(H)
+% cond(H)
+% sqrt(diag(C))
+
+% [gainHat, nll, exitflag, ~, ~, ~, hessian] = ...
+%     fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
+% gainHat = gainHat(:);
+% SE = nan(nParameters, 1);
+% CI95 = nan(nParameters, 2);
+% 
+% if all(isfinite(hessian), 'all')
+%     covariance = pinv(hessian);
+%     variance = diag(covariance);
+%     validVariance = isfinite(variance) & variance > 0;
+%     SE(validVariance) = sqrt(variance(validVariance));
+%     CI95(validVariance, :) = gainHat(validVariance) + ...
+%         [-1 1] .* (1.96 * SE(validVariance));
+% end
+
+[gainHat, nll, exitflag] = ...
+  fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
 
 gainHat = gainHat(:);
+
+% Compute the observed Hessian directly from the objective at the optimum.
+hessian = finiteDifferenceHessian(objective, gainHat);
+
 SE = nan(nParameters, 1);
 CI95 = nan(nParameters, 2);
 
 if all(isfinite(hessian), 'all')
-    covariance = pinv(hessian);
+  hessian = (hessian + hessian') / 2;
+
+  eigenvalues = eig(hessian);
+
+  if all(eigenvalues > 0)
+    covariance = inv(hessian);
     variance = diag(covariance);
+
     validVariance = isfinite(variance) & variance > 0;
     SE(validVariance) = sqrt(variance(validVariance));
+
     CI95(validVariance, :) = gainHat(validVariance) + ...
-        [-1 1] .* (1.96 * SE(validVariance));
+      [-1 1] .* (1.96 * SE(validVariance));
+  end
 end
 
 fit = struct();
@@ -137,6 +182,19 @@ fit.exitflag = exitflag;
 fit.nParameters = nParameters;
 fit.nTrials = numel(common.correct);
 fit.nEffectiveCohClipped = sum(common.stepCoh + X * gainHat < 0);
+
+% the following can be removed after diagnostics are settled.
+
+% fit.hessian = hessian;
+% fit.hessianEigenvalues = eig(hessian);
+% fit.hessianCondition = cond(hessian);
+% 
+% disp(fit.model);
+% disp(fit.gain);
+% disp(fit.SE);
+% disp(fit.hessian);
+% disp(eig(fit.hessian));
+% disp(cond(fit.hessian));
 
 end
 
@@ -153,5 +211,46 @@ p = idqWeibullP(effectiveCoh, sessionAlpha, betaWeibull, lapse);
 p = min(max(p, eps), 1 - eps);
 
 nll = -sum(correct .* log(p) + (1 - correct) .* log(1 - p));
+
+end
+
+%% ------------------------------------------------------------------------
+function H = finiteDifferenceHessian(objective, x)
+
+x = x(:);
+nParameters = numel(x);
+
+H = nan(nParameters);
+
+% Scale-aware finite-difference step.
+h = 3e-4 .* max(1, abs(x));
+
+f0 = objective(x);
+
+for i = 1:nParameters
+  ei = zeros(nParameters, 1);
+  ei(i) = h(i);
+
+  fp = objective(x + ei);
+  fm = objective(x - ei);
+
+  H(i, i) = (fp - 2*f0 + fm) / h(i)^2;
+
+  for j = i+1:nParameters
+    ej = zeros(nParameters, 1);
+    ej(j) = h(j);
+
+    fpp = objective(x + ei + ej);
+    fpm = objective(x + ei - ej);
+    fmp = objective(x - ei + ej);
+    fmm = objective(x - ei - ej);
+
+    H(i, j) = ...
+      (fpp - fpm - fmp + fmm) / ...
+      (4 * h(i) * h(j));
+
+    H(j, i) = H(i, j);
+  end
+end
 
 end
