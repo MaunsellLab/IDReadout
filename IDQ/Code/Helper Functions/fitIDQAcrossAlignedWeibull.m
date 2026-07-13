@@ -41,37 +41,42 @@ fit.hessian = [];
 fit.paramNames = {'logThreshold', 'logBeta', 'lapseRaw'};
 
 if numel(unique(alignedCoh)) < 2 || numel(unique(correct)) < 2
-    return
+  return
 end
 
 positiveCoh = alignedCoh(alignedCoh > 0);
 if isempty(positiveCoh)
-    return
+  return
 end
 
 % Initial guesses. After alignment, threshold should be near 1.
 threshold0 = 1;
 beta0 = 3;
-lapse0 = mean(lapseBounds);
+
+% We normally would take the mean of the bounds, but it is critical that we
+% don't use 0.025, because that gives fmincon effectively no gradient to
+% work with and it never moves from that point.  
+
+lapse0 = 0.01;
 
 theta0 = [
-    log(threshold0)
-    log(beta0)
-    logitBounded(lapse0, lapseBounds)
-    ];
+  log(threshold0)
+  log(beta0)
+  logitBounded(lapse0, lapseBounds)
+  ];
 
 objective = @(theta) negLogLikelihood(theta, alignedCoh, correct, ...
-    targetPerformance, lapseBounds);
+  targetPerformance, lapseBounds);
 
 opts = optimset( ...
-    'Display', 'off', ...
-    'MaxFunEvals', 5000, ...
-    'MaxIter', 5000);
+  'Display', 'off', ...
+  'MaxFunEvals', 5000, ...
+  'MaxIter', 5000);
 
 [thetaHat, nll, exitflag] = fminsearch(objective, theta0, opts);
 
 [threshold, betaWeibull, lapse, alpha] = unpackTheta( ...
-    thetaHat, targetPerformance, lapseBounds);
+  thetaHat, targetPerformance, lapseBounds);
 
 fit.threshold = threshold;
 fit.alpha = alpha;
@@ -83,7 +88,6 @@ fit.thetaHat = thetaHat;
 
 % Optional finite-difference Hessian for later diagnostics.
 fit.hessian = finiteDifferenceHessian(objective, thetaHat);
-
 end
 
 %% ------------------------------------------------------------------------

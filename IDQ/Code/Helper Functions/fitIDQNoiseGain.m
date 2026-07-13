@@ -78,25 +78,13 @@ common.lapse = lapse;
 
 gainFits = struct();
 gainFits.combined = fitGainModel( ...
-    'combined', ["allDirections"], Xcombined, 1/3, common);
-gainFits.driftRelative = fitGainModel( ...
-    'driftRelative', ["drift", "plus120", "minus120"], ...
+    'combined', ["All Dir."], Xcombined, 1/3, common);
+gainFits.driftRelative = fitGainModel('driftRelative', ["Drift", "+120°", "-120°"], ...
     Xrelative, [1; 0; 0], common);
-gainFits.absolute = fitGainModel( ...
-    'absolute', ["dir1", "dir2", "dir3"], ...
+gainFits.absolute = fitGainModel('absolute', ["0°-119°", "120°-239°", "240°-359°"], ...
     Xabs, repmat(1/3, 3, 1), common);
-gainFits.driftNonDrift = fitGainModel( ...
-    'driftNonDrift', ["drift", "nonDrift"], ...
+gainFits.driftNonDrift = fitGainModel('driftNonDrift', ["Drift", "Non-Drift"], ...
     XdriftNonDrift, [1; 0], common);
-
-% 
-% 
-% fprintf('SD drift:      %.4f\n', std(xDrift));
-% fprintf('SD +120:       %.4f\n', std(xPlus120));
-% fprintf('SD -120:       %.4f\n', std(xMinus120));
-% fprintf('SD pooled non: %.4f\n', std(xPlus120 + xMinus120));
-% fprintf('Corr non-drift: %.4f\n', corr(xPlus120, xMinus120));
-
 end
 
 %% ------------------------------------------------------------------------
@@ -117,32 +105,6 @@ opts = optimoptions('fmincon', ...
     'StepTolerance', 1e-10, ...
     'MaxFunctionEvaluations', 5000, ...
     'MaxIterations', 2000);
-
-% H = hessian;       % or temporarily capture it
-% disp(modelName);
-% disp(predictorNames);
-% C = inv(H);
-% H
-% C
-% eig(H)
-% cond(H)
-% sqrt(diag(C))
-
-% [gainHat, nll, exitflag, ~, ~, ~, hessian] = ...
-%     fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
-% gainHat = gainHat(:);
-% SE = nan(nParameters, 1);
-% CI95 = nan(nParameters, 2);
-% 
-% if all(isfinite(hessian), 'all')
-%     covariance = pinv(hessian);
-%     variance = diag(covariance);
-%     validVariance = isfinite(variance) & variance > 0;
-%     SE(validVariance) = sqrt(variance(validVariance));
-%     CI95(validVariance, :) = gainHat(validVariance) + ...
-%         [-1 1] .* (1.96 * SE(validVariance));
-% end
-
 [gainHat, nll, exitflag] = ...
   fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
 
@@ -182,20 +144,6 @@ fit.exitflag = exitflag;
 fit.nParameters = nParameters;
 fit.nTrials = numel(common.correct);
 fit.nEffectiveCohClipped = sum(common.stepCoh + X * gainHat < 0);
-
-% the following can be removed after diagnostics are settled.
-
-% fit.hessian = hessian;
-% fit.hessianEigenvalues = eig(hessian);
-% fit.hessianCondition = cond(hessian);
-% 
-% disp(fit.model);
-% disp(fit.gain);
-% disp(fit.SE);
-% disp(fit.hessian);
-% disp(eig(fit.hessian));
-% disp(cond(fit.hessian));
-
 end
 
 %% ------------------------------------------------------------------------

@@ -23,7 +23,7 @@ files = dir(fullfile(sessionAnalysisFolder, '*_sessionAnalysis.mat'));
 if isempty(files)
     error('plotIDQSummary:NoSessionAnalysisFiles', 'No sessionAnalysis files found in %s.', sessionAnalysisFolder);
 end
-fprintf('plotIDQSummary: loading %d sessionAnalysis files\n', numel(files));
+% fprintf('plotIDQSummary: loading %d sessionAnalysis files\n', numel(files));
 
 sessionAnalyses = cell(numel(files), 1);
 for iFile = 1:numel(files)
@@ -61,7 +61,6 @@ for d = 1:nDirs
   [psychByDir{d}, dirTrialTables{d}] = fitPsychometric(trialTable, d, absDirLabels(d));
 end
 
-% rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses);
 looPredictor = computeIDQLOONoisePredictor(sessionAnalyses);
 noisePredictorWeighting = 'looKernel';  % 'looKernel' or 'rectangular'
 switch noisePredictorWeighting
@@ -76,15 +75,10 @@ switch noisePredictorWeighting
     error('makeIDQAcrossSessionSummary:BadNoisePredictorWeighting', ...
       'Unknown noisePredictorWeighting: %s', noisePredictorWeighting);
 end
-% trialTable.xNoiseLOO = looPredictor.xNoiseLOO;
 
 targetPerformance = 0.75;
 noiseGain = fitIDQNoiseGain(trialTable, psych.sessionFits, psych.alignedWeibull, targetPerformance);
-% noiseGainLOO = fitIDQNoiseGain(trialTable, 'xNoiseLOO', psych.sessionFits, psych.alignedWeibull, ...
-%   targetPerformance);
 directionDiagnostics = computeIDQDirectionDiagnostics(sessionAnalyses, trialTable);
-% directionDiagnostics.absolute.rectGainByDirection = fitIDQRectGainByDirection(trialTable, psych.sessionFits, ...
-%   psych.alignedWeibull, targetPerformance, directionDiagnostics.absolute.directionLabels);
 
 acrossSummary = struct();
 acrossSummary.noisePredictorWeighting = noisePredictorWeighting;
@@ -111,24 +105,15 @@ acrossSummary.kernel = kernel;
 acrossSummary.absKernels = absKernels;
 acrossSummary.relKernels = relKernels;
 
-% acrossSummary.rectPredictor = rectPredictor;
 acrossSummary.noiseGain = noiseGain;
-
-% acrossSummary.noiseGain.primary = 'rect';
-% acrossSummary.noiseGain.rect = noiseGainRect;
-% acrossSummary.noiseGain.looKernel = noiseGainLOO;
-
 acrossSummary.directionDiagnostics = directionDiagnostics;
 
 summaryMatFile = fullfile(summaryFolder, 'IDQ_AcrossSessionSummary.mat');
 save(summaryMatFile, 'acrossSummary', '-v7.3');
-fprintf('  saved %s\n', summaryMatFile);
+% fprintf('  saved %s\n', summaryMatFile);
 
-summaryPDFFile = fullfile(plotFolder, 'IDQSessionSummary.pdf');
-fig = plotSessionSummary(acrossSummary);
-exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector');
-% fig = plotIDQDirectionDiagnosticsSummary(acrossSummary);
-% exportgraphics(fig, summaryPDFFile, 'ContentType', 'vector', 'Append', true);
+fig = plotSummary(acrossSummary);
+exportgraphics(fig, fullfile(plotFolder, 'IDQSessionSummary.pdf'), 'ContentType', 'vector');
 
 end
 
@@ -157,6 +142,16 @@ psych.lapseBounds = lapseBounds;
 psych.sessionFits = psychDir.sessionFits;
 psych.alignedWeibull = alignedWeibull;
 
+fit = psych.alignedWeibull;
+
+% fprintf('lapse       = %.8f\n', fit.lapse);
+% fprintf('lapseRaw    = %.8f\n', fit.thetaHat(3));
+% fprintf('threshold   = %.6f\n', fit.threshold);
+% fprintf('beta        = %.6f\n', fit.betaWeibull);
+% fprintf('NLL         = %.6f\n', fit.negLogLikelihood);
+% fprintf('exitflag    = %d\n', fit.exitflag);
+% disp(fit.hessian)
+
 end
 
 %% -------------------------------------------------------------------------
@@ -167,11 +162,8 @@ tables = cell(numel(sessionAnalyses), 1);
 for iSession = 1:numel(sessionAnalyses)
   SA = sessionAnalyses{iSession};
   T = SA.trialTable;
-
   T.sessionIndex = repmat(iSession, height(T), 1);
   T.noisyStepCoh = repmat(SA.noisyStepCoh, height(T), 1);
-  % T.rectSumNoise = SA.rectSumNoise(:);
-  % T.rectMeanNoise = SA.rectMeanNoise(:);
   tables{iSession} = T;
 end
 trialTable = vertcat(tables{:});
@@ -208,9 +200,6 @@ for iSession = 1:nSessions
   meanCorrect(iSession) = mean(T.correct, 'omitnan');
   idxNoise = T.hasStepNoise;
   meanCorrectStepNoise(iSession) = mean(T.correct(idxNoise), 'omitnan');
-  % x = SA.rectSumNoise(idxNoise);
-  % meanRectNoise(iSession) = mean(x, 'omitnan');
-  % stdRectNoise(iSession) = std(x, 'omitnan');
   k = SA.sumNoiseKernel.kernel;
   kStep = k(SA.stepFrames);
   kernelStepIntegral(iSession) = sum(kStep, 'omitnan');
@@ -223,101 +212,8 @@ sessionRecords = table(fileName, nTrials, nStepNoiseTrials, noisyStepCoh, meanCo
 
 end
 
-% %% -------------------------------------------------------------------------
-% function psychometric = computeAcrossPsychometric(trialTable)
-% 
-% cohLevels = unique(trialTable.stepCoh);
-% cohLevels = cohLevels(:);
-% 
-% nLevels = numel(cohLevels);
-% 
-% nTrials = nan(nLevels, 1);
-% nCorrect = nan(nLevels, 1);
-% pCorrect = nan(nLevels, 1);
-% 
-% nTrialsNoise = nan(nLevels, 1);
-% nCorrectNoise = nan(nLevels, 1);
-% pCorrectNoise = nan(nLevels, 1);
-% 
-% nTrialsNoNoise = nan(nLevels, 1);
-% nCorrectNoNoise = nan(nLevels, 1);
-% pCorrectNoNoise = nan(nLevels, 1);
-% 
-% for iLevel = 1:nLevels
-%     coh = cohLevels(iLevel);
-% 
-%     idx = trialTable.stepCoh == coh;
-%     nTrials(iLevel) = sum(idx);
-%     nCorrect(iLevel) = sum(trialTable.correct(idx));
-%     pCorrect(iLevel) = mean(trialTable.correct(idx), 'omitnan');
-% 
-%     idxNoise = idx & trialTable.hasStepNoise;
-%     nTrialsNoise(iLevel) = sum(idxNoise);
-%     nCorrectNoise(iLevel) = sum(trialTable.correct(idxNoise));
-%     pCorrectNoise(iLevel) = mean(trialTable.correct(idxNoise), 'omitnan');
-% 
-%     idxNoNoise = idx & ~trialTable.hasStepNoise;
-%     nTrialsNoNoise(iLevel) = sum(idxNoNoise);
-%     nCorrectNoNoise(iLevel) = sum(trialTable.correct(idxNoNoise));
-%     pCorrectNoNoise(iLevel) = mean(trialTable.correct(idxNoNoise), 'omitnan');
-% end
-% 
-% psychometric = table(cohLevels, nTrials, nCorrect, pCorrect, nTrialsNoise, nCorrectNoise, pCorrectNoise, ...
-%     nTrialsNoNoise, nCorrectNoNoise, pCorrectNoNoise);
-% 
-% psychometric.Properties.VariableNames{1} = 'stepCoh';
-% 
-% end
-
-
 %% -------------------------------------------------------------------------
-% function rectPredictor = computeRectPredictorSummary(trialTable, sessionAnalyses)
-% 
-% idxNoise = trialTable.hasStepNoise;
-% 
-% x = trialTable.rectSumNoise(idxNoise);
-% correct = trialTable.correct(idxNoise);
-% 
-% rectPredictor = struct();
-% 
-% rectPredictor.nTrials = numel(x);
-% rectPredictor.mean = mean(x, 'omitnan');
-% rectPredictor.sd = std(x, 'omitnan');
-% rectPredictor.meanCorrectTrials = mean(x(correct), 'omitnan');
-% rectPredictor.meanErrorTrials = mean(x(~correct), 'omitnan');
-% rectPredictor.meanDiffCorrectMinusError =  rectPredictor.meanCorrectTrials - rectPredictor.meanErrorTrials;
-% 
-% % Per-session version for diagnostics.
-% nSessions = numel(sessionAnalyses);
-% fileName = strings(nSessions, 1);
-% nTrials = nan(nSessions, 1);
-% meanX = nan(nSessions, 1);
-% sdX = nan(nSessions, 1);
-% meanCorrectX = nan(nSessions, 1);
-% meanErrorX = nan(nSessions, 1);
-% meanDiffCorrectMinusError = nan(nSessions, 1);
-% 
-% for iSession = 1:nSessions
-%   SA = sessionAnalyses{iSession};
-%   T = SA.trialTable;
-%   idx = T.hasStepNoise;
-% 
-%   xs = SA.rectSumNoise(idx);
-%   cs = T.correct(idx);
-% 
-%   fileName(iSession) = string(SA.fileName);
-%   nTrials(iSession) = numel(xs);
-%   meanX(iSession) = mean(xs, 'omitnan');
-%   sdX(iSession) = std(xs, 'omitnan');
-%   meanCorrectX(iSession) = mean(xs(cs), 'omitnan');
-%   meanErrorX(iSession) = mean(xs(~cs), 'omitnan');
-%   meanDiffCorrectMinusError(iSession) = meanCorrectX(iSession) - meanErrorX(iSession);
-% end
-% rectPredictor.bySession = table(fileName, nTrials, meanX, sdX, meanCorrectX, meanErrorX,  meanDiffCorrectMinusError);
-% end
-
-%% -------------------------------------------------------------------------
-function fig = plotSessionSummary(acrossSummary)
+function fig = plotSummary(acrossSummary)
 
 fig = figure(500);
 set(fig, 'Color', 'w', 'WindowStyle', 'docked');
@@ -327,6 +223,9 @@ title(tl, sprintf('IDQ Summary (%d sessions)', acrossSummary.nSessions), ...
 
 textAx = nexttile(tl, 12);
 plotTextSummary(textAx, acrossSummary);
+allColor = [0.5, 0.5, .5];
+absColor = [0.0, 0.5, 0.8];
+relColor = [0.8, 0.5, 1.0];
 
 % psychometric functions
 
@@ -349,15 +248,15 @@ kernelAx = gobjects(7,1);
 stepPatch = gobjects(7,1);
 for d = 1:3
   kernelAx(d) = nexttile(tl, d + 4);
-  stepPatch(d) = plotKernel(kernelAx(d), acrossSummary.absKernels{d});
+  stepPatch(d) = plotKernel(kernelAx(d), acrossSummary.absKernels{d}, absColor);
 end
 
 kernelAx(4) = nexttile(tl, 8);
-stepPatch(4) = plotKernel(kernelAx(4), acrossSummary.kernel);
+stepPatch(4) = plotKernel(kernelAx(4), acrossSummary.kernel, allColor);
 
 for d = 1:3
   kernelAx(d + 4) = nexttile(tl, d+  8);
-  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), acrossSummary.relKernels{d}, d == 1, false);
+  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), acrossSummary.relKernels{d}, relColor, d == 1, false);
 end
 
 yl = cell2mat(get(kernelAx, 'YLim'));
@@ -367,28 +266,12 @@ for k = 1:7
   stepPatch(k).YData = sharedYLim([1 1 2 2]);
 end
 
-
 % Use a common y-axis scale for all gain plots.
 gainYLim = getNoiseGainYLim(acrossSummary.noiseGain);
-
-axGain = nexttile(tl, 15);
-fit = acrossSummary.noiseGain.combined;
-plotGainBars(axGain, fit.gain, fit.CI95, {'Combined'}, 'Combined three-direction gain', gainYLim);
-
-axAbsoluteGain = nexttile(tl, 14);
-fit = acrossSummary.noiseGain.absolute;
-plotGainBars(axAbsoluteGain, fit.gain, fit.CI95, {'Dir 1', 'Dir 2', 'Dir 3'}, ...
-  'Absolute-direction gains', gainYLim);
-
-axRelativeGain = nexttile(tl, 13);
-fit = acrossSummary.noiseGain.driftRelative;
-plotGainBars(axRelativeGain, fit.gain, fit.CI95, ...
-  {'Drift', '+120', '-120'}, 'Drift-relative gains', gainYLim);
-
-axDriftNonDriftGain = nexttile(tl, 16);
-fit = acrossSummary.noiseGain.driftNonDrift;
-plotGainBars(axDriftNonDriftGain, fit.gain, fit.CI95, ...
-  {'Drift', 'Non-drift'}, 'Drift and pooled non-drift gains', gainYLim);
+plotGainBars(nexttile(tl, 13), acrossSummary.noiseGain.driftRelative, 'Drift-Rel. Gains', gainYLim, relColor);
+plotGainBars(nexttile(tl, 14), acrossSummary.noiseGain.absolute, 'Abs. Direction Gains', gainYLim, absColor);
+plotGainBars(nexttile(tl, 15), acrossSummary.noiseGain.combined, 'Combined Gain', gainYLim, allColor);
+plotGainBars(nexttile(tl, 16), acrossSummary.noiseGain.driftNonDrift, 'Drift v. Non-Drift Gains', gainYLim, relColor);
 
 end
 
@@ -396,47 +279,21 @@ end
 function plotTextSummary(ax, acrossSummary)
 
 axis(ax, 'off');
-
-R = acrossSummary.sessionRecords;
-fit = acrossSummary.psychFit.alignedWeibull;
-gainFit = acrossSummary.noiseGain.combined;
 txt = {
-    sprintf('Plot Created: %s', string(acrossSummary.createdAt))
-    sprintf('%ld Sessions, %ld Trials', acrossSummary.nSessions, acrossSummary.nTrials)
-    sprintf('Mean percent correct %.1f%%', mean(R.meanCorrect, 'omitnan') * 100.0)
-    ''
-    sprintf('%ld Noise Trials', acrossSummary.kernel.nTrials)
-    sprintf('Mean Step Coherence: %.0f%%', mean(R.noisyStepCoh, 'omitnan'))
-    sprintf('%.1f%% correct (%d hit, %d miss)', 100.0 * acrossSummary.kernel.nCorrect / acrossSummary.kernel.nTrials, ...
-            acrossSummary.kernel.nCorrect, acrossSummary.kernel.nError)
-    ''
-    sprintf('Beta & lapse: %.3f, %.3f', fit.betaWeibull, fit.lapse)
-    sprintf('Normalization Threshold: %.0f%%', 100 * fit.thresholdPerformance)
-    ''
-    sprintf('Int. noise gain: %.2f', gainFit.gain)
-    sprintf('Int. noise 95%% CI: [%.2f %.2f]', gainFit.CI95(1), gainFit.CI95(2))
-    ''
-    sprintf('Step mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.stepMean, acrossSummary.kernel.stepSD);
-    sprintf('PreStep mean (SD): %.2f%% (%.2f%%)', acrossSummary.kernel.preStepMean, acrossSummary.kernel.preStepSD)
-    sprintf('Step z: %.2f', acrossSummary.kernel.stepMeanZPreSD)
+    sprintf('Created: %s', string(acrossSummary.createdAt, 'dd/MM/yyyy HH:mm'))
     };
 
 text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
-    'FontName', 'Menlo', 'FontSize', 6);
-
-% sprintf('Int. noise mean (SD): %.3g (%.3g)', acrossSummary.rectPredictor.mean, acrossSummary.rectPredictor.sd)
-% ''
-
+    'FontName', 'Menlo', 'FontSize', 8);
 end
-
 
 %% -------------------------------------------------------------------------
-function stepPatch = plotKernel(ax, kernel, showLegend, showXLabel)
+function stepPatch = plotKernel(ax, kernel, plotColor, showLegend, showXLabel)
 
-if nargin < 4
+if nargin < 5
   showXLabel = true;
 end
-if nargin < 3
+if nargin < 4
   showLegend = false;
 end
 hold(ax, 'on');
@@ -452,7 +309,7 @@ stepPatch = patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7],  
     'FaceAlpha', 0.35, 'HandleVisibility', 'off');
 
 % Replot on top of patch.
-plot(ax, kernel.tMS, kernel.meanDiff, '-b', 'LineWidth', 1.2, 'DisplayName', 'Kernel');
+plot(ax, kernel.tMS, kernel.meanDiff, '-', 'Color', plotColor, 'LineWidth', 1.2, 'DisplayName', 'Kernel');
 plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName', 'Mean Pre/Post Step');
 if showXLabel 
   xlabel(ax, 'Trial Time (ms)');
@@ -466,6 +323,8 @@ txt = sprintf([ 'PreStep Mean %.2f%%\n' 'Step Mean %.2f%%\n'], kernel.preStepMea
 text(ax, 0.02, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
   'FontSize', 8);
 xticks(ax, 0:250:1000);
+xticklabels(ax, {'0', '', '', '', '1000'});
+xtickangle(ax, 0);
 if showLegend
   legend(ax, 'Location', 'southeast', 'FontSize', 7);
 end
@@ -504,8 +363,7 @@ for i = find(idxPlot(:))'
 end 
 xGrid = linspace(0, max(x) * 1.05, 300); 
 pFit = idqWeibullP(xGrid, fit.alpha, fit.betaWeibull, fit.lapse); 
-plot(ax, xGrid, pFit, '-', 'LineWidth', 1.5, 'DisplayName', ...
-  sprintf('Weibull \\beta=%.2f, \\lambda=%.3f', fit.betaWeibull, fit.lapse));
+plot(ax, xGrid, pFit, '-', 'LineWidth', 1.5);
 xline(ax, fit.threshold, ':', 'DisplayName', sprintf('%.0f%% threshold = %.2f', ...
   100 * fit.thresholdPerformance, fit.threshold)); 
 yline(ax, fit.thresholdPerformance, ':', 'HandleVisibility', 'off'); 
@@ -517,213 +375,24 @@ xlim(ax, [0 max(xGrid)]);
 grid(ax, 'on'); 
 box(ax, 'off'); 
 
-txt = sprintf('%.0f trials\n%.1f%% correct\n\\beta=%.2f\n\\lambda=%.3f', height(T), ...
-  100 * mean(T.correct), fit.betaWeibull, fit.lapse);
+normCoh = median(T.stepCoh ./ T.alignedCoh, 'omitnan');
+thresholdCoh = fit.threshold * normCoh;
+txt = sprintf('%.0f trials\n%.1f%% correct\n1 = %.1f%% coh.\nthresh. = %.1f%%\n\\beta=%.2f\n\\lambda=%.3f', ...
+  height(T), 100 * mean(T.correct), normCoh, thresholdCoh, fit.betaWeibull, fit.lapse);
 text(ax, 0.98, 0.02, txt, 'Units', 'normalized', ...
   'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom', 'FontSize', 8);
 end
 
 %% -------------------------------------------------------------------------
-% function plotSessionPerformance(ax, sessionRecords)
-% 
-% plot(ax, sessionRecords.meanCorrectStepNoise, 'ko', 'LineWidth', 1.2, 'MarkerSize', 6, 'MarkerFaceColor', 'k');
-% xlabel(ax, 'Session');
-% ylabel(ax, 'P(hit), noise step');
-% title(ax, 'Noise Step Performance by Session');
-% xlim(ax, [0, numel(sessionRecords.meanCorrectStepNoise) + 1]);
-% ylim(ax, [0.5 1.0]);
-% grid(ax, 'on');
-% box(ax, 'off');
-% 
-% end
+function plotGainBars(ax, fit, plotTitle, gainYLim, plotColor)
 
-%% -------------------------------------------------------------------------
-% function plotSessionKernelMeans(ax, sessionRecords)
-% 
-% hold(ax, 'on');
-% plot(ax, sessionRecords.kernelStepMean, 'ko', 'LineWidth', 1.2, 'MarkerSize', 6, 'MarkerFaceColor', 'k');
-% yline(ax, 0, 'k:');
-% xlabel(ax, 'Session');
-% ylabel(ax, 'Kernel Mean Over Step');
-% ytickformat(ax, 'percentage');
-% xlim(ax, [0, numel(sessionRecords.kernelStepMean) + 1]);
-% title(ax, 'Session Kernel Means');
-% grid(ax, 'on');
-% box(ax, 'off');
-% 
-% end
+gains = fit.gain(:);
+CI95 = fit.CI95;
+xLabels = fit.predictorNames;
 
-%% -------------------------------------------------------------------------
-function fig = plotIDQDirectionDiagnosticsSummary(acrossSummary)
-% plotIDQDirectionDiagnosticsSummary
-%
-% Diagnostic page for direction-specific IDQ behavior and kernels.
-% These diagnostics are not the primary readout analysis.
-
-Dabs = acrossSummary.directionDiagnostics.absolute;
-Daln = acrossSummary.directionDiagnostics.aligned;
-
-fig = figure(501);
-set(fig, 'Color', 'w', 'Units', 'inches', 'Position', [1 1 11 8.5], ...
-              'PaperOrientation', 'landscape', 'WindowStyle', 'docked');
-tl = tiledlayout(fig, 2, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
-
-title(tl, 'IDQ direction diagnostics', ...
-  'Interpreter', 'none', ...
-  'FontWeight', 'bold');
-
-% ax = nexttile(tl, 1);
-% plotDirectionBehavior(ax, Dabs.behavior);
-
-% ax = nexttile(tl, 2);
-% plotDirectionKernelSummary(ax, Dabs.kernels, 'Absolute direction kernel step means');
-
-ax = nexttile(tl, 3);
-plotRectGainByDirection(ax, Dabs.rectGainByDirection);
-
-% ax = nexttile(tl, 4);
-% plotDirectionKernels(ax, Dabs.kernels, 'Absolute changed-side kernels');
-% 
-% ax = nexttile(tl, 5);
-% plotDirectionKernels(ax, Daln.kernels, 'Aligned changed-side kernels');
-
-ax = nexttile(tl, 6);
-plotDirectionDiagnosticsText(ax, acrossSummary);
-
-end
-
-%% -------------------------------------------------------------------------
-function plotDirectionBehavior(ax, behavior)
-
-bar(ax, behavior.pCorrect);
-hold(ax, 'on');
-yline(ax, 0.5, 'k:', 'HandleVisibility', 'off');
-set(ax, 'XTick', 1:height(behavior), 'XTickLabel', behavior.directionLabel);
-xtickangle(ax, 30);
-ylim(ax, [0.45 1.0]);
-ylabel(ax, 'P(correct)');
-title(ax, 'Behavior by physical drift direction', 'Interpreter', 'none');
-grid(ax, 'on');
-box(ax, 'off');
-for i = 1:height(behavior)
-    text(ax, i, behavior.pCorrect(i), sprintf('n=%d', behavior.nTrials(i)), ...
-        'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 7);
-end
-end
-
-%% -------------------------------------------------------------------------
-function plotDirectionKernelSummary(ax, kernels, plotTitle)
-
-S = kernels.summaryTable;
-bar(ax, S.stepMean);
-hold(ax, 'on');
-yline(ax, 0, 'k:', 'HandleVisibility', 'off');
-set(ax, 'XTick', 1:height(S), 'XTickLabel', S.directionLabel);
-xtickangle(ax, 30);
-ylabel(ax, 'Step mean kernel');
-title(ax, plotTitle, 'Interpreter', 'none');
-
-grid(ax, 'on');
-box(ax, 'off');
-for i = 1:height(S)
-  y = S.stepMean(i);
-  if y >= 0
-    va = 'bottom';
-  else
-    va = 'top';
-  end
-  text(ax, i, y, sprintf('%.3g', y), 'HorizontalAlignment', 'center', 'VerticalAlignment', va, 'FontSize', 7);
-end
-yl = ylim(ax);
-m = max(abs(yl));
-ylim(ax, [-m m]);
-end
-
-%% -------------------------------------------------------------------------
-% function plotDirectionKernels(ax, kernels, plotTitle)
-% 
-% hold(ax, 'on');
-% tMS = kernels.tMS;
-% stepFrames = kernels.stepFrames;
-% 
-% plot(ax, tMS, zeros(size(tMS)), 'k:', 'HandleVisibility', 'off');
-% 
-% x1 = tMS(stepFrames(1));
-% x2 = tMS(stepFrames(end));
-% 
-% % Initial plot to set y limits.
-% for iDir = 1:numel(kernels.summaryTable.directionLabel)
-%     plot(ax, tMS, kernels.meanDiff(:, iDir), ...
-%         'LineWidth', 1.0, 'DisplayName', char(kernels.summaryTable.directionLabel(iDir)), 'HandleVisibility', 'off');
-% end
-% 
-% yl = ylim(ax);
-% patch(ax, [x1 x2 x2 x1], [yl(1) yl(1) yl(2) yl(2)], [0.7 0.7 0.7], ...
-%         'EdgeColor', 'none', 'FaceAlpha', 0.35, 'HandleVisibility', 'off');
-% 
-% % Replot on top of patch.
-% for iDir = 1:numel(kernels.summaryTable.directionLabel)
-%     plot(ax, tMS, kernels.meanDiff(:, iDir), ...
-%         'LineWidth', 1.0, 'DisplayName', char(kernels.summaryTable.directionLabel(iDir)));
-% end
-% 
-% xlabel(ax, 'Time from trial start (ms)');
-% ylabel(ax, 'Correct - error noise');
-% title(ax, plotTitle, 'Interpreter', 'none');
-% 
-% grid(ax, 'on');
-% box(ax, 'off');
-% legend(ax, 'Location', 'northwest', 'FontSize', 7);
-% 
-% end
-
-%% -------------------------------------------------------------------------
-function plotDirectionDiagnosticsText(ax, acrossSummary)
-
-axis(ax, 'off');
-
-Dabs = acrossSummary.directionDiagnostics.absolute;
-Daln = acrossSummary.directionDiagnostics.aligned;
-
-B = Dabs.behavior;
-Sabs = Dabs.kernels.summaryTable;
-Saln = Daln.kernels.summaryTable;
-
-[~, bestDir] = max(B.pCorrect);
-[~, worstDir] = min(B.pCorrect);
-
-behaviorRange = max(B.pCorrect) - min(B.pCorrect);
-
-txt = {
-    sprintf('Best physical direction: %s, %.1f%%', B.directionLabel(bestDir), B.pCorrect(bestDir) * 100.0)
-    sprintf('Worst physical direction: %s, %.1f%%', B.directionLabel(worstDir), B.pCorrect(worstDir) * 100.0)
-    sprintf('Behavior range: %.3f', behaviorRange)
-    ''
-    'Absolute kernel step means:'
-    sprintf('  %s: %.2g', Sabs.directionLabel(1), Sabs.stepMean(1))
-    sprintf('  %s: %.2g', Sabs.directionLabel(2), Sabs.stepMean(2))
-    sprintf('  %s: %.2g', Sabs.directionLabel(3), Sabs.stepMean(3))
-    ''
-    'Aligned kernel step means:'
-    sprintf('  %s: %.2g', Saln.directionLabel(1), Saln.stepMean(1))
-    sprintf('  %s: %.2g', Saln.directionLabel(2), Saln.stepMean(2))
-    sprintf('  %s: %.2g', Saln.directionLabel(3), Saln.stepMean(3))
-    ''
-    'Diagnostic only; primary gain remains collapsed across directions.'
-    };
-
-text(ax, 0, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'left', ...
-    'FontName', 'Menlo', 'FontSize', 8);
-
-end
-
-%% -------------------------------------------------------------------------
-function plotGainBars(ax, gains, CI95, xLabels, plotTitle, gainYLim)
-
-gains = gains(:);
 nGains = numel(gains);
 x = 1:nGains;
-bar(ax, x, gains, 'BarWidth', 0.55);
+bar(ax, x, gains, 'BarWidth', 0.55, 'FaceColor', plotColor, 'EdgeColor', 'k');
 hold(ax, 'on');
 for iGain = 1:nGains
   plot(ax, [x(iGain) x(iGain)], CI95(iGain, :), 'k-', 'LineWidth', 1.3);
@@ -740,7 +409,12 @@ ylabel(ax, 'Noise gain');
 title(ax, plotTitle, 'Interpreter', 'none');
 grid(ax, 'on');
 box(ax, 'off');
-
+txt = '';
+for d = 1:numel(gains)
+  txt = [txt, sprintf('%s: %.2f\n', fit.predictorNames{d}, gains(d))]; %#ok<AGROW>
+end
+text(ax, 0.98, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', ...
+  'FontSize', 8);
 end
 
 %% -------------------------------------------------------------------------
@@ -771,39 +445,6 @@ if yRange == 0
 end
 padding = 0.10 * yRange;
 gainYLim = [min(0, yMin - padding) yMax + padding];
-
-end
-
-
-%% -------------------------------------------------------------------------
-function plotRectGainByDirection(ax, rectGainByDirection)
-
-S = rectGainByDirection.summaryTable;
-hold(ax, 'on');
-x = 1:height(S);
-bar(ax, x, S.gain);
-
-for i = 1:height(S)
-  plot(ax, [x(i) x(i)], [S.CI95Low(i) S.CI95High(i)], 'k-', 'LineWidth', 1.3);
-end
-
-plot(ax, x, S.gain, 'ko', 'MarkerFaceColor', 'k', 'MarkerSize', 5);
-yline(ax, rectGainByDirection.flatPrediction, 'k--', 'DisplayName', 'flat prediction');
-yline(ax, 0, 'k:', 'HandleVisibility', 'off');
-set(ax, 'XTick', x, 'XTickLabel', S.directionLabel);
-xtickangle(ax, 30);
-ylabel(ax, 'Noise Gain');
-title(ax, 'Gain by Drift Direction', 'Interpreter', 'none');
-grid(ax, 'on');
-box(ax, 'off');
-
-yl = ylim(ax);
-ylim(ax, [min([yl(1), min(S.CI95Low)-0.1, -0.1]), max([yl(2), rectGainByDirection.flatPrediction+0.1])]);
-
-for i = 1:height(S)
-  text(ax, x(i), S.CI95High(i), sprintf('zF %.1f', S.zVsFlat(i)), ...
-    'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 7);
-end
 
 end
 
