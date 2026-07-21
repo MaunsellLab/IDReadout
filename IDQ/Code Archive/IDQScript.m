@@ -1,5 +1,4 @@
-function updateIDQ()
-% updateIDQ
+% IDQScript
 
 %% convertIDQData
 % converts dat to mat

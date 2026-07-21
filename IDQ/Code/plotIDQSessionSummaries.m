@@ -395,62 +395,6 @@ hi = min(1, center + halfWidth);
 
 end
 
-% % -------------------------------------------------------------------------
-% function kernel = computeCombinedChangeSideKernel(noiseBySideDir, sideIndex, stepSignIndex, correct, hasStepNoise)
-% 
-% nTrials = size(noiseBySideDir, 4);
-% nFrames = size(noiseBySideDir, 3);
-% 
-% if numel(sideIndex) ~= nTrials || ...
-%    numel(stepSignIndex) ~= nTrials || ...
-%    numel(correct) ~= nTrials || ...
-%    numel(hasStepNoise) ~= nTrials
-%     error('makeIDQSessionSummary:KernelInputSizeMismatch', ...
-%         'Kernel input vectors must match number of trials.');
-% end
-% 
-% idxUse = logical(hasStepNoise(:));
-% if ~any(idxUse)
-%     kernel = struct( ...
-%         'meanDiff', nan(1, nFrames), ...
-%         'correctMean', nan(1, nFrames), ...
-%         'errorMean', nan(1, nFrames), ...
-%         'nCorrect', 0, ...
-%         'nError', 0, ...
-%         'nTrials', 0, ...
-%         'timeIndex', 1:nFrames);
-%     return
-% end
-% 
-% noiseChangedMeanDir = nan(sum(idxUse), nFrames);
-% useTrialInds = find(idxUse);
-% 
-% for i = 1:numel(useTrialInds)
-%     tr = useTrialInds(i);
-%     side = sideIndex(tr);
-%     raw = squeeze(mean(noiseBySideDir(side, :, :, tr), 2));
-%     if iscolumn(raw)
-%         raw = raw';
-%     end
-%     noiseChangedMeanDir(i, :) = double(raw);
-% end
-% 
-% correctUse = correct(idxUse);
-% 
-% correctNoise = noiseChangedMeanDir(correctUse, :);
-% errorNoise = noiseChangedMeanDir(~correctUse, :);
-% 
-% kernel = struct;
-% kernel.correctMean = mean(correctNoise, 1, 'omitnan');
-% kernel.errorMean = mean(errorNoise, 1, 'omitnan');
-% kernel.meanDiff = kernel.correctMean - kernel.errorMean;
-% kernel.nCorrect = size(correctNoise, 1);
-% kernel.nError = size(errorNoise, 1);
-% kernel.nTrials = size(noiseChangedMeanDir, 1);
-% kernel.timeIndex = 1:nFrames;
-% 
-% end
-
 % -------------------------------------------------------------------------
 function plotLimits = choosePsychometricLimits(psychometric)
 

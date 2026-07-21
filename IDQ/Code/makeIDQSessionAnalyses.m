@@ -31,7 +31,6 @@ if isempty(processedFile)
 else
   processedFiles = {processedFile};
 end
-
 sessionAnalysisAll = cell(numel(processedFiles), 1);
 
 for iFile = 1:numel(processedFiles)
@@ -65,17 +64,33 @@ frameMS = 1000 / sessionHeader.frameRateHz;
 tMS = (0:nFrames - 1)' * frameMS;
 stepFrames = find(tMS >= sessionHeader.preStepMS & tMS <  sessionHeader.preStepMS + sessionHeader.stepMS);
 noiseMeasures = computeNoiseMeasuresByFrameTrial(noiseBySideDir, trialData);
-sumNoiseByFrameTrial = noiseMeasures.sumNoiseByFrameTrial;
-dirNoiseByFrameTrial = noiseMeasures.dirNoiseByFrameTrial;
+changeSumNoiseByFrameTrial = noiseMeasures.changeSumNoiseByFrameTrial;
+changeDirNoiseByFrameTrial = noiseMeasures.changeDirNoiseByFrameTrial;
+noChangeSumNoiseByFrameTrial = noiseMeasures.noChangeSumNoiseByFrameTrial;
+noChangeDirNoiseByFrameTrial = noiseMeasures.noChangeDirNoiseByFrameTrial;
 
-% Rectangularly weighted direction predictors. These are retained in the
-% session trial table as the fallback predictor family. Across-session code
-% may replace them with leave-one-session-out kernel-weighted predictors.
-noisePredDir1 = mean(dirNoiseByFrameTrial(stepFrames, :, 1), 1, 'omitnan')';
-noisePredDir2 = mean(dirNoiseByFrameTrial(stepFrames, :, 2), 1, 'omitnan')';
-noisePredDir3 = mean(dirNoiseByFrameTrial(stepFrames, :, 3), 1, 'omitnan')';
+% Rectangular predictors can be computed within each session. Retain explicit
+% names for both temporal windows; plotIDQSummary copies the selected family
+% into the neutral noisePredDir1-3 variables expected by the gain fitter.
+fullFrames = (1:nFrames)';
+rectStepChangeNoisePredDir1 = mean(changeDirNoiseByFrameTrial(stepFrames, :, 1), 1, 'omitnan')';
+rectStepChangeNoisePredDir2 = mean(changeDirNoiseByFrameTrial(stepFrames, :, 2), 1, 'omitnan')';
+rectStepChangeNoisePredDir3 = mean(changeDirNoiseByFrameTrial(stepFrames, :, 3), 1, 'omitnan')';
+rectFullChangeNoisePredDir1 = mean(changeDirNoiseByFrameTrial(fullFrames, :, 1), 1, 'omitnan')';
+rectFullChangeNoisePredDir2 = mean(changeDirNoiseByFrameTrial(fullFrames, :, 2), 1, 'omitnan')';
+rectFullChangeNoisePredDir3 = mean(changeDirNoiseByFrameTrial(fullFrames, :, 3), 1, 'omitnan')';
 
-sumNoiseKernel = computeNoiseKernel(sumNoiseByFrameTrial, trialData.correct, trialData.hasStepNoise);
+rectStepNoChangeNoisePredDir1 = mean(noChangeDirNoiseByFrameTrial(stepFrames, :, 1), 1, 'omitnan')';
+rectStepNoChangeNoisePredDir2 = mean(noChangeDirNoiseByFrameTrial(stepFrames, :, 2), 1, 'omitnan')';
+rectStepNoChangeNoisePredDir3 = mean(noChangeDirNoiseByFrameTrial(stepFrames, :, 3), 1, 'omitnan')';
+rectFullNoChangeNoisePredDir1 = mean(noChangeDirNoiseByFrameTrial(fullFrames, :, 1), 1, 'omitnan')';
+rectFullNoChangeNoisePredDir2 = mean(noChangeDirNoiseByFrameTrial(fullFrames, :, 2), 1, 'omitnan')';
+rectFullNoChangeNoisePredDir3 = mean(noChangeDirNoiseByFrameTrial(fullFrames, :, 3), 1, 'omitnan')';
+
+changeSumNoiseKernel = computeNoiseKernel(changeSumNoiseByFrameTrial, ...
+  trialData.correct, trialData.hasStepNoise);
+noChangeSumNoiseKernel = computeNoiseKernel(noChangeSumNoiseByFrameTrial, ...
+  trialData.correct, trialData.hasStepNoise);
 noisyStepCoh = unique(trialData.stepCoh(trialData.hasStepNoise));
 if numel(noisyStepCoh) ~= 1
   error('Expected exactly one noisy step coherence in session %s.', sessionName);
@@ -84,9 +99,28 @@ end
 sessionAnalysis = struct();
 
 trialTable = makeTrialTable(trialData, sessionName);
-trialTable.noisePredDir1 = noisePredDir1;
-trialTable.noisePredDir2 = noisePredDir2;
-trialTable.noisePredDir3 = noisePredDir3;
+trialTable.rectStepChangeNoisePredDir1 = rectStepChangeNoisePredDir1;
+trialTable.rectStepChangeNoisePredDir2 = rectStepChangeNoisePredDir2;
+trialTable.rectStepChangeNoisePredDir3 = rectStepChangeNoisePredDir3;
+trialTable.rectFullChangeNoisePredDir1 = rectFullChangeNoisePredDir1;
+trialTable.rectFullChangeNoisePredDir2 = rectFullChangeNoisePredDir2;
+trialTable.rectFullChangeNoisePredDir3 = rectFullChangeNoisePredDir3;
+
+trialTable.rectStepNoChangeNoisePredDir1 = rectStepNoChangeNoisePredDir1;
+trialTable.rectStepNoChangeNoisePredDir2 = rectStepNoChangeNoisePredDir2;
+trialTable.rectStepNoChangeNoisePredDir3 = rectStepNoChangeNoisePredDir3;
+trialTable.rectFullNoChangeNoisePredDir1 = rectFullNoChangeNoisePredDir1;
+trialTable.rectFullNoChangeNoisePredDir2 = rectFullNoChangeNoisePredDir2;
+trialTable.rectFullNoChangeNoisePredDir3 = rectFullNoChangeNoisePredDir3;
+
+% Backward-compatible aliases: the original unqualified predictors are the
+% changed-side predictors.
+trialTable.rectStepNoisePredDir1 = rectStepChangeNoisePredDir1;
+trialTable.rectStepNoisePredDir2 = rectStepChangeNoisePredDir2;
+trialTable.rectStepNoisePredDir3 = rectStepChangeNoisePredDir3;
+trialTable.rectFullNoisePredDir1 = rectFullChangeNoisePredDir1;
+trialTable.rectFullNoisePredDir2 = rectFullChangeNoisePredDir2;
+trialTable.rectFullNoisePredDir3 = rectFullChangeNoisePredDir3;
 sessionAnalysis.trialTable = trialTable;
 
 sessionAnalysis.fileName = sessionName;
@@ -105,18 +139,32 @@ sessionAnalysis.tMS = tMS;
 sessionAnalysis.stepFrames = stepFrames;
 
 sessionAnalysis.trialTable = trialTable;
-sessionAnalysis.noisePredictorWeighting = 'rectangular';
-sessionAnalysis.noisePredictorDefinition = ...
-  'changed-side direction noise, averaged over step frames';
+sessionAnalysis.rectangularPredictorDefinitions = { ...
+  'change step: changed-side direction noise averaged over step frames'; ...
+  'change full: changed-side direction noise averaged over all trial frames'; ...
+  'no-change step: no-change-side direction noise averaged over step frames'; ...
+  'no-change full: no-change-side direction noise averaged over all trial frames'; ...
+  'all predictor signs retain the sign of physical directional coherence'};
+sessionAnalysis.relativeDirectionDefinition = ...
+  ['For both sides, drift-relative direction is defined from trialTable.dirIndex; ' ...
+   'the no-change-side drift-relative stream is the absolute direction matching ' ...
+   'the change-side drift direction.'];
 
 % Primary and diagnostic frame-wise measures.
-sessionAnalysis.sumNoiseByFrameTrial = sumNoiseByFrameTrial;
-% sessionAnalysis.driftMinusNonNoiseByFrameTrial = driftMinusNonNoiseByFrameTrial;
-sessionAnalysis.dirNoiseByFrameTrial = dirNoiseByFrameTrial;
+sessionAnalysis.changeSumNoiseByFrameTrial = changeSumNoiseByFrameTrial;
+sessionAnalysis.changeDirNoiseByFrameTrial = changeDirNoiseByFrameTrial;
+sessionAnalysis.noChangeSumNoiseByFrameTrial = noChangeSumNoiseByFrameTrial;
+sessionAnalysis.noChangeDirNoiseByFrameTrial = noChangeDirNoiseByFrameTrial;
+
+% Backward-compatible aliases: the original unqualified measures are from
+% the changed side.
+sessionAnalysis.sumNoiseByFrameTrial = changeSumNoiseByFrameTrial;
+sessionAnalysis.dirNoiseByFrameTrial = changeDirNoiseByFrameTrial;
 
 % Primary and diagnostic kernels.
-sessionAnalysis.sumNoiseKernel = sumNoiseKernel;
-% sessionAnalysis.driftMinusNonNoiseKernel = driftMinusNonNoiseKernel;
+sessionAnalysis.changeSumNoiseKernel = changeSumNoiseKernel;
+sessionAnalysis.noChangeSumNoiseKernel = noChangeSumNoiseKernel;
+sessionAnalysis.sumNoiseKernel = changeSumNoiseKernel;
 
 sessionAnalysis.noiseBySideDir = noiseBySideDir;
 
@@ -139,6 +187,8 @@ trialTable.correct = logical(trialData.correct(:));
 trialTable.validIdx = trialData.validIdx(:);
 
 trialTable.sideIndex = trialData.sideIndex(:);
+trialTable.changeSideIndex = trialTable.sideIndex;
+trialTable.noChangeSideIndex = 3 - trialTable.sideIndex;
 trialTable.chosenSideIndex = trialData.chosenSideIndex(:);
 trialTable.dirIndex = trialData.dirIndex(:);
 
@@ -151,15 +201,21 @@ end
 %% ------------------------------------------------------------------------
 function noiseMeasures = computeNoiseMeasuresByFrameTrial(noiseBySideDir, trialData)
 
-[~, nDirs, nFrames, nTrials] = size(noiseBySideDir);
+[nSides, nDirs, nFrames, nTrials] = size(noiseBySideDir);
 
 if nDirs ~= 3
   error('computeNoiseMeasuresByFrameTrial:ExpectedThreeDirs', ...
     'Expected noiseBySideDir to have 3 direction streams.');
 end
+if nSides ~= 2
+  error('computeNoiseMeasuresByFrameTrial:ExpectedTwoSides', ...
+    'Expected noiseBySideDir to have 2 sides.');
+end
 
-sumNoiseByFrameTrial = nan(nFrames, nTrials);
-dirNoiseByFrameTrial = nan(nFrames, nTrials, nDirs);
+changeSumNoiseByFrameTrial = nan(nFrames, nTrials);
+changeDirNoiseByFrameTrial = nan(nFrames, nTrials, nDirs);
+noChangeSumNoiseByFrameTrial = nan(nFrames, nTrials);
+noChangeDirNoiseByFrameTrial = nan(nFrames, nTrials, nDirs);
 
 for iTrial = 1:nTrials
 
@@ -178,27 +234,37 @@ for iTrial = 1:nTrials
     continue
   end
 
-  % Changed-side noise for all three direction streams.
+  noChangeSideIndex = nSides + 1 - sideIndex;
+
+  % Noise for all three direction streams on the changed and no-change sides.
   %
   % noiseBySideDir is:
   %   side x direction x frame x trial
   %
-  % changedSideDirNoise is:
+  % Each extracted side matrix is:
   %   direction x frame
-  changedSideDirNoise = squeeze(noiseBySideDir(sideIndex, :, :, iTrial));
+  changeSideDirNoise = squeeze(noiseBySideDir(sideIndex, :, :, iTrial));
+  noChangeSideDirNoise = squeeze(noiseBySideDir(noChangeSideIndex, :, :, iTrial));
 
-  if size(changedSideDirNoise, 1) ~= nDirs
-    changedSideDirNoise = changedSideDirNoise';
+  if size(changeSideDirNoise, 1) ~= nDirs
+    changeSideDirNoise = changeSideDirNoise';
   end
-  dirNoiseByFrameTrial(:, iTrial, :) = changedSideDirNoise';
+  if size(noChangeSideDirNoise, 1) ~= nDirs
+    noChangeSideDirNoise = noChangeSideDirNoise';
+  end
 
-  % Primary flat-readout measure: all three changed-side direction streams contribute with the same sign.
-  sumNoiseByFrameTrial(:, iTrial) = sum(changedSideDirNoise, 1)';
+  changeDirNoiseByFrameTrial(:, iTrial, :) = changeSideDirNoise';
+  noChangeDirNoiseByFrameTrial(:, iTrial, :) = noChangeSideDirNoise';
+
+  changeSumNoiseByFrameTrial(:, iTrial) = sum(changeSideDirNoise, 1)';
+  noChangeSumNoiseByFrameTrial(:, iTrial) = sum(noChangeSideDirNoise, 1)';
 end
 
 noiseMeasures = struct();
-noiseMeasures.sumNoiseByFrameTrial = sumNoiseByFrameTrial;
-noiseMeasures.dirNoiseByFrameTrial = dirNoiseByFrameTrial;
+noiseMeasures.changeSumNoiseByFrameTrial = changeSumNoiseByFrameTrial;
+noiseMeasures.changeDirNoiseByFrameTrial = changeDirNoiseByFrameTrial;
+noiseMeasures.noChangeSumNoiseByFrameTrial = noChangeSumNoiseByFrameTrial;
+noiseMeasures.noChangeDirNoiseByFrameTrial = noChangeDirNoiseByFrameTrial;
 
 end
 

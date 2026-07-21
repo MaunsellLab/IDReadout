@@ -1,14 +1,15 @@
-function plotIDQSummary()
-% plotIDQSummary
+function plotIDQSideSummary()
+% plotIDQSideSummary
 %
-% Minimal first across-session IDQ summary.
+% Two-page across-session IDQ summary, with parallel pages for the change
+% and no-change sides.
 %
 % Reads:
 %   Data/SessionAnalysis/*_sessionAnalysis.mat
 %
 % Writes:
-%   Data/AcrossSessionSummaries/IDQ_AcrossSessionSummary.mat
-%   Data/AcrossSessionSummaries/IDQ_AcrossSessionSummary.pdf
+%   Data/AcrossSessionSummaries/IDQ_AcrossSideSummary.mat
+%   Plots/AcrossSessionSummaries/IDQSideSummary.pdf
 %
 % The normalized gain analysis proceeds in several stages:
 %
@@ -23,24 +24,28 @@ function plotIDQSummary()
 % fitted to determine the common Weibull exponent and lapse rate. Thus, session-to-session differences in 
 % sensitivity are represented by the session thresholds, while the shape of the normalized psychometric function is 
 % estimated from all sessions together.
-% (5) For each session, the three direction-specific noise streams are converted into trial-by-trial predictors. 
-% In the plotted analysis, their temporal weights are obtained from a psychophysical kernel computed from all other 
-% sessions, so that a session's behavioral outcomes do not contribute to the kernel used to construct its own 
-% predictors. 
+% (5) For each session and side, the three direction-specific noise streams are converted into trial-by-trial predictors.
+% The current plotted analysis uses their step-window rectangular averages. Optional full-trial rectangular and
+% leave-one-session-out kernel-weighted predictors remain available through noisePredictorType.
 % 6) Only trials containing step noise are used for the gain fits. The fits are performed in the original coherence 
 % units. Each session's fitted 75%-correct threshold is represented by a corresponding session-specific Weibull scale 
 % parameter, calculated using the fixed across-session Weibull exponent and lapse rate. This is mathematically 
 % equivalent to the earlier threshold normalization, but allows the fitted gains to remain in coherence units.
 % (7) The noise predictors are added to the physical coherence step to define an effective coherence, 
 % (c_eff=cstep+Xg, with negative effective coherences clipped to zero. 
-% (8) Four gain models are fitted: one common gain for the sum of all three streams, three gains defined by 
+% (8) The same four descriptive gain models are fitted separately for each side: one common gain for the sum of all three streams, three gains defined by 
 % absolute direction, three gains defined relative to the drift direction, and separate gains for drift 
 % and the summed non-drift streams. Within each model, the gain parameters are shared across sessions and are 
-% estimated jointly from all eligible trials by maximizing the Bernoulli likelihood. The session-specific Weibull 
+% estimated jointly from all eligible trials by maximizing the Bernoulli likelihood. These are marginal side-specific
+% fits, not a joint six-stream model. The session-specific Weibull 
 % scale parameters and the common Weibull exponent and lapse are held fixed during this optimization. 
 % (9) Gains are constrained to the range −5 to 5. Approximate standard errors are obtained from the inverse of a 
 % finite-difference Hessian of the negative log likelihood at the optimum, provided that the Hessian is positive 
 % definite. The plotted 95% confidence intervals are the resulting Wald intervals, (g\pm1.96,SE).
+%
+% Noise predictors retain the sign of physical directional coherence on
+% both sides. Thus, behaviorally adverse no-change-side noise is expected
+% to have a negative fitted gain; no predictor or gain sign is reversed.
 
 domainPath = domainFolder(mfilename('fullpath'));
 sessionAnalysisFolder = fullfile(domainPath, 'Data', 'SessionAnalysis');
@@ -49,7 +54,7 @@ plotFolder = validFolder(fullfile(domainPath, 'Plots', 'AcrossSessionSummaries')
 
 files = dir(fullfile(sessionAnalysisFolder, '*_sessionAnalysis.mat'));
 if isempty(files)
-    error('plotIDQSummary:NoSessionAnalysisFiles', 'No sessionAnalysis files found in %s.', sessionAnalysisFolder);
+    error('plotIDQSideSummary:NoSessionAnalysisFiles', 'No sessionAnalysis files found in %s.', sessionAnalysisFolder);
 end
 
 sessionAnalyses = cell(numel(files), 1);
@@ -58,6 +63,7 @@ for iFile = 1:numel(files)
     load(filePath, 'sessionAnalysis');
     sessionAnalyses{iFile} = sessionAnalysis;
 end
+validateSideInputs(sessionAnalyses);
 
 nDirs = sessionAnalyses{1}.sessionHeader.nDirs;
 dirStepDeg = 360 / nDirs;
@@ -66,16 +72,11 @@ for d = 1:nDirs
   absDirLabels(d) = sprintf('%.0f°-%.0f°', (d - 1) * dirStepDeg, d * dirStepDeg - 1);
 end
 dirOffset = 360 / nDirs;
-relDirLabels = {'Drift Direction', sprintf('Drift - %.0f%%', dirOffset), sprintf('Drift + %.0f%%', dirOffset)};
-
-% compile the absolute-, relative-, and all-direction kernels
-kernel = computeAllDirKernel(sessionAnalyses, 'All Directions');
-absKernels = computeDirKernels(sessionAnalyses, nDirs, true, absDirLabels);
-relKernels = computeDirKernels(sessionAnalyses, nDirs, false, relDirLabels);
+relDirLabels = {'Drift Direction', sprintf('Drift - %.0f°', dirOffset), sprintf('Drift + %.0f°', dirOffset)};
 
 % fit the across session psychometric functions
 trialTable = concatenateTrialTables(sessionAnalyses);
-sessionRecords = makeSessionRecords(sessionAnalyses);
+sessionRecords = makeSessionRecords(sessionAnalyses, 'change');
 
 [psych, trialTable] = fitPsychometric(trialTable, [1, 2, 3], 'All Directions');
 sessionRecords.threshold75 = psych.sessionFits.threshold;
@@ -105,9 +106,30 @@ noisePredictorType = 'rectStep';
 % noisePredictorType = 'rectFull';
 % noisePredictorType = 'looStep';
 % noisePredictorType = 'looFull';
-trialTable = selectNoisePredictor(trialTable, sessionAnalyses, noisePredictorType);
 targetPerformance = 0.75;
-noiseGain = fitIDQNoiseGain(trialTable, psych.sessionFits, psych.alignedWeibull, targetPerformance);
+
+sideNames = {'change', 'noChange'};
+sideTitles = {'Change Side', 'No-Change Side'};
+sideSummaries = struct();
+for iSide = 1:numel(sideNames)
+  sideName = sideNames{iSide};
+  sideTitle = sideTitles{iSide};
+
+  sideSummary = struct();
+  sideSummary.sideName = sideName;
+  sideSummary.sideTitle = sideTitle;
+  sideSummary.kernel = computeAllDirKernel(sessionAnalyses, sideName, 'All Directions');
+  sideSummary.absKernels = computeDirKernels(sessionAnalyses, nDirs, true, ...
+    absDirLabels, sideName);
+  sideSummary.relKernels = computeDirKernels(sessionAnalyses, nDirs, false, ...
+    relDirLabels, sideName);
+
+  sideTrialTable = selectNoisePredictor(trialTable, sessionAnalyses, ...
+    noisePredictorType, sideName);
+  sideSummary.noiseGain = fitIDQNoiseGain(sideTrialTable, psych.sessionFits, ...
+    psych.alignedWeibull, targetPerformance);
+  sideSummaries.(sideName) = sideSummary;
+end
 
 % fprintf('Noise predictor: %s\n', noisePredictorType);
 % fprintf('Combined gain model NLL: %.6f\n', getFitNLL(noiseGain.combined));
@@ -133,18 +155,53 @@ acrossSummary.dirTrialTables = dirTrialTables;
 
 acrossSummary.sessionRecords = sessionRecords;
 acrossSummary.trialTable = trialTable;
-acrossSummary.kernel = kernel;
-acrossSummary.kernel = kernel;
-acrossSummary.absKernels = absKernels;
-acrossSummary.relKernels = relKernels;
+acrossSummary.side = sideSummaries;
 
-acrossSummary.noiseGain = noiseGain;
-
-summaryMatFile = fullfile(summaryFolder, 'IDQ_AcrossSessionSummary.mat');
+summaryMatFile = fullfile(summaryFolder, 'IDQ_AcrossSideSummary.mat');
 save(summaryMatFile, 'acrossSummary', '-v7.3');
 
-fig = plotSummary(acrossSummary);
-exportgraphics(fig, fullfile(plotFolder, 'IDQSessionSummary.pdf'), 'ContentType', 'vector');
+gainYLim = getNoiseGainYLim( ...
+  acrossSummary.side.change.noiseGain, acrossSummary.side.noChange.noiseGain);
+kernelYLim = getKernelYLim( ...
+  acrossSummary.side.change, acrossSummary.side.noChange);
+pdfFile = fullfile(plotFolder, 'IDQSideSummary.pdf');
+
+fig = plotSummary(acrossSummary, 'change', gainYLim, kernelYLim, 500);
+exportgraphics(fig, pdfFile, 'ContentType', 'vector');
+
+fig = plotSummary(acrossSummary, 'noChange', gainYLim, kernelYLim, 501);
+exportgraphics(fig, pdfFile, 'ContentType', 'vector', 'Append', true);
+
+end
+
+%% -------------------------------------------------------------------------
+function validateSideInputs(sessionAnalyses)
+
+requiredSAFields = { ...
+  'changeSumNoiseByFrameTrial', 'changeDirNoiseByFrameTrial', 'changeSumNoiseKernel', ...
+  'noChangeSumNoiseByFrameTrial', 'noChangeDirNoiseByFrameTrial', 'noChangeSumNoiseKernel'};
+requiredTableVars = cell(1, 12);
+iVar = 0;
+for temporalPrefix = {'rectStep', 'rectFull'}
+  for sideName = {'change', 'noChange'}
+    names = makeRectPredictorNames(temporalPrefix{1}, sideName{1});
+    for iDir = 1:3
+      iVar = iVar + 1;
+      requiredTableVars{iVar} = names{iDir};
+    end
+  end
+end
+
+for iSession = 1:numel(sessionAnalyses)
+  SA = sessionAnalyses{iSession};
+  missingSA = requiredSAFields(~isfield(SA, requiredSAFields));
+  missingTable = requiredTableVars(~ismember(requiredTableVars, SA.trialTable.Properties.VariableNames));
+  if ~isempty(missingSA) || ~isempty(missingTable)
+    error('plotIDQSideSummary:OldSessionAnalysis', ...
+      ['Session %s lacks the side-specific inventory fields. Rerun ' ...
+       'makeIDQSessionAnalyses before calling plotIDQSideSummary.'], SA.fileName);
+  end
+end
 
 end
 
@@ -195,7 +252,7 @@ trialTable = movevars(trialTable, 'sessionIndex', 'Before', 1);
 end
 
 %% -------------------------------------------------------------------------
-function sessionRecords = makeSessionRecords(sessionAnalyses)
+function sessionRecords = makeSessionRecords(sessionAnalyses, sideName)
 
 nSessions = numel(sessionAnalyses);
 
@@ -221,7 +278,8 @@ for iSession = 1:nSessions
   meanCorrect(iSession) = mean(T.correct, 'omitnan');
   idxNoise = T.hasStepNoise;
   meanCorrectStepNoise(iSession) = mean(T.correct(idxNoise), 'omitnan');
-  k = SA.sumNoiseKernel.kernel;
+  fields = getSideFieldNames(sideName);
+  k = SA.(fields.sumKernel).kernel;
   kStep = k(SA.stepFrames);
   kernelStepIntegral(iSession) = sum(kStep, 'omitnan');
   kernelStepMean(iSession) = mean(kStep, 'omitnan');
@@ -234,16 +292,20 @@ sessionRecords = table(fileName, nTrials, nStepNoiseTrials, noisyStepCoh, meanCo
 end
 
 %% -------------------------------------------------------------------------
-function fig = plotSummary(acrossSummary)
+function fig = plotSummary(acrossSummary, sideName, gainYLim, kernelYLim, figNum)
 
-fig = figure(500);
+sideSummary = acrossSummary.side.(sideName);
+
+fig = figure(figNum);
+clf(fig);
 set(fig, 'Color', 'w', 'WindowStyle', 'docked');
 tl = tiledlayout(fig, 4, 4, 'TileSpacing', 'loose', 'Padding', 'compact');
-title(tl, sprintf('IDQ Summary (%d sessions)', acrossSummary.nSessions), ...
+title(tl, sprintf('IDQ Summary: %s (%d sessions)', ...
+    sideSummary.sideTitle, acrossSummary.nSessions), ...
     'Interpreter', 'none', 'FontWeight', 'bold');
 
 textAx = nexttile(tl, 12);
-plotTextSummary(textAx, acrossSummary);
+plotTextSummary(textAx, acrossSummary, sideName);
 allColor = [0.5, 0.5, .5];
 absColor = [0.0, 0.5, 0.8];
 relColor = [0.8, 0.5, 1.0];
@@ -269,45 +331,49 @@ kernelAx = gobjects(7,1);
 stepPatch = gobjects(7,1);
 for d = 1:3
   kernelAx(d) = nexttile(tl, d + 4);
-  stepPatch(d) = plotKernel(kernelAx(d), acrossSummary.absKernels{d}, absColor);
+  stepPatch(d) = plotKernel(kernelAx(d), sideSummary.absKernels{d}, ...
+    absColor, false, true, sideSummary.sideTitle);
 end
 
 kernelAx(4) = nexttile(tl, 8);
-stepPatch(4) = plotKernel(kernelAx(4), acrossSummary.kernel, allColor);
+stepPatch(4) = plotKernel(kernelAx(4), sideSummary.kernel, ...
+  allColor, false, true, sideSummary.sideTitle);
 
 for d = 1:3
   kernelAx(d + 4) = nexttile(tl, d+  8);
-  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), acrossSummary.relKernels{d}, relColor, d == 1, false);
+  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), ...
+    sideSummary.relKernels{d}, relColor, d == 1, false, sideSummary.sideTitle);
 end
 
-yl = cell2mat(get(kernelAx, 'YLim'));
-sharedYLim = [min(yl(:,1)), max(yl(:,2))];
-set(kernelAx, 'YLim', sharedYLim);
+set(kernelAx, 'YLim', kernelYLim);
 for k = 1:7
-  stepPatch(k).YData = sharedYLim([1 1 2 2]);
+  stepPatch(k).YData = kernelYLim([1 1 2 2]);
 end
 
-% Use a common y-axis scale for all gain plots.
-gainYLim = getNoiseGainYLim(acrossSummary.noiseGain);
-plotGainBars(nexttile(tl, 13), acrossSummary.noiseGain.driftRelative, 'Drift-Rel. Gains', gainYLim, relColor);
-plotGainBars(nexttile(tl, 14), acrossSummary.noiseGain.absolute, 'Abs. Direction Gains', gainYLim, absColor);
-plotGainBars(nexttile(tl, 15), acrossSummary.noiseGain.combined, 'Combined Gain', gainYLim, allColor);
-plotGainBars(nexttile(tl, 16), acrossSummary.noiseGain.driftNonDrift, 'Drift v. Non-Drift Gains', gainYLim, relColor);
+% Common limits across both pages permit direct side comparisons.
+plotGainBars(nexttile(tl, 13), sideSummary.noiseGain.driftRelative, 'Drift-Rel. Gains', gainYLim, relColor);
+plotGainBars(nexttile(tl, 14), sideSummary.noiseGain.absolute, 'Abs. Direction Gains', gainYLim, absColor);
+plotGainBars(nexttile(tl, 15), sideSummary.noiseGain.combined, 'Combined Gain', gainYLim, allColor);
+plotGainBars(nexttile(tl, 16), sideSummary.noiseGain.driftNonDrift, 'Drift v. Non-Drift Gains', gainYLim, relColor);
 
 end
 
 %% -------------------------------------------------------------------------
-function plotTextSummary(ax, acrossSummary)
+function plotTextSummary(ax, acrossSummary, sideName)
+
+sideSummary = acrossSummary.side.(sideName);
 
 axis(ax, 'off');
 txt = {
     sprintf('Created: %s', string(acrossSummary.createdAt, 'dd/MM/yyyy HH:mm'))
+    sprintf('Side: %s', sideSummary.sideTitle)
     sprintf('Noise predictor: %s', acrossSummary.noisePredictorType)
     sprintf('Combined:\n  NLL %.2f, g %.3f', ...
-      getFitNLL(acrossSummary.noiseGain.combined), acrossSummary.noiseGain.combined.gain(1))
+      getFitNLL(sideSummary.noiseGain.combined), sideSummary.noiseGain.combined.gain(1))
     sprintf('Drift/non-drift:\n  NLL %.2f, g_D %.3f, g_N %.3f', ...
-      getFitNLL(acrossSummary.noiseGain.driftNonDrift), acrossSummary.noiseGain.driftNonDrift.gain(1), ...
-      acrossSummary.noiseGain.driftNonDrift.gain(2))
+      getFitNLL(sideSummary.noiseGain.driftNonDrift), sideSummary.noiseGain.driftNonDrift.gain(1), ...
+      sideSummary.noiseGain.driftNonDrift.gain(2))
+    'Predictor signs = physical coherence signs'
     ''
     'Combined:'
     sprintf(' c_{eff} = c_{step} + g_{all}(n_1 + n_2 + n_3)');
@@ -324,8 +390,11 @@ text(ax, -0.3, 1, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'Horiz
 end
 
 %% -------------------------------------------------------------------------
-function stepPatch = plotKernel(ax, kernel, plotColor, showLegend, showXLabel)
+function stepPatch = plotKernel(ax, kernel, plotColor, showLegend, showXLabel, sideTitle)
 
+if nargin < 6
+  sideTitle = 'Change Side';
+end
 if nargin < 5
   showXLabel = true;
 end
@@ -350,7 +419,7 @@ plot(ax, kernel.tMS, kernel.rectReference, '-k',  'LineWidth', 1.0, 'DisplayName
 if showXLabel 
   xlabel(ax, 'Trial Time (ms)');
 end
-ylabel(ax, 'Change Side Kernel');
+ylabel(ax, sprintf('%s Kernel', sideTitle));
 title(ax, kernel.title, 'Interpreter', 'none');
 grid(ax, 'on');
 box(ax, 'off');
@@ -454,17 +523,19 @@ text(ax, 0.98, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'Ho
 end
 
 %% -------------------------------------------------------------------------
-function gainYLim = getNoiseGainYLim(noiseGain)
-
-fits = {noiseGain.combined noiseGain.absolute noiseGain.driftRelative noiseGain.driftNonDrift};
+function gainYLim = getNoiseGainYLim(varargin)
 
 allValues = 0;
 
-for iFit = 1:numel(fits)
-  fit = fits{iFit};
-  allValues = [allValues 
-    fit.gain(:)
-    fit.CI95(:)]; %#ok<AGROW>
+for iSide = 1:nargin
+  noiseGain = varargin{iSide};
+  fits = {noiseGain.combined noiseGain.absolute noiseGain.driftRelative noiseGain.driftNonDrift};
+  for iFit = 1:numel(fits)
+    fit = fits{iFit};
+    allValues = [allValues 
+      fit.gain(:)
+      fit.CI95(:)]; %#ok<AGROW>
+  end
 end
 
 allValues = allValues(isfinite(allValues));
@@ -485,28 +556,58 @@ gainYLim = [min(0, yMin - padding) yMax + padding];
 end
 
 %% -------------------------------------------------------------------------
-function kernel = computeAllDirKernel(sessionAnalyses, title)
+function kernelYLim = getKernelYLim(varargin)
+
+allValues = 0;
+for iSide = 1:nargin
+  sideSummary = varargin{iSide};
+  kernels = [{sideSummary.kernel}, sideSummary.absKernels, sideSummary.relKernels];
+  for iKernel = 1:numel(kernels)
+    allValues = [allValues; kernels{iKernel}.meanDiff(:)]; %#ok<AGROW>
+  end
+end
+
+allValues = allValues(isfinite(allValues));
+if isempty(allValues)
+  kernelYLim = [-1 1];
+  return
+end
+
+yMin = min(allValues);
+yMax = max(allValues);
+yRange = yMax - yMin;
+if yRange == 0
+  yRange = max(1, abs(yMax));
+end
+padding = 0.10 * yRange;
+kernelYLim = [min(0, yMin - padding), max(0, yMax + padding)];
+
+end
+
+%% -------------------------------------------------------------------------
+function kernel = computeAllDirKernel(sessionAnalyses, sideName, title)
 
 tMS = sessionAnalyses{1}.tMS;
 stepFrames = sessionAnalyses{1}.stepFrames;
 allCorrect = [];
 allError = [];
+fields = getSideFieldNames(sideName);
 
 for iSession = 1:numel(sessionAnalyses)
   SA = sessionAnalyses{iSession};
   if numel(SA.tMS) ~= numel(tMS) || any(SA.tMS(:) ~= tMS(:))
-    error('plotIDQSummary:TimeVectorMismatch', 'Session %s has a different tMS vector.', SA.fileName);
+    error('plotIDQSideSummary:TimeVectorMismatch', 'Session %s has a different tMS vector.', SA.fileName);
   end
   if numel(SA.stepFrames) ~= numel(stepFrames) || any(SA.stepFrames(:) ~= stepFrames(:))
-    error('plotIDQSummary:StepFrameMismatch', 'Session %s has different stepFrames.', SA.fileName);
+    error('plotIDQSideSummary:StepFrameMismatch', 'Session %s has different stepFrames.', SA.fileName);
   end
 
   T = SA.trialTable;
   idxUse = T.hasStepNoise;
   correctUse = idxUse & T.correct;
   errorUse = idxUse & ~T.correct;
-  allCorrect = [allCorrect, SA.sumNoiseByFrameTrial(:, correctUse)]; %#ok<AGROW>
-  allError = [allError, SA.sumNoiseByFrameTrial(:, errorUse)]; %#ok<AGROW>
+  allCorrect = [allCorrect, SA.(fields.sumByFrame)(:, correctUse)]; %#ok<AGROW>
+  allError = [allError, SA.(fields.sumByFrame)(:, errorUse)]; %#ok<AGROW>
 end
 
 kernel = packageKernel(tMS, stepFrames, allCorrect, allError, title);
@@ -514,10 +615,11 @@ kernel = packageKernel(tMS, stepFrames, allCorrect, allError, title);
 end
 
 %% ------------------------------------------------------------------------
-function kernels = computeDirKernels(sessionAnalyses, nDirs, absolute, titles)
+function kernels = computeDirKernels(sessionAnalyses, nDirs, absolute, titles, sideName)
 
 tMS = sessionAnalyses{1}.tMS;
 stepFrames = sessionAnalyses{1}.stepFrames;
+fields = getSideFieldNames(sideName);
 kernels = cell(1, nDirs);
 nCorrect = nan(nDirs, 1);
 nError = nan(nDirs, 1);
@@ -530,10 +632,10 @@ for iDir = 1:nDirs
     SA = sessionAnalyses{iSession};
     T = SA.trialTable;
     idxUse = T.hasStepNoise;
-    sideIndex = T.sideIndex(:)';
     driftDirIndex = T.dirIndex(:);
     dirIndex = iDir;
     nTrial = height(T);
+    sideDirNoise = SA.(fields.dirByFrame);
     noiseThisDir = nan(numel(tMS), nTrial);
     for iTrial = 1:nTrial
       if ~absolute
@@ -545,7 +647,7 @@ for iDir = 1:nDirs
           dirIndex = mod(driftDirIndex(iTrial) - 2, 3) + 1;
         end
       end
-      noiseThisDir(:, iTrial) = squeeze(SA.noiseBySideDir(sideIndex(iTrial), dirIndex, :, iTrial));
+      noiseThisDir(:, iTrial) = sideDirNoise(:, iTrial, dirIndex);
     end
     allCorrect = [allCorrect, noiseThisDir(:, idxUse & T.correct)]; %#ok<AGROW>
     allError = [allError, noiseThisDir(:, idxUse & ~T.correct)]; %#ok<AGROW>
@@ -648,28 +750,60 @@ psychometric.Properties.VariableNames{1} = 'stepCoh';
 end
 
 %%------------------------------------------------------------------
-function trialTable = selectNoisePredictor(trialTable, sessionAnalyses, predictorType)
+function fields = getSideFieldNames(sideName)
+
+switch sideName
+  case 'change'
+    fields.sumByFrame = 'changeSumNoiseByFrameTrial';
+    fields.dirByFrame = 'changeDirNoiseByFrameTrial';
+    fields.sumKernel = 'changeSumNoiseKernel';
+    fields.predictorToken = 'Change';
+  case 'noChange'
+    fields.sumByFrame = 'noChangeSumNoiseByFrameTrial';
+    fields.dirByFrame = 'noChangeDirNoiseByFrameTrial';
+    fields.sumKernel = 'noChangeSumNoiseKernel';
+    fields.predictorToken = 'NoChange';
+  otherwise
+    error('plotIDQSideSummary:BadSideName', 'Unknown side name: %s', sideName);
+end
+
+end
+
+%%------------------------------------------------------------------
+function sourceNames = makeRectPredictorNames(temporalPrefix, sideName)
+
+fields = getSideFieldNames(sideName);
+sourceNames = cell(1, 3);
+for iDir = 1:3
+  sourceNames{iDir} = sprintf('%s%sNoisePredDir%d', ...
+    temporalPrefix, fields.predictorToken, iDir);
+end
+
+end
+
+%%------------------------------------------------------------------
+function trialTable = selectNoisePredictor(trialTable, sessionAnalyses, predictorType, sideName)
 
 switch predictorType
   case 'rectStep'
-    sourceNames = {'rectStepNoisePredDir1', 'rectStepNoisePredDir2', 'rectStepNoisePredDir3'};
+    sourceNames = makeRectPredictorNames('rectStep', sideName);
     for iDir = 1:3
       trialTable.(sprintf('noisePredDir%d', iDir)) = trialTable.(sourceNames{iDir});
     end
   case 'rectFull'
-    sourceNames = {'rectFullNoisePredDir1', 'rectFullNoisePredDir2', 'rectFullNoisePredDir3'};
+    sourceNames = makeRectPredictorNames('rectFull', sideName);
     for iDir = 1:3
       trialTable.(sprintf('noisePredDir%d', iDir)) = trialTable.(sourceNames{iDir});
     end
   case {'looStep', 'looFull'}
     temporalWindow = erase(predictorType, 'loo');
     temporalWindow = lower(temporalWindow);
-    looPredictor = computeIDQLOONoisePredictor(sessionAnalyses, temporalWindow);
+    looPredictor = computeIDQLOONoisePredictor(sessionAnalyses, temporalWindow, sideName);
     trialTable.noisePredDir1 = looPredictor.noisePredDir1;
     trialTable.noisePredDir2 = looPredictor.noisePredDir2;
     trialTable.noisePredDir3 = looPredictor.noisePredDir3;
   otherwise
-    error('plotIDQSummary:BadNoisePredictorType', ...
+    error('plotIDQSideSummary:BadNoisePredictorType', ...
       'Unknown noisePredictorType: %s', predictorType);
 end
 end
@@ -684,11 +818,11 @@ for iName = 1:numel(candidateNames)
     return
   end
 end
-error('plotIDQSummary:MissingNLL', 'Gain fit does not contain an NLL field.');
+error('plotIDQSideSummary:MissingNLL', 'Gain fit does not contain an NLL field.');
 end
 
 %%------------------------------------------------------------------
-function looPredictor = computeIDQLOONoisePredictor(sessionAnalyses, temporalWindow)
+function looPredictor = computeIDQLOONoisePredictor(sessionAnalyses, temporalWindow, sideName)
 % computeIDQLOONoisePredictor
 %
 % Compute leave-one-session-out kernel-weighted signed-noise predictors.
@@ -704,6 +838,7 @@ nSessions = numel(sessionAnalyses);
 tMS = sessionAnalyses{1}.tMS;
 stepFrames = sessionAnalyses{1}.stepFrames;
 nFrames = numel(tMS);
+fields = getSideFieldNames(sideName);
 
 predCell = cell(nSessions, 3);
 
@@ -728,12 +863,12 @@ for iSession = 1:nSessions
         error('computeIDQLOONoisePredictor:StepFrameMismatch', ...
             'Session %s has different stepFrames.', SA.fileName);
     end
-    if size(SA.dirNoiseByFrameTrial, 3) ~= 3
+    if size(SA.(fields.dirByFrame), 3) ~= 3
         error('computeIDQLOONoisePredictor:ExpectedThreeDirs', ...
             'Session %s does not contain three direction streams.', SA.fileName);
     end
 
-    looKernel = computeLOOKernel(sessionAnalyses, iSession);
+    looKernel = computeLOOKernel(sessionAnalyses, iSession, sideName);
     switch temporalWindow
       case 'step'
         useFrames = stepFrames;
@@ -754,7 +889,7 @@ for iSession = 1:nSessions
     w = kUse(:) ./ kSum;
 
     for iDir = 1:3
-        dirNoise = SA.dirNoiseByFrameTrial(useFrames, :, iDir);
+        dirNoise = SA.(fields.dirByFrame)(useFrames, :, iDir);
         predCell{iSession, iDir} = sum(dirNoise .* w, 1, 'omitnan')';
     end
 
@@ -784,10 +919,11 @@ looPredictor.weightDiagnostics = table( ...
 end
 
 %% ------------------------------------------------------------------------
-function kernel = computeLOOKernel(sessionAnalyses, leaveOutSession)
+function kernel = computeLOOKernel(sessionAnalyses, leaveOutSession, sideName)
 
 allCorrectNoise = [];
 allErrorNoise = [];
+fields = getSideFieldNames(sideName);
 
 for iSession = 1:numel(sessionAnalyses)
     if iSession == leaveOutSession && numel(sessionAnalyses) > 1
@@ -799,8 +935,8 @@ for iSession = 1:numel(sessionAnalyses)
     idxUse = T.hasStepNoise;
     correctUse = idxUse & T.correct;
     errorUse = idxUse & ~T.correct;
-    allCorrectNoise = [allCorrectNoise, SA.sumNoiseByFrameTrial(:, correctUse)]; %#ok<AGROW>
-    allErrorNoise = [allErrorNoise, SA.sumNoiseByFrameTrial(:, errorUse)]; %#ok<AGROW>
+    allCorrectNoise = [allCorrectNoise, SA.(fields.sumByFrame)(:, correctUse)]; %#ok<AGROW>
+    allErrorNoise = [allErrorNoise, SA.(fields.sumByFrame)(:, errorUse)]; %#ok<AGROW>
 end
 
 kernel = struct();

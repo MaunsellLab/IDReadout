@@ -11,27 +11,23 @@ function gainFits = fitIDQNoiseGain(trialTable, sessionFits, alignedWeibull, tar
 %   sessionIndex, stepCoh, correct, hasStepNoise, dirIndex,
 %   noisePredDir1, noisePredDir2, noisePredDir3
 
-requiredVars = ["sessionIndex", "stepCoh", "correct", "hasStepNoise", ...
-    "dirIndex", "noisePredDir1", "noisePredDir2", "noisePredDir3"];
-missingVars = setdiff(requiredVars, string(trialTable.Properties.VariableNames));
-if ~isempty(missingVars)
-    error('fitIDQNoiseGain:MissingVariables', ...
-        'trialTable is missing required variables: %s', strjoin(missingVars, ', '));
-end
+% requiredVars = ["sessionIndex", "stepCoh", "correct", "hasStepNoise", ...
+%     "dirIndex", "noisePredDir1", "noisePredDir2", "noisePredDir3"];
+% missingVars = setdiff(requiredVars, string(trialTable.Properties.VariableNames));
+% if ~isempty(missingVars)
+%     error('fitIDQNoiseGain:MissingVariables', ...
+%         'trialTable is missing required variables: %s', strjoin(missingVars, ', '));
+% end
 
 idx = trialTable.hasStepNoise;
-
 sessionIndex = double(trialTable.sessionIndex(idx));
 stepCoh = double(trialTable.stepCoh(idx));
 correct = double(trialTable.correct(idx));
 dirIndex = double(trialTable.dirIndex(idx));
-Xabs = double([trialTable.noisePredDir1(idx), ...
-               trialTable.noisePredDir2(idx), ...
-               trialTable.noisePredDir3(idx)]);
+Xabs = double([trialTable.noisePredDir1(idx), trialTable.noisePredDir2(idx), trialTable.noisePredDir3(idx)]);
 
 valid = isfinite(sessionIndex) & isfinite(stepCoh) & isfinite(correct) & ...
-    isfinite(dirIndex) & all(isfinite(Xabs), 2) & ...
-    dirIndex >= 1 & dirIndex <= 3 & dirIndex == round(dirIndex);
+    isfinite(dirIndex) & all(isfinite(Xabs), 2) &  dirIndex >= 1 & dirIndex <= 3 & dirIndex == round(dirIndex);
 
 sessionIndex = sessionIndex(valid);
 stepCoh = stepCoh(valid);
@@ -53,8 +49,7 @@ if any(~isfinite(sessionThreshold))
         'Could not assign threshold to all noisy trials.');
 end
 
-sessionAlpha = idqWeibullAlphaForThreshold( ...
-    targetPerformance, sessionThreshold, betaWeibull, lapse);
+sessionAlpha = idqWeibullAlphaForThreshold(targetPerformance, sessionThreshold, betaWeibull, lapse);
 
 nTrials = numel(correct);
 row = (1:nTrials)';
@@ -77,14 +72,10 @@ common.betaWeibull = betaWeibull;
 common.lapse = lapse;
 
 gainFits = struct();
-gainFits.combined = fitGainModel( ...
-    'combined', ["All Dir."], Xcombined, 1/3, common);
-gainFits.driftRelative = fitGainModel('driftRelative', ["Drift", "+120°", "-120°"], ...
-    Xrelative, [1; 0; 0], common);
-gainFits.absolute = fitGainModel('absolute', ["0°-119°", "120°-239°", "240°-359°"], ...
-    Xabs, repmat(1/3, 3, 1), common);
-gainFits.driftNonDrift = fitGainModel('driftNonDrift', ["Drift", "Non-Drift"], ...
-    XdriftNonDrift, [1; 0], common);
+gainFits.combined = fitGainModel('combined', "All Dir.", Xcombined, 1/3, common);
+gainFits.driftRelative = fitGainModel('driftRelative', ["Drift", "+120°", "-120°"], Xrelative, [1; 0; 0], common);
+gainFits.absolute = fitGainModel('absolute', ["0°-119°", "120°-239°", "240°-359°"], Xabs, repmat(1/3, 3, 1), common);
+gainFits.driftNonDrift = fitGainModel('driftNonDrift', ["Drift", "Non-Drift"], XdriftNonDrift, [1; 0], common);
 end
 
 %% ------------------------------------------------------------------------
@@ -98,36 +89,25 @@ gain0 = gain0(:);
 objective = @(gain) negLogLikelihoodGain(gain, X, common.stepCoh, ...
     common.correct, common.sessionAlpha, common.betaWeibull, common.lapse);
 
-opts = optimoptions('fmincon', ...
-    'Display', 'off', ...
-    'Algorithm', 'interior-point', ...
-    'OptimalityTolerance', 1e-8, ...
-    'StepTolerance', 1e-10, ...
-    'MaxFunctionEvaluations', 5000, ...
-    'MaxIterations', 2000);
-[gainHat, nll, exitflag] = ...
-  fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
+opts = optimoptions('fmincon', 'Display', 'off', 'Algorithm', 'interior-point', 'OptimalityTolerance', 1e-8, ...
+    'StepTolerance', 1e-10, 'MaxFunctionEvaluations', 5000, 'MaxIterations', 2000);
+
+[gainHat, nll, exitflag] = fmincon(objective, gain0, [], [], [], [], lb, ub, [], opts);
 
 gainHat = gainHat(:);
-
 % Compute the observed Hessian directly from the objective at the optimum.
 hessian = finiteDifferenceHessian(objective, gainHat);
 
 SE = nan(nParameters, 1);
 CI95 = nan(nParameters, 2);
-
 if all(isfinite(hessian), 'all')
   hessian = (hessian + hessian') / 2;
-
   eigenvalues = eig(hessian);
-
   if all(eigenvalues > 0)
     covariance = inv(hessian);
     variance = diag(covariance);
-
     validVariance = isfinite(variance) & variance > 0;
     SE(validVariance) = sqrt(variance(validVariance));
-
     CI95(validVariance, :) = gainHat(validVariance) + ...
       [-1 1] .* (1.96 * SE(validVariance));
   end
