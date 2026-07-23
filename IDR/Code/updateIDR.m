@@ -42,25 +42,24 @@ fprintf('  << makeBetaSessionData complete\n');
 
 % ---- Probe-session regressions and across-offset beta summary ----
 
-%IDQ Analysis
+%IDR Analysis
 
 fprintf('  >> makeBetaKernel start\n');
-makeBetaKernel('Animal', 'Meetz');
+makeBetaKernel('Animal', 'Neesha');
 fprintf('  >> makeBetaKernel complete\n');
 
 fprintf('  >> makeIDRGainAcrossSessionPrefFit start\n');
-makeIDRGainAcrossSessionPrefFit('Animal', 'Meetz');
+makeIDRGainAcrossSessionPrefFit('Animal', 'Neesha');
 fprintf('  >> makeIDRGainAcrossSessionPrefFit complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetFits start\n');
-makeIDRGainProbeOffsetFits('Animal', 'Meetz');
+makeIDRGainProbeOffsetFits('Animal', 'Neesha');
 fprintf('  >> makeIDRGainProbeOffsetFits complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetSummary start\n');
-makeIDRGainProbeOffsetSummary('Animal', 'Meetz');
+makeIDRGainProbeOffsetSummary('Animal', 'Neesha');
 fprintf('  >> makeIDRGainProbeOffsetSummary complete\n');
 
-%IDR Analysis
 
 % ---- Average Kernels ----
 fprintf('  >> kernelAverage start\n');

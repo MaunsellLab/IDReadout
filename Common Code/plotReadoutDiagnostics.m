@@ -108,8 +108,7 @@ title(sprintf('MT population responses to probes (%s template; flat readout)', .
   templateMode), 'Interpreter', 'none');
 hTemplates = gobjects(1, nOffsets);
 for i = 1:nOffsets
-  hTemplates(i) = plot(phiDeg, deltaM{i}, '-', ...
-    'Color', lineCol(i,:), 'LineWidth', 1.5);
+  hTemplates(i) = plot(phiDeg, deltaM{i}, '-', 'Color', lineCol(i,:), 'LineWidth', 1.5);
 end
 yline(0, 'k:');
 xlabel('\phi (deg)');
