@@ -120,7 +120,9 @@ for k = 1:numel(D)
 
     % If this a .mat file, we will check for exclusions reasons beyond the
     % hard exclusions. Otherwise, only the hard exclusions will apply
-    if ~strcmp(R.FilePattern, '*.mat')
+    % Any pattern ending in .mat names analysis MAT files and should receive
+    % metadata-based filtering (for example '*_sessionAnalysis.mat').
+    if ~endsWith(char(R.FilePattern), '.mat', 'IgnoreCase', true)
       fileInfoRow = table({filePath}, {dataFolder}, {fileStem}, 'VariableNames', {'filePath','folder','fileName'});
       selectedRows{end+1} = fileInfoRow; %#ok<AGROW>
       continue;
@@ -132,7 +134,7 @@ for k = 1:numel(D)
     if ~isempty(R.Animal)
       if isempty(row.animal)
           error('selectAnalysisFiles:MissingAnimal', ...
-              'Selection by ProbeDirDeg requires sessionProbeHeader.probeDirDeg in %s.', filePath);
+              'Selection by Animal requires sessionHeader.animal or sessionHeader.subject in %s.', filePath);
       end
       if ~strcmpi(R.Animal, 'All') & ~strcmpi(row.animal, R.Animal)
           excludeReasons{end+1} = sprintf('animal %s != %s', char(row.animal), R.Animal); %#ok<AGROW>
@@ -340,19 +342,46 @@ if ismember('sessionProbeHeader', vars)
   T = load(filePath, 'sessionProbeHeader');
   S.sessionProbeHeader = T.sessionProbeHeader;
 end
-nTrials = S.sessionHeader.numberOfTrials';
-nNoiseTrials = S.sessionHeader.nNoiseTrials';
-animal = S.sessionHeader.animal;
-parentFileName = S.sessionHeader.fileName';
-parentProbeDirectionsDeg = S.sessionHeader.probeDirectionsDeg';
-parentNProbeDirections = S.sessionHeader.nProbeDirections;
+H = S.sessionHeader;
+
+% IDR has historically supplied a rich sessionHeader. IDS initially used a
+% deliberately lean parent header and stores offset-specific metadata in
+% sessionProbeHeader. Accept both contracts so that the common file selector
+% can perform its filename exclusions and later support Animal selection for
+% either analysis without requiring task-specific directory scans.
+nTrials = firstHeaderValue(H, {'numberOfTrials','nTrials'}, nan);
+nNoiseTrials = firstHeaderValue(H, {'nNoiseTrials'}, nan);
+animal = firstHeaderValue(H, {'animal','subject'}, '');
+parentFileName = firstHeaderValue(H, {'fileName'}, fileNameExt);
+parentProbeDirectionsDeg = firstHeaderValue(H, ...
+  {'probeDirectionsDeg','probeOffsetsDeg'}, []);
+parentNProbeDirections = firstHeaderValue(H, ...
+  {'nProbeDirections','nProbeOffsets'}, nan);
+prefCohNoisePC = firstHeaderValue(H, ...
+  {'prefCohNoisePC','noiseAmplitudePC','cohNoisePC'}, nan);
+
+if isfield(S, 'sessionProbeHeader')
+  P = S.sessionProbeHeader;
+  if isempty(parentProbeDirectionsDeg)
+    parentProbeDirectionsDeg = firstHeaderValue(P, ...
+      {'parentProbeDirectionsDeg','parentProbeOffsetsDeg'}, []);
+  end
+  if ~isfinite(parentNProbeDirections)
+    parentNProbeDirections = firstHeaderValue(P, ...
+      {'parentNProbeDirections','parentNProbeOffsets'}, nan);
+  end
+  if ~isfinite(nNoiseTrials)
+    nNoiseTrials = firstHeaderValue(P, {'nNoiseTrials'}, nan);
+  end
+end
 parentIsSingleProbe = parentNProbeDirections == 1;
 parentIsInterleavedProbe = parentNProbeDirections > 1;
-prefCohNoisePC = S.sessionHeader.prefCohNoisePC;
 if isfield(S, 'sessionProbeHeader')
-  probeDirDeg = S.sessionProbeHeader.probeDirDeg;
-  probeTag = S.sessionProbeHeader.probeTag;
-  probeCohNoisePC = S.sessionProbeHeader.probeCohNoisePC';
+  probeDirDeg = firstHeaderValue(S.sessionProbeHeader, ...
+    {'probeDirDeg','probeOffsetDeg'}, nan);
+  probeTag = firstHeaderValue(S.sessionProbeHeader, {'probeTag'}, '');
+  probeCohNoisePC = firstHeaderValue(S.sessionProbeHeader, ...
+    {'probeCohNoisePC','noiseAmplitudePC'}, nan);
 else
   probeCohNoisePC = nan;
   probeDirDeg = nan;
@@ -367,4 +396,25 @@ prefCohNoisePC, probeCohNoisePC, nTrials, nNoiseTrials, {parentFileName}, ...
 'VariableNames', {'filePath','folder','fileName', 'animal', 'probeDirDeg','probeTag','parentNProbeDirections', ...
         'parentProbeDirectionsDeg', 'parentIsSingleProbe','parentIsInterleavedProbe', 'prefCohNoisePC', ...
         'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
+end
+
+%% -------------------------------------------------------------------------
+function value = firstHeaderValue(H, candidateNames, defaultValue)
+% Return the first available field, unwrapping Lablib's .data containers.
+
+value = defaultValue;
+for k = 1:numel(candidateNames)
+  name = candidateNames{k};
+  if ~isfield(H, name)
+    continue
+  end
+  value = H.(name);
+  while isstruct(value) && isfield(value, 'data')
+    value = value.data;
+  end
+  if isstring(value) && isscalar(value)
+    value = char(value);
+  end
+  return
+end
 end

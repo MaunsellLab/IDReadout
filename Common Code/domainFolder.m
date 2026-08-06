@@ -28,10 +28,10 @@ mustBeTextScalar(callerFullPath);
 mustBeTextScalar(requestedDomain);
 requestedDomain = string(requestedDomain);
 
+validDomains = ["IDR", "IDQ", "IDS", "Common Code"];
 project = matlab.project.rootProject;
 if isempty(project)
-  error("IDReadout:ProjectNotOpen", ...
-    "The IDReadout MATLAB Project is not open.");
+  error("IDReadout:ProjectNotOpen", "The IDReadout MATLAB Project is not open.");
 end
 projectRoot = canonicalPath(project.RootFolder);
 
@@ -51,10 +51,9 @@ if requestedDomain == ""
     error("IDReadout:SyntheticDomainRequired", ...
       "Synthetic path resolution requires an explicit domain.");
   end
-  requestedDomain = inferCallerDomain(callerFullPath,projectRoot);
+  requestedDomain = inferCallerDomain(callerFullPath, projectRoot, validDomains);
 end
 
-validDomains = ["IDR","IDQ","Common Code"];
 if requestedDomain == "Tests"
   if isempty(context) || mode ~= "synthetic"
     error("IDReadout:TestsContextRequired", ...
@@ -63,7 +62,7 @@ if requestedDomain == "Tests"
   domainRoot = char(canonicalPath(context.RunRoot));
   return
 end
-if ~ismember(requestedDomain,validDomains)
+if ~ismember(requestedDomain, validDomains)
   error("IDReadout:InvalidDomain", ...
     "'%s' is not a recognized analysis domain.",requestedDomain);
 end
@@ -75,18 +74,19 @@ else
 end
 end
 
-function domain = inferCallerDomain(callerFullPath,projectRoot)
+function domain = inferCallerDomain(callerFullPath, projectRoot, validDomains)
 callerFolder = canonicalPath(fileparts(string(callerFullPath)));
 prefix = projectRoot + filesep;
 if callerFolder == projectRoot || ~startsWith(callerFolder,prefix)
-  error("IDReadout:CallerOutsideProject", ...
+  error("IDReadout: CallerOutsideProject", ...
     "Caller is not inside the IDReadout project: %s",callerFullPath);
 end
 relativeFolder = extractAfter(callerFolder,prefix);
-parts = split(relativeFolder,filesep);
+parts = split(relativeFolder, filesep);
 domain = parts(1);
-if ~ismember(domain,["IDR","IDQ","Common Code"])
-  error("IDReadout:InvalidDomain", ...
+% if ~ismember(domain, ["IDR", "IDQ", "Common Code"])
+  if ~ismember(domain, validDomains)
+    error("IDReadout:InvalidDomain", ...
     "'%s' is not a recognized analysis domain.",domain);
 end
 end
