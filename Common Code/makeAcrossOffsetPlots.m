@@ -8,9 +8,21 @@ emp = acrossOffsetSummary.empirical;
 offsets = [emp.probeOffsetDeg];
 obsScale = [emp.pooledScale];
 ci95 = vertcat(acrossOffsetSummary.bootstrap.offsetBootstrap.boot95);
+hasAbsolute = isfield(acrossOffsetSummary, 'absolute') && ...
+  isstruct(acrossOffsetSummary.absolute) && ...
+  all(isfield(acrossOffsetSummary.absolute, {'offsetsDeg','values','ciLow','ciHigh','medianPreferredGain'}));
 
 % ---- Plot 1: observed and fit scale by offset ----
-fig1 = figure(300); clf; hold on;
+fig1 = figure(300); 
+clf;
+set(fig1, 'Color', 'w', 'WindowStyle', 'docked');
+
+if hasAbsolute
+  set(fig1, 'Units', 'inches', 'Position', [1 1 13 6]);
+  tiledlayout(fig1, 1, 2, 'TileSpacing', 'compact', 'Padding', 'compact');
+  nexttile;
+end
+hold on;
 hObs = errorbar([0, offsets], [1, obsScale], [0, obsScale - ci95(:,1)'], [0, ci95(:,2)' - obsScale], ...
   'ko', 'LineWidth', 1.2, 'MarkerFaceColor', 'k');
 plot([0, 180], [0,0], 'k:');
@@ -43,17 +55,29 @@ if hasRectFit
 end
 legend(legendHandles, legendLabels, 'Location', 'southwest');
 if hasSignedFit || hasRectFit
-  title(sprintf('%s -- DOG Fits to Normalized %s Scales (%d bootstraps)', ...
-            opts.Animal, acrossOffsetSummary.type, opts.NBoot));
+  title(sprintf('Normalized %s scales', acrossOffsetSummary.type));
 else
-  title(sprintf('%s -- Normalized %s Scales (No Fit Over %d bootstraps)', ...
-            opts.Animal, acrossOffsetSummary.type, opts.NBoot));
+  title(sprintf('Normalized %s scales (no fit)', acrossOffsetSummary.type));
 end
 scaleText(0.98, 0.98, offsets, obsScale, ci95, emp);
 xlabel('Probe Offset (deg)');
 ylabel(sprintf('Normalized %s Scale', acrossOffsetSummary.type));
 xlim([0, 180]);
+ylim([-0.5, 1.25]);
 box off;
+
+if hasAbsolute
+  plotAbsoluteGain(acrossOffsetSummary, opts, mtOffsetsDeg, mtTuning, ...
+    hasSignedFit, hasRectFit);
+  sgtitle(sprintf('%s -- normalized and absolute %s gains (%d bootstraps)', ...
+    opts.Animal, acrossOffsetSummary.type, opts.NBoot));
+elseif hasSignedFit || hasRectFit
+  title(sprintf('%s -- DOG Fits to Normalized %s Scales (%d bootstraps)', ...
+    opts.Animal, acrossOffsetSummary.type, opts.NBoot));
+else
+  title(sprintf('%s -- Normalized %s Scales (No Fit Over %d bootstraps)', ...
+    opts.Animal, acrossOffsetSummary.type, opts.NBoot));
+end
 saveas(fig1, fullfile(opts.PlotDir, sprintf('%sScaleFits_%s.pdf', acrossOffsetSummary.type, opts.Animal)));
 
 % ---- Plots 2/3: fitted readout over MT preferred direction ----
@@ -67,6 +91,81 @@ if hasRectFit
   tmpSummary.readoutModel = rectRM;
   plotReadoutDiagnostics(302, tmpSummary, opts);
 end
+end
+
+% ========================================================================
+function plotAbsoluteGain(acrossOffsetSummary, ~, mtOffsetsDeg, mtTuning, hasSignedFit, hasRectFit)
+% Absolute gains with normalized reference curves scaled by median gPref.
+
+A = acrossOffsetSummary.absolute;
+x = A.offsetsDeg(:)';
+y = A.values(:)';
+ciLow = A.ciLow(:)';
+ciHigh = A.ciHigh(:)';
+gPref = A.medianPreferredGain;
+
+nexttile; hold on;
+hObs = errorbar(x, y, y-ciLow, ciHigh-y, 'ko', 'LineWidth', 1.2, ...
+  'MarkerFaceColor', 'k');
+plot([0, 180], [0, 0], 'k:');
+
+hMT = plot(mtOffsetsDeg, gPref .* mtTuning, 'k:', 'LineWidth', 1.0);
+allY = [0, ciLow, ciHigh, gPref .* mtTuning];
+legendHandles = [hObs, hMT];
+legendLabels = {sprintf('Observed absolute %s gain (95%% CI)', acrossOffsetSummary.type), ...
+  sprintf('MT tuning x median gPref (%.3g)', gPref)};
+
+signedRM = acrossOffsetSummary.readoutModels.signedDOG;
+rectRM = acrossOffsetSummary.readoutModels.rectifiedDOG;
+if hasSignedFit
+  signedAbs = gPref .* signedRM.plotPredictedScale;
+  hSigned = plot(signedRM.plotOffsetsDeg, signedAbs, ...
+    'm-', 'LineWidth', 1.2);
+  allY = [allY, signedAbs]; %#ok<AGROW>
+  legendHandles(end+1) = hSigned;
+  legendLabels{end+1} = 'Normalized Signed DOG x median gPref';
+end
+if hasRectFit
+  rectAbs = gPref .* rectRM.plotPredictedScale;
+  hRect = plot(rectRM.plotOffsetsDeg, rectAbs, ...
+    'b-', 'LineWidth', 1.2);
+  allY = [allY, rectAbs]; %#ok<AGROW>
+  legendHandles(end+1) = hRect;
+  legendLabels{end+1} = 'Normalized Rectified DOG x median gPref';
+end
+
+legend(legendHandles, legendLabels, 'Location', 'southwest');
+title(sprintf('Absolute %s gains', acrossOffsetSummary.type));
+absoluteGainText(0.98, 0.98, x, y, ciLow, ciHigh);
+xlabel('Probe Offset (deg)');
+ylabel(sprintf('Absolute %s Gain', acrossOffsetSummary.type));
+xlim([0, 180]);
+ylim([-0.50, 1.25]);
+% allY = allY(isfinite(allY));
+% yl = [min(allY), max(allY)];
+% if all(isfinite(yl)) && yl(2) > yl(1)
+%   pad = 0.08 * (yl(2) - yl(1));
+%   ylim([yl(1)-pad, yl(2)+pad]);
+% end
+box off;
+end
+
+% ========================================================================
+function absoluteGainText(xText, yText, offsets, gains, ciLow, ciHigh)
+lines = cell(1, numel(offsets));
+for i = 1:numel(offsets)
+  if abs(offsets(i)) < 1e-9
+    label = 'preferred';
+  else
+    label = sprintf('%g deg', offsets(i));
+  end
+  lines{i} = sprintf('%s: gain %.2f, %.2f-%.2f 95%% CI', ...
+    label, gains(i), ciLow(i), ciHigh(i));
+end
+text(xText, yText, strjoin(lines, newline), 'Units', 'normalized', ...
+  'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', 'FontSize', 8, ...
+  'BackgroundColor', 'w', 'EdgeColor', [0.7 0.7 0.7], 'Margin', 4, ...
+  'Interpreter', 'none');
 end
 
 % ========================================================================

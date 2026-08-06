@@ -49,17 +49,21 @@ makeBetaKernel('Animal', 'Neesha');
 fprintf('  >> makeBetaKernel complete\n');
 
 fprintf('  >> makeIDRGainAcrossSessionPrefFit start\n');
-makeIDRGainAcrossSessionPrefFit('Animal', 'Neesha');
+makeIDRGainAcrossSessionPrefFit('Replace', true, 'Animal', 'Neesha');
 fprintf('  >> makeIDRGainAcrossSessionPrefFit complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetFits start\n');
-makeIDRGainProbeOffsetFits('Animal', 'Neesha');
+makeIDRGainProbeOffsetFits('Replace', true, 'Animal', 'Neesha');
 fprintf('  >> makeIDRGainProbeOffsetFits complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetSummary start\n');
-makeIDRGainProbeOffsetSummary('Animal', 'Neesha');
+% makeIDRGainProbeOffsetSummary('Animal', 'Meetz', 'Replace', true);
+makeIDRGainProbeOffsetSummary('Animal', 'Neesha', 'Replace',true);
 fprintf('  >> makeIDRGainProbeOffsetSummary complete\n');
 
+% makeIDRGainProbeOffsetSummary('Animal', 'Meetz', 'Replace', true);
+
+makeIDRGainProbeOffsetSummary('Animal', 'Neesha', 'Replace',true);
 
 % ---- Average Kernels ----
 fprintf('  >> kernelAverage start\n');

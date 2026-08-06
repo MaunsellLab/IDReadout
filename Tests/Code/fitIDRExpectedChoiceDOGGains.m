@@ -78,6 +78,7 @@ expected.context=context;expected.nChoiceDraws=simulation.nReplicates;
 expected.sigmaReadoutDeg=simulation.sigmaReadoutDeg;
 expected.surroundMagnitude=simulation.surroundMagnitude;
 expected.sigmaSurroundDeg=simulation.sigmaSurroundDeg;
+expected.mtTemplateMode=simulation.mtTemplateMode;
 expected.fitTarget="IDR gCQ(theta) only";
 expected.selectionCriterion="sum(((synthetic gCQ-observed gCQ)/observed seCQ)^2)";
 expected.gCQChiSquare=gCQChiSquare;expected.summaryTable=summaryTable;

@@ -101,9 +101,9 @@ end
 
 % fit the across session regressions
 % Predictor options: 'rectStep', 'rectFull', 'looStep', 'looFull'
-noisePredictorType = 'rectStep';
+% noisePredictorType = 'rectStep';
 % noisePredictorType = 'rectFull';
-% noisePredictorType = 'looStep';
+noisePredictorType = 'looStep';
 % noisePredictorType = 'looFull';
 trialTable = selectNoisePredictor(trialTable, sessionAnalyses, noisePredictorType);
 targetPerformance = 0.75;

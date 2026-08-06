@@ -27,6 +27,7 @@ addParameter(p,'TargetPerformance',0.75, ...
 addParameter(p,'NMonteCarlo',2000, ...
   @(x) isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>=200&&fix(x)==x);
 addParameter(p,'RectifyCandidates',true,@(x) islogical(x)&&isscalar(x));
+addParameter(p,'MTTemplateMode',"signed",@validTemplateMode);
 addParameter(p,'BisectionIterations',18, ...
   @(x) isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>=8&&fix(x)==x);
 addParameter(p,'Visible','off',@(x) any(strcmpi(string(x),["on","off"])));
@@ -47,14 +48,16 @@ bank=makeGaussianReadoutBank(candidateDirections,opts.SigmaReadoutDeg,mtModel, .
   'NegativeAsymptoteMagnitude',opts.NegativeAsymptoteMagnitude, ...
   'SurroundMagnitude',opts.SurroundMagnitude, ...
   'SigmaSurroundDeg',opts.SigmaSurroundDeg);
-noiseModel=factorUpstreamDirectionalNoise(inputDirections,bank,mtModel);
+noiseModel=factorUpstreamDirectionalNoise(inputDirections,bank,mtModel, ...
+  'MTTemplateMode',opts.MTTemplateMode);
 
 stream=RandStream('mt19937ar','Seed',context.Seed);
 zChange=randn(stream,opts.NMonteCarlo,noiseModel.rank);
 zNoChange=randn(stream,opts.NMonteCarlo,noiseModel.rank);
 unitChange=zChange*noiseModel.factor';
 unitNoChange=zNoChange*noiseModel.factor';
-preferredKernel=mtPopulationTemplate(0,mtModel)*double(bank.weightsPhi)';
+preferredKernel=mtPopulationTemplate(0,mtModel, ...
+  'MTTemplateMode',opts.MTTemplateMode)*double(bank.weightsPhi)';
 
 n=height(sessions);upstreamDirectionNoiseSD=nan(n,1);
 achievedPerformance=nan(n,1);lowerBound=nan(n,1);upperBound=nan(n,1);
@@ -94,6 +97,7 @@ calibration.noiseRank=noiseModel.rank;
 calibration.targetPerformance=opts.TargetPerformance;
 calibration.nMonteCarlo=opts.NMonteCarlo;
 calibration.rectifyCandidates=opts.RectifyCandidates;
+calibration.mtTemplateMode=lower(string(opts.MTTemplateMode));
 calibration.sessionTable=sessions;
 calibration.mtCorrelationTable=correlationTable;
 calibration.noiseDefinition=noiseModel.definition;
@@ -161,8 +165,9 @@ function fig=makePlot(C,visible)
 T=C.sessionTable;fig=figure('Color','w','Visible',visible, ...
   'Units','inches','Position',[1 1 12 4.3]);
 tl=tiledlayout(fig,1,3,'TileSpacing','compact','Padding','compact');
-title(tl,sprintf('Upstream directional-noise calibration (%d MT inputs, %d readouts)', ...
-  C.nInputDirections,C.nCandidates));
+title(tl,sprintf(['Upstream directional-noise calibration ' ...
+  '(%s MT templates; %d inputs, %d readouts)'], ...
+  char(C.mtTemplateMode),C.nInputDirections,C.nCandidates));
 ax=nexttile(tl);hold(ax,'on');plotDatasets(ax,T,'thresholdPC','upstreamDirectionNoiseSD');
 xlabel(ax,'Session 75% threshold (% coherence)');ylabel(ax,'Upstream directional-noise SD');
 grid(ax,'on');box(ax,'off');legend(ax,'Location','best');
@@ -200,4 +205,8 @@ tf=isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>=0;
 end
 function tf=isOptionalPositiveScalar(x)
 tf=isnumeric(x)&&isscalar(x)&&(isnan(x)||(isfinite(x)&&x>0));
+end
+function tf=validTemplateMode(x)
+tf=(ischar(x)||isstring(x))&&isscalar(string(x))&& ...
+  any(strcmpi(string(x),["signed","rectified"]));
 end

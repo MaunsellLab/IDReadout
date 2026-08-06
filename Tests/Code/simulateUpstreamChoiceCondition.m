@@ -5,6 +5,7 @@ function result=simulateUpstreamChoiceCondition(condition,bank,noiseModel, ...
 p=inputParser;
 addParameter(p,'RectifyCandidates',true,@(x) islogical(x)&&isscalar(x));
 addParameter(p,'ChunkSize',3000,@(x) isnumeric(x)&&isscalar(x)&&x>=1&&fix(x)==x);
+addParameter(p,'MTTemplateMode',"signed",@validTemplateMode);
 parse(p,varargin{:});opts=p.Results;
 
 nTrials=numel(condition.trialIndex);
@@ -20,9 +21,11 @@ if ~(isscalar(nReplicates)&&nReplicates>=1&&fix(nReplicates)==nReplicates)
 end
 
 C=evaluateDenseMTStepCandidates(condition.componentDirectionsDeg, ...
-  condition.changeComponentCoherence,bank,mtModel,'RectifyCandidates',false);
+  condition.changeComponentCoherence,bank,mtModel,'RectifyCandidates',false, ...
+  'MTTemplateMode',opts.MTTemplateMode);
 N=evaluateDenseMTStepCandidates(condition.componentDirectionsDeg, ...
-  condition.noChangeComponentCoherence,bank,mtModel,'RectifyCandidates',false);
+  condition.noChangeComponentCoherence,bank,mtModel,'RectifyCandidates',false, ...
+  'MTTemplateMode',opts.MTTemplateMode);
 nCandidates=numel(bank.candidateDirectionsDeg);
 correctReplicates=false(nTrials,nReplicates);
 replicateCorrectFraction=nan(nReplicates,1);
@@ -62,6 +65,12 @@ result.replicateCorrectFraction=replicateCorrectFraction;
 result.candidateDirectionsDeg=bank.candidateDirectionsDeg;
 result.changeWinnerFraction=changeWinnerCounts./(nTrials*nReplicates);
 result.noChangeWinnerFraction=noChangeWinnerCounts./(nTrials*nReplicates);
+result.mtTemplateMode=lower(string(opts.MTTemplateMode));
 result.rectifyCandidates=opts.RectifyCandidates;
 result.poolingMode="hardMax";
+end
+
+function tf=validTemplateMode(x)
+tf=(ischar(x)||isstring(x))&&isscalar(string(x))&& ...
+  any(strcmpi(string(x),["signed","rectified"]));
 end

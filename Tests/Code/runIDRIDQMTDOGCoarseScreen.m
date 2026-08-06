@@ -19,6 +19,7 @@ addParameter(p,'IDQPreStepPedestalPC',7,@nonnegativeScalar);
 addParameter(p,'TargetPerformance',.75,@validTarget);
 addParameter(p,'NMonteCarlo',2000,@positiveInteger);
 addParameter(p,'RectifyCandidates',true,@(x)islogical(x)&&isscalar(x));
+addParameter(p,'MTTemplateMode',"signed",@validTemplateMode);
 addParameter(p,'MaxRunBytes',2e8,@positiveScalar);
 addParameter(p,'IDQSummaryPath',defaultSummaryPath('IDQ','IDQ_AcrossSideSummary.mat'), ...
   @(x)ischar(x)||isstring(x));
@@ -71,6 +72,7 @@ for k=1:height(grid)
       'IDQPreStepPedestalPC',opts.IDQPreStepPedestalPC, ...
       'TargetPerformance',opts.TargetPerformance, ...
       'NMonteCarlo',opts.NMonteCarlo, ...
+      'MTTemplateMode',opts.MTTemplateMode, ...
       'RectifyCandidates',opts.RectifyCandidates,'Visible','off');
   end
 
@@ -97,6 +99,7 @@ for k=1:height(grid)
     'IDRIDQ_MTDOGExpectedGains.mat');
   members(k)=struct('sigmaCenterDeg',opts.SigmaCenterDeg, ...
     'sigmaSurroundDeg',sigmaSurround,'surroundMagnitude',a, ...
+    'mtTemplateMode',lower(string(opts.MTTemplateMode)), ...
     'runID',runID,'context',context,'choicePath',string(choicePath), ...
     'expectedPath',string(expectedPath),'gCQChiSquare',expected.gCQChiSquare);
 end
@@ -123,6 +126,7 @@ P=struct('sigmaMTDeg',double(O.SigmaMTDeg), ...
   'targetPerformance',double(O.TargetPerformance), ...
   'nMonteCarlo',double(O.NMonteCarlo), ...
   'nChoiceDraws',double(O.NChoiceDraws), ...
+  'mtTemplateMode',lower(string(O.MTTemplateMode)), ...
   'rectifyCandidates',logical(O.RectifyCandidates),'poolingMode',"hardMax", ...
   'selectionTarget',"IDR gCQ(theta) only");
 end
@@ -154,6 +158,14 @@ if ~isfield(S,'surroundMagnitude')||S.surroundMagnitude~=a|| ...
   error('runIDRIDQMTDOGCoarseScreen:StageParameterMismatch', ...
     'Stored %s has different DOG parameters.',label);
 end
+% Template-mode identity is mandatory for newly generated DOG runs. Old
+% signed runs without the field remain interpretable as signed.
+if isfield(S,'mtTemplateMode'),mode=lower(string(S.mtTemplateMode));else,mode="signed";end
+M=validateSyntheticManifest(context);expectedMode=lower(string(M.ModelParameters.mtTemplateMode));
+if mode~=expectedMode
+  error('runIDRIDQMTDOGCoarseScreen:StageTemplateModeMismatch', ...
+    'Stored %s has a different MT template mode.',label);
+end
 end
 
 function screen=makeOrLoadSummary(prefix,members,experimentalSources,opts)
@@ -171,6 +183,7 @@ parameters=struct('memberRunIDs',string({members.runID}), ...
   'sigmaSurroundDeg',double(opts.SigmaSurroundDeg(:)'), ...
   'surroundMagnitude',double(opts.SurroundMagnitude(:)'), ...
   'nChoiceDraws',double(opts.NChoiceDraws), ...
+  'mtTemplateMode',lower(string(opts.MTTemplateMode)), ...
   'selectionTarget',"IDR gCQ(theta) only");
 manifestPath=analysisPath(context,'Tests','manifest.mat');
 if isfile(manifestPath)
@@ -185,8 +198,8 @@ else
   initializeSyntheticRun(context,'ModelName',"IDRIDQMTDOGCoarseScreenSummary", ...
     'ModelParameters',parameters,'SourceFiles',sources);
 end
-finalPath=analysisPath(context,'Common Code','Data','Simulation', ...
-  'IDRIDQ_MTDOGCoarseScreen.mat');
+baseName=summaryBaseName(opts.MTTemplateMode);
+finalPath=analysisPath(context,'Common Code','Data','Simulation',baseName+".mat");
 if isfile(finalPath)
   A=load(finalPath,'screen');screen=A.screen;
   screen=saveOutputs(screen,opts.Visible);
@@ -200,12 +213,14 @@ function screen=buildSummary(context,members,sources,experimentalSources,opts)
 n=numel(members);gain=cell(n,1);performance=cell(n,1);metrics=cell(n,1);
 sigmaCenterDeg=nan(n,1);sigmaSurroundDeg=nan(n,1);surroundMagnitude=nan(n,1);
 gCQChiSquare=nan(n,1);runID=strings(n,1);
+mtTemplateMode=strings(n,1);
 for k=1:n
   E=load(members(k).expectedPath,'expected');C=load(members(k).choicePath,'simulation');
   sigmaCenterDeg(k)=members(k).sigmaCenterDeg;
   sigmaSurroundDeg(k)=members(k).sigmaSurroundDeg;
   surroundMagnitude(k)=members(k).surroundMagnitude;
   gCQChiSquare(k)=E.expected.gCQChiSquare;runID(k)=members(k).runID;
+  mtTemplateMode(k)=members(k).mtTemplateMode;
   gain{k}=addParameters(E.expected.summaryTable,members(k));
   performance{k}=addParameters(C.simulation.conditionSummary,members(k));
   metrics{k}=addParameters(C.simulation.noiseMetricTable,members(k));
@@ -213,13 +228,14 @@ end
 [bestValue,bestIndex]=min(gCQChiSquare);deltaChiSquare=gCQChiSquare-bestValue;
 isBest=(1:n)'==bestIndex;
 rankingTable=table(sigmaCenterDeg,sigmaSurroundDeg,surroundMagnitude, ...
-  gCQChiSquare,deltaChiSquare,isBest,runID);
+  mtTemplateMode,gCQChiSquare,deltaChiSquare,isBest,runID);
 rankingTable=sortrows(rankingTable,'gCQChiSquare');
 screen=struct();screen.createdAt=datetime('now');screen.createdBy=mfilename;
 screen.dataOrigin="synthetic_expected_choice_DOG_screen";screen.context=context;
 screen.memberRuns=members;screen.sourcePaths=sources;
 screen.experimentalSourcePaths=experimentalSources;
 screen.nChoiceDraws=opts.NChoiceDraws;screen.fitTarget="IDR gCQ(theta) only";
+screen.mtTemplateMode=lower(string(opts.MTTemplateMode));
 screen.rankingTable=rankingTable;screen.bestMember=members(bestIndex);
 screen.idrGainTable=vertcat(gain{:});screen.performanceTable=vertcat(performance{:});
 screen.noiseMetricTable=vertcat(metrics{:});
@@ -232,7 +248,9 @@ function T=addParameters(T,M)
 T.sigmaCenterDeg=repmat(M.sigmaCenterDeg,height(T),1);
 T.sigmaSurroundDeg=repmat(M.sigmaSurroundDeg,height(T),1);
 T.surroundMagnitude=repmat(M.surroundMagnitude,height(T),1);
-T=movevars(T,{'sigmaCenterDeg','sigmaSurroundDeg','surroundMagnitude'},'Before',1);
+T.mtTemplateMode=repmat(M.mtTemplateMode,height(T),1);
+T=movevars(T,{'sigmaCenterDeg','sigmaSurroundDeg','surroundMagnitude', ...
+  'mtTemplateMode'},'Before',1);
 end
 
 function screen=saveOutputs(screen,visible)
@@ -240,12 +258,13 @@ context=screen.context;dataFolder=analysisPath(context,'Common Code','Data','Sim
 plotFolder=analysisPath(context,'Common Code','Plots','Simulation');
 if ~isfolder(dataFolder),mkdir(dataFolder);end
 if ~isfolder(plotFolder),mkdir(plotFolder);end
-matPath=fullfile(dataFolder,'IDRIDQ_MTDOGCoarseScreen.mat');
-rankingPath=fullfile(dataFolder,'IDRIDQ_MTDOGCoarseScreen_Ranking.csv');
-gainPath=fullfile(dataFolder,'IDRIDQ_MTDOGCoarseScreen_IDRGains.csv');
-performancePath=fullfile(dataFolder,'IDRIDQ_MTDOGCoarseScreen_Performance.csv');
-metricPath=fullfile(dataFolder,'IDRIDQ_MTDOGCoarseScreen_NoiseMetrics.csv');
-pdfPath=fullfile(plotFolder,'IDRIDQ_MTDOGCoarseScreen.pdf');
+baseName=summaryBaseName(screen.mtTemplateMode);
+matPath=fullfile(dataFolder,baseName+".mat");
+rankingPath=fullfile(dataFolder,baseName+"_Ranking.csv");
+gainPath=fullfile(dataFolder,baseName+"_IDRGains.csv");
+performancePath=fullfile(dataFolder,baseName+"_Performance.csv");
+metricPath=fullfile(dataFolder,baseName+"_NoiseMetrics.csv");
+pdfPath=fullfile(plotFolder,baseName+".pdf");
 screen.outputPaths=string({matPath;rankingPath;gainPath;performancePath;metricPath;pdfPath});
 info=whos('screen');assertSimulationRunCapacity(context,info.bytes);
 if ~isfile(rankingPath),writeTableAtomic(screen.rankingTable,rankingPath);end
@@ -270,7 +289,8 @@ function figs=makePlots(S,visible)
 R=S.rankingTable;G=S.idrGainTable;figs=gobjects(3,1);
 figs(1)=figure('Color','w','Visible',visible,'Units','inches','Position',[1 1 10 5]);
 tl=tiledlayout(figs(1),1,2,'TileSpacing','compact','Padding','compact');
-title(tl,'DOG coarse screen: selection uses IDR gCQ only');
+title(tl,"DOG coarse screen ("+S.mtTemplateMode+ ...
+  " MT templates): selection uses IDR gCQ only");
 ax=nexttile(tl);hold(ax,'on');widths=unique(R.sigmaSurroundDeg(isfinite(R.sigmaSurroundDeg)));
 colors=lines(numel(widths));
 for k=1:numel(widths)
@@ -291,7 +311,8 @@ text(ax,.02,.92,sprintf([ ...
 
 figs(2)=figure('Color','w','Visible',visible,'Units','inches','Position',[1 1 10 7]);
 tl=tiledlayout(figs(2),2,2,'TileSpacing','compact','Padding','compact');
-title(tl,'Best DOG: fitted target and held-out IDR gains');
+title(tl,"Best DOG ("+S.mtTemplateMode+ ...
+  " MT templates): fitted target and held-out IDR gains");
 names={'gCP','gCQ','gNP','gNQ'};titles={'Change preferred','Change probe (fit target)', ...
   'No-change preferred (held out)','No-change probe (held out)'};
 bestUse=G.surroundMagnitude==best.surroundMagnitude& ...
@@ -312,7 +333,8 @@ end
 
 figs(3)=figure('Color','w','Visible',visible,'Units','inches','Position',[1 1 11 6]);
 tl=tiledlayout(figs(3),2,2,'TileSpacing','compact','Padding','compact');
-title(tl,'DOG gCQ families (the only selection target)');
+title(tl,"DOG gCQ families ("+S.mtTemplateMode+ ...
+  " MT templates; the only selection target)");
 for k=1:numel(widths)
   ax=nexttile(tl);hold(ax,'on');A=G(G.sigmaSurroundDeg==widths(k),:);
   strengths=unique(A.surroundMagnitude);c=lines(numel(strengths));
@@ -341,12 +363,19 @@ function commitTemporary(temporary,final)
 end
 function M=emptyMember()
 M=struct('sigmaCenterDeg',nan,'sigmaSurroundDeg',nan,'surroundMagnitude',nan, ...
-  'runID',"",'context',struct(),'choicePath',"",'expectedPath',"", ...
+  'mtTemplateMode',"",'runID',"",'context',struct(),'choicePath',"",'expectedPath',"", ...
   'gCQChiSquare',nan);
 end
 function path=defaultSummaryPath(domain,file)
 path=fullfile(domainFolder(mfilename('fullpath'),domain), ...
   'Data','AcrossSessionSummaries',file);
+end
+function name=summaryBaseName(mode)
+if lower(string(mode))=="rectified"
+  name="IDRIDQ_MTRectifiedDOGCoarseScreen";
+else
+  name="IDRIDQ_MTDOGCoarseScreen";
+end
 end
 function tf=positiveScalar(x)
 tf=isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>0;
@@ -368,4 +397,8 @@ tf=isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>=0&&x<=2^32-1&&fix(x)==x;
 end
 function tf=validTarget(x)
 tf=isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>.5&&x<1;
+end
+function tf=validTemplateMode(x)
+tf=(ischar(x)||isstring(x))&&isscalar(string(x))&& ...
+  any(strcmpi(string(x),["signed","rectified"]));
 end

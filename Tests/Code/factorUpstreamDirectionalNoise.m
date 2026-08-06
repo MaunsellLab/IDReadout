@@ -10,9 +10,11 @@ function noiseModel=factorUpstreamDirectionalNoise( ...
 p=inputParser;
 addParameter(p,'RelativeEigenvalueTolerance',1e-10, ...
   @(x) isnumeric(x)&&isscalar(x)&&isfinite(x)&&x>=0&&x<1);
+addParameter(p,'MTTemplateMode',"signed",@validTemplateMode);
 parse(p,varargin{:});opts=p.Results;
 
-T=mtPopulationTemplate(inputDirectionsDeg,mtModel); % input direction x MT
+T=mtPopulationTemplate(inputDirectionsDeg,mtModel, ...
+  'MTTemplateMode',opts.MTTemplateMode); % input direction x MT
 inputToCandidate=T*double(bank.weightsPhi)';
 candidateCovariance=inputToCandidate'*inputToCandidate;
 candidateCovariance=(candidateCovariance+candidateCovariance')/2;
@@ -36,8 +38,15 @@ noiseModel.candidateCovariance=candidateCovariance;
 noiseModel.factor=factor;
 noiseModel.rank=sum(keep);
 noiseModel.relativeEigenvalueTolerance=opts.RelativeEigenvalueTolerance;
+noiseModel.mtTemplateMode=lower(string(opts.MTTemplateMode));
 noiseModel.definition=[ ...
   "Independent homoscedastic Gaussian perturbations over latent motion " + ...
-  "input directions, passed through MT tuning and the supplied readouts; no " + ...
+  "input directions, passed through "+noiseModel.mtTemplateMode+ ...
+  " MT increment templates and the supplied readouts; no " + ...
   "separate MT-response or readout noise"];
+end
+
+function tf=validTemplateMode(x)
+tf=(ischar(x)||isstring(x))&&isscalar(string(x))&& ...
+  any(strcmpi(string(x),["signed","rectified"]));
 end

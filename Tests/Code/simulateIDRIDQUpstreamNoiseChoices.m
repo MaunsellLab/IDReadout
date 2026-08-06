@@ -62,12 +62,18 @@ if isfield(calibration,'sigmaSurroundDeg')
 else
   sigmaSurroundDeg=nan;
 end
+if isfield(calibration,'mtTemplateMode')
+  mtTemplateMode=lower(string(calibration.mtTemplateMode));
+else
+  mtTemplateMode="signed";
+end
 bank=makeGaussianReadoutBank(candidateDirections, ...
   calibration.sigmaReadoutDeg,mtModel, ...
   'NegativeAsymptoteMagnitude',negativeAsymptoteMagnitude, ...
   'SurroundMagnitude',surroundMagnitude, ...
   'SigmaSurroundDeg',sigmaSurroundDeg);
-noiseModel=factorUpstreamDirectionalNoise(inputDirections,bank,mtModel);
+noiseModel=factorUpstreamDirectionalNoise(inputDirections,bank,mtModel, ...
+  'MTTemplateMode',mtTemplateMode);
 
 choiceSeed=mod(double(context.Seed)+double(opts.ChoiceSeedOffset),2^32);
 stream=RandStream('mt19937ar','Seed',choiceSeed);
@@ -76,7 +82,8 @@ for k=1:numel(conditions)
   sigma=mapSessionNoise(conditions(k),calibration.sessionTable);
   choiceResults{k}=simulateUpstreamChoiceCondition(conditions(k),bank, ...
     noiseModel,mtModel,sigma,opts.NReplicates,stream, ...
-    'RectifyCandidates',opts.RectifyCandidates,'ChunkSize',opts.ChunkSize);
+    'RectifyCandidates',opts.RectifyCandidates,'ChunkSize',opts.ChunkSize, ...
+    'MTTemplateMode',mtTemplateMode);
 end
 
 [conditionSummary,replicateSummary,sessionSummary]= ...
@@ -98,6 +105,7 @@ simulation.inputSpacingDeg=calibration.inputSpacingDeg;
 simulation.negativeAsymptoteMagnitude=negativeAsymptoteMagnitude;
 simulation.surroundMagnitude=surroundMagnitude;
 simulation.sigmaSurroundDeg=sigmaSurroundDeg;
+simulation.mtTemplateMode=mtTemplateMode;
 simulation.choiceResults=choiceResults;
 simulation.conditionSummary=conditionSummary;
 simulation.replicateSummary=replicateSummary;
@@ -105,7 +113,8 @@ simulation.sessionSummary=sessionSummary;
 simulation.noiseMetricTable=noiseMetricTable;
 simulation.noiseSamplingDefinition=[ ...
   "Candidate perturbations are sampled from the covariance obtained by " + ...
-  "passing independent upstream directional noise through MT tuning and " + ...
+  "passing independent upstream directional noise through "+mtTemplateMode+ ...
+  " MT increment templates and " + ...
   "the specified Gaussian-asymptote readouts. This is an exact " + ...
   "covariance-space shortcut, not a " + ...
   "separate readout-noise source."];
@@ -185,7 +194,7 @@ iMT=find(abs(double(mtModel.phiDeg))<1e-9,1,'first');
 iReadout=find(abs(double(bank.candidateDirectionsDeg))<1e-9,1,'first');
 unitMTSD=sqrt(N.mtCovariance(iMT,iMT));
 unitReadoutSD=sqrt(N.candidateCovariance(iReadout,iReadout));
-template=mtPopulationTemplate(0,mtModel);
+template=mtPopulationTemplate(0,mtModel,'MTTemplateMode',N.mtTemplateMode);
 mtSensitivity=template(iMT);
 readoutSensitivity=template*double(bank.weightsPhi(iReadout,:))';
 T=S(:,{'dataset','sessionIndex','thresholdPC','upstreamDirectionNoiseSD'});

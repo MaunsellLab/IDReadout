@@ -62,20 +62,24 @@ end
 
 offsetSummary = summarizeOffsets(probeTable, fitMask);
 bootstrapByOffset = bootstrapOffsets(probeTable, fitMask, opts.NBootstrap, opts.BootstrapAlpha, opts.BootstrapSeed, opts.Bootstrap);
+preferredGain = bootstrapPreferredGain(probeTable, fitMask, opts.NBootstrap, ...
+  opts.BootstrapAlpha, opts.BootstrapSeed, opts.Bootstrap);
 failedProbeSessions = summarizeFailedProbeSessions(probeTable, fitMask);
 nearBoundProbeSessions = summarizeNearBoundProbeSessions(probeTable, fitMask);
 offsetSummary = mergeBootstrapIntoOffsetSummary(offsetSummary, bootstrapByOffset);
-population = summarizePopulation(probeTable, fitMask, offsetSummary, failedProbeSessions, nearBoundProbeSessions);
+population = summarizePopulation(probeTable, fitMask, offsetSummary, failedProbeSessions, ...
+  nearBoundProbeSessions, preferredGain);
 populationTable = struct2table(population, 'AsArray', true);
 populationTall = rowsFromScalarStruct(population);
 
 metadata = struct();
-metadata.version = 4;
+metadata.version = 5;
 metadata.analysisName = 'IDRGainProbeOffsetSummary';
 metadata.method = ['Groups makeIDRGainProbeOffsetFits probe-session rows by probeDirDeg. ' ...
   'No refitting is performed. gProbeOverGPrefParent uses each probe row''s parent-session preferred gain. ' ...
   'v4 adds a session-level bootstrap over fitted probe-session gains to estimate offset-level ' ...
-  'confidence intervals, SEs, and variances.'];
+  'confidence intervals, SEs, and variances. v5 adds an absolute preferred-gain anchor, ' ...
+  'with each unique parent preferred-fit session represented once.'];
 metadata.probeFitPath = probeFitPath;
 metadata.options = opts;
 metadata.createdBy = mfilename;
@@ -86,13 +90,16 @@ metadata.bootstrapVarianceField = 'bootstrapVarGProbeOverGPref';
 metadata.bootstrapSEField = 'bootstrapSEGProbeOverGPref';
 metadata.readoutFitMeasurementField = 'medianGProbeOverGPref';
 metadata.readoutFitOffsetField = 'probeDirDeg';
+metadata.preferredGainBootstrapStatistic = 'medianGPref';
+metadata.preferredGainBootstrapUnit = 'uniqueParentPreferredSession';
 metadata.anchorPolicy = ...
   '0 deg is an analytical normalization anchor: value=1, variance=0, excluded from fitAcrossOffsetReadout.';
 
 summaryData = struct();
-summaryData.version = 4;
+summaryData.version = 5;
 summaryData.probeTable = probeTable;
 summaryData.offsetSummary = offsetSummary;
+summaryData.preferredGain = preferredGain;
 summaryData.failedProbeSessions = failedProbeSessions;
 summaryData.nearBoundProbeSessions = nearBoundProbeSessions;
 summaryData.bootstrapByOffset = bootstrapByOffset;
@@ -102,7 +109,7 @@ summaryData.populationTall = populationTall;
 summaryData.metadata = metadata;
 
 save(matPath, 'summaryData', '-v7.3');
-makeSummaryPDF(probeTable, fitMask, offsetSummary, population, pdfPath, animalTag);
+makeSummaryPDF(probeTable, fitMask, offsetSummary, population, preferredGain, pdfPath, animalTag);
 makeIDRGainAcrossOffsetReadoutFits('Animal', opts.Animal);
 
 if opts.Verbose
@@ -112,6 +119,8 @@ if opts.Verbose
   fprintf('  offsets:                     %d\n', population.nOffsets);
   fprintf('  INC trials:                  %d\n', population.nIncTrials);
   fprintf('  median gProbe:               %.4g\n', population.medianGProbe);
+  fprintf('  median gPref:                %.4g (%d unique parent sessions)\n', ...
+    population.medianGPref, population.nUniqueParentSessions);
   fprintf('  median gProbe/gPref:         %.4g\n', population.medianGProbeOverGPrefParent);
   fprintf('  median offset median ratio:  %.4g\n', population.medianOffsetMedianGProbeOverGPref);
   fprintf('  median Delta NLL probe:      %.4g\n', population.medianDeltaNLLProbe);
@@ -125,6 +134,74 @@ if opts.Verbose
 end
 
 
+end
+
+% -------------------------------------------------------------------------
+function P = bootstrapPreferredGain(T, fitMask, nBoot, alpha, seed, doBootstrap)
+% Summarize gPrefParent once per unique parent preferred-fit session.
+
+mask = fitMask & isfinite(T.gPrefParent);
+if ~any(mask)
+  error('No finite parent preferred gains were available for the absolute 0-deg anchor.');
+end
+
+rowIdx = find(mask);
+if ismember('animal', T.Properties.VariableNames)
+  animalPrefix = string(T.animal(mask)) + ":";
+else
+  animalPrefix = repmat("", sum(mask), 1);
+end
+if ismember('prefFitSessionIndex', T.Properties.VariableNames) && ...
+    all(isfinite(T.prefFitSessionIndex(mask)))
+  parentKey = animalPrefix + "prefFitSessionIndex:" + string(T.prefFitSessionIndex(mask));
+  keyField = 'prefFitSessionIndex';
+elseif ismember('parentFileName', T.Properties.VariableNames) && ...
+    all(strlength(string(T.parentFileName(mask))) > 0)
+  parentKey = animalPrefix + "parentFileName:" + string(T.parentFileName(mask));
+  keyField = 'parentFileName';
+elseif ismember('parentWeightRow', T.Properties.VariableNames) && ...
+    all(isfinite(T.parentWeightRow(mask)))
+  parentKey = animalPrefix + "parentWeightRow:" + string(T.parentWeightRow(mask));
+  keyField = 'parentWeightRow';
+else
+  parentKey = animalPrefix + "probeRow:" + string(rowIdx);
+  keyField = 'probeRowFallback';
+end
+
+[uniqueKey, ~, groupIdx] = unique(parentKey, 'stable');
+gPref = nan(numel(uniqueKey), 1);
+for i = 1:numel(uniqueKey)
+  gPref(i) = medianFinite(T.gPrefParent(rowIdx(groupIdx == i)));
+end
+gPref = gPref(isfinite(gPref));
+
+bootMedian = nan(nBoot, 1);
+if doBootstrap && nBoot > 0
+  oldRng = rng;
+  cleanupObj = onCleanup(@() rng(oldRng)); %#ok<NASGU>
+  if ~isempty(seed)
+    rng(seed);
+  end
+  n = numel(gPref);
+  for b = 1:nBoot
+    bootMedian(b) = median(gPref(randi(n, n, 1)));
+  end
+end
+
+P = struct();
+P.nUniqueParentSessions = numel(gPref);
+P.parentKeyField = keyField;
+P.medianGPref = medianFinite(gPref);
+P.q25GPref = quantileLocal(gPref, 0.25);
+P.q75GPref = quantileLocal(gPref, 0.75);
+P.nBootstrap = double(doBootstrap) * nBoot;
+P.bootstrapAlpha = alpha;
+P.ciLowGPref = quantileLocal(bootMedian, alpha/2);
+P.ciHighGPref = quantileLocal(bootMedian, 1-alpha/2);
+P.bootstrapSEGPref = stdFinite(bootMedian);
+P.bootstrapVarGPref = P.bootstrapSEGPref.^2;
+P.gPrefByUniqueParent = gPref;
+P.parentKeys = uniqueKey;
 end
 
 %% -------------------------------------------------------------------------
@@ -331,7 +408,7 @@ O.bootstrapVarGProbe = varG;
 end
 
 % -------------------------------------------------------------------------
-function population = summarizePopulation(T, fitMask, O, failed, near)
+function population = summarizePopulation(T, fitMask, O, failed, near, preferredGain)
 g = T.gProbe(fitMask);
 r = T.gProbeOverGPrefParent(fitMask);
 dnll = T.deltaNLLProbe(fitMask);
@@ -360,6 +437,12 @@ population.medianGProbe = medianFinite(g);
 population.q25GProbe = quantileLocal(g,0.25);
 population.q75GProbe = quantileLocal(g,0.75);
 population.iqrGProbe = population.q75GProbe - population.q25GProbe;
+population.nUniqueParentSessions = preferredGain.nUniqueParentSessions;
+population.medianGPref = preferredGain.medianGPref;
+population.q25GPref = preferredGain.q25GPref;
+population.q75GPref = preferredGain.q75GPref;
+population.ciLowGPref = preferredGain.ciLowGPref;
+population.ciHighGPref = preferredGain.ciHighGPref;
 population.meanGProbeOverGPrefParent = meanFinite(r);
 population.medianGProbeOverGPrefParent = medianFinite(r);
 population.q25GProbeOverGPrefParent = quantileLocal(r,0.25);
@@ -389,7 +472,7 @@ end
 end
 
 % -------------------------------------------------------------------------
-function makeSummaryPDF(T, fitMask, O, P, pdfPath, animalTag)
+function makeSummaryPDF(T, fitMask, O, P, preferredGain, pdfPath, animalTag)
 fig = figure('Color','w', 'Visible','off', 'Units','inches', 'Position',[1 1 11 8.5]);
 tiledlayout(fig, 2, 2, 'Padding','compact', 'TileSpacing','compact');
 
@@ -404,11 +487,21 @@ plot(x, g, 'o', 'LineStyle','none', 'MarkerSize',4);
 plot(O.probeDirDeg, O.medianGProbe, 'k-', 'LineWidth',1.2);
 plot(O.probeDirDeg, O.q25GProbe, 'k:', 'LineWidth',0.9);
 plot(O.probeDirDeg, O.q75GProbe, 'k:', 'LineWidth',0.9);
+if all(ismember({'ciLowGProbe','ciHighGProbe'}, O.Properties.VariableNames))
+  errorbar(O.probeDirDeg, O.medianGProbe, ...
+    O.medianGProbe - O.ciLowGProbe, ...
+    O.ciHighGProbe - O.medianGProbe, ...
+    'LineStyle','none', 'Color','k', 'LineWidth',0.8, 'CapSize',6, 'HandleVisibility','off');
+end
+errorbar(0, preferredGain.medianGPref, ...
+  preferredGain.medianGPref - preferredGain.ciLowGPref, ...
+  preferredGain.ciHighGPref - preferredGain.medianGPref, ...
+  'ks', 'MarkerFaceColor','k', 'LineWidth',0.9, 'CapSize',6);
 yline(0, ':');
 yline(1, '--');
 xlabel('Probe direction / offset (deg)');
 ylabel('gProbe');
-title('Probe gain by offset');
+title('Absolute probe gain (square: preferred gain)');
 box off;
 
 nexttile;
@@ -439,7 +532,6 @@ xlabel('Probe direction / offset (deg)');
 ylabel('Delta NLL probe');
 title('Likelihood improvement by offset');
 box off;
-
 nexttile;
 axis off;
 lines = {
@@ -449,6 +541,8 @@ lines = {
   sprintf('Offsets: %d', P.nOffsets)
   sprintf('INC trials: %d', P.nIncTrials)
   sprintf('Median gProbe: %.3f  [IQR %.3f, %.3f]', P.medianGProbe, P.q25GProbe, P.q75GProbe)
+  sprintf('Median gPref: %.3f  [95%% CI %.3f, %.3f; %d unique parents]', ...
+    P.medianGPref, P.ciLowGPref, P.ciHighGPref, P.nUniqueParentSessions)
   sprintf('Median gProbe/gPref: %.3f  [IQR %.3f, %.3f]', P.medianGProbeOverGPrefParent, P.q25GProbeOverGPrefParent, P.q75GProbeOverGPrefParent)
   sprintf('Median offset-median gProbe/gPref: %.3f', P.medianOffsetMedianGProbeOverGPref)
   sprintf('Median Delta NLL: %.3f', P.medianDeltaNLLProbe)
@@ -461,12 +555,7 @@ lines = {
 text(0.02, 0.98, strjoin(lines, '\n'), 'Units','normalized', ...
   'VerticalAlignment','top', 'FontName','Menlo', 'FontSize',10);
 title('Summary');
-
-% try
-  exportgraphics(fig, pdfPath, 'ContentType','vector');
-% catch
-%   print(fig, pdfPath, '-dpdf', '-bestfit');
-% end
+exportgraphics(fig, pdfPath, 'ContentType','vector');
 close(fig);
 end
 
@@ -503,11 +592,6 @@ addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
 addParameter(p, 'Bounds', struct(), @isstruct);
 addParameter(p, 'SigmaMTDeg', 37.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(p, 'PhiDeg', -180:1:179, @(x) isnumeric(x) && isvector(x) && all(isfinite(x)));
-
-
-%% REMOVE THIS KLUDGE ONCE WE ARE EXCLUDING 1° PROBES
-addParameter(p, 'MinProbeSessionsForFit', 2, @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1);
-
 parse(p, varargin{:});
 opts = p.Results;
 
@@ -518,6 +602,7 @@ gainSummaryFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossO
   sprintf('IDRGainProbeOffsetSummary_%s.mat', opts.Animal));
 L = load(gainSummaryFile);
 offsetSummary = L.summaryData.offsetSummary;
+preferredGain = L.summaryData.preferredGain;
 vars = offsetSummary.Properties.VariableNames;
 
 % -------------------------------------------------------------------------
@@ -570,7 +655,7 @@ assert(~any(badNonAnchor), ...
 % while preserving their measured values in the saved summary.
 fitMeasurements = measurements;
 fitVariances = variances;
-excludeFromFit = ~isAnchor & nSessions < opts.MinProbeSessionsForFit;
+excludeFromFit = ~isAnchor & nSessions < 2;
 fitMeasurements(excludeFromFit) = NaN;
 fitVariances(excludeFromFit) = NaN;
 
@@ -589,7 +674,7 @@ fitSummary.source.rawMeasurements = struct( ...               %% this one entry 
   'variances', variances, ...
   'nSessions', nSessions, ...
   'excludeFromFit', excludeFromFit, ...
-  'exclusionReason', sprintf('nSessions < %g', opts.MinProbeSessionsForFit));
+  'exclusionReason', sprintf('nSessions < %g', 2));
 fitSummary.source.adapterFunction = mfilename;
 fitSummary.source.offsetSummaryVariable = 'medianGProbeOverGPref';
 fitSummary.source.varianceInterpretation = ...
@@ -692,12 +777,35 @@ fitSummary.meta.normalization = 'gProbeOverGPrefParent_with_0deg_anchor';
 fitSummary.meta.offsetKeysDeg = plotOffsets;
 fitSummary.meta.notes = 'Plot-compatible summary generated by makeIDRGainAcrossOffsetReadoutFits.';
 
+% Absolute gains are displayed but not fit separately. The normalized DOG
+% predictions are rescaled by the median preferred gain for the absolute plot.
+absValues = offsetSummary.medianGProbe(:)';
+absVariances = offsetSummary.bootstrapVarGProbe(:)';
+absCILow = offsetSummary.ciLowGProbe(:)';
+absCIHigh = offsetSummary.ciHighGProbe(:)';
+[tfAbs, locAbs] = ismember(plotOffsets, offsetSummary.probeDirDeg(:)');
+assert(all(tfAbs), ...
+  'makeIDRGainAcrossOffsetReadoutFits:MissingAbsoluteRows', ...
+  'One or more plotted normalized offsets lacked a corresponding absolute-gain row.');
+
+fitSummary.absolute = struct();
+fitSummary.absolute.offsetsDeg = [0, plotOffsets];
+fitSummary.absolute.values = [preferredGain.medianGPref, absValues(locAbs)];
+fitSummary.absolute.ciLow = [preferredGain.ciLowGPref, absCILow(locAbs)];
+fitSummary.absolute.ciHigh = [preferredGain.ciHighGPref, absCIHigh(locAbs)];
+fitSummary.absolute.variances = [preferredGain.bootstrapVarGPref, absVariances(locAbs)];
+fitSummary.absolute.nSessions = [preferredGain.nUniqueParentSessions, plotNSess];
+fitSummary.absolute.medianPreferredGain = preferredGain.medianGPref;
+fitSummary.absolute.preferredGainCI = [preferredGain.ciLowGPref, preferredGain.ciHighGPref];
+fitSummary.absolute.fitInterpretation = ...
+  'Normalized DOG predictions multiplied by median preferred gain; no separate absolute fit.';
+
 opts.PlotDir = fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'ReadoutFits', 'Beta');
 opts.NBoot = max(offsetSummary.nBootstrap, [], 'omitnan');
 makeAcrossOffsetPlots(fitSummary, opts);
 
 outputFile = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'AcrossOffsetSummaries', 'GainAnalysis', ...
-  sprintf('IDRGainAcrossOffsetReadoutFits_%s.mat', opts.Animal));
+      sprintf('IDRGainAcrossOffsetReadoutFits_%s.mat', opts.Animal));
 save(outputFile, 'fitSummary');
 
 end
