@@ -28,7 +28,7 @@ mustBeTextScalar(callerFullPath);
 mustBeTextScalar(requestedDomain);
 requestedDomain = string(requestedDomain);
 
-validDomains = ["IDR", "IDQ", "IDS", "Common Code"];
+validDomains = ["IDL", "IDQ", "IDR", "IDS", "IDJ", "Common Code"];
 project = matlab.project.rootProject;
 if isempty(project)
   error("IDReadout:ProjectNotOpen", "The IDReadout MATLAB Project is not open.");
@@ -84,7 +84,6 @@ end
 relativeFolder = extractAfter(callerFolder,prefix);
 parts = split(relativeFolder, filesep);
 domain = parts(1);
-% if ~ismember(domain, ["IDR", "IDQ", "Common Code"])
   if ~ismember(domain, validDomains)
     error("IDReadout:InvalidDomain", ...
     "'%s' is not a recognized analysis domain.",domain);

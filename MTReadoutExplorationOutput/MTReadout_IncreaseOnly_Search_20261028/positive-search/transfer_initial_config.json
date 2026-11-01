@@ -1,0 +1,16 @@
+[
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": Infinity,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "harmonic_reference"
+  }
+]

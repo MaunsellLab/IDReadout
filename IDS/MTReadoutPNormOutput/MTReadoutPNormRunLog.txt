@@ -1,0 +1,134 @@
+Extracting 1/2: IDR4_Meetz_20260813_Probe10.mat (467.2 MB)
+Extracting 2/2: IDR4_Meetz_20260814_Probe10.mat (406.4 MB)
+Cache: 0 reused, 2 extracted; 2894 trials.
+Pooling p = 5 (1/2; 1625 fit trials)
+  SD=  0.000  NLL=   6870.9139  2.2s
+  SD=  0.500  NLL=   5413.6537  1.9s
+  SD=  1.000  NLL=   3926.3120  1.9s
+  SD=  2.000  NLL=   2031.6553  1.9s
+  SD=  4.000  NLL=    932.5079  1.9s
+  SD=  8.000  NLL=    844.0068  1.9s
+  SD= 16.000  NLL=    972.5082  1.9s
+  SD= 32.000  NLL=   1077.5578  1.8s
+  SD= 40.000  NLL=   1095.4411  1.8s
+  SD=  8.584  NLL=    852.6865  2.0s
+  SD= 11.416  NLL=    902.0925  1.9s
+  SD=  6.833  NLL=    832.7735  1.9s
+  SD=  5.751  NLL=    837.6242  1.9s
+  SD=  6.692  NLL=    832.2525  1.9s
+  SD=  6.549  NLL=    832.1293  1.9s
+  SD=  6.578  NLL=    832.1325  1.9s
+  SD=  6.555  NLL=    832.1224  1.9s
+  SD=  6.563  NLL=    832.1254  1.9s
+  SD=  6.558  NLL=    832.1231  1.9s
+  SD=  8.000  NLL=    844.0068  1.9s
+  SD=  6.555  NLL=    832.1224  1.9s
+Pooling p = Inf (2/2; 1625 fit trials)
+  SD=  0.000  NLL=   7036.7001  1.2s
+  SD=  0.500  NLL=   5607.7532  1.1s
+  SD=  1.000  NLL=   4214.0372  1.1s
+  SD=  2.000  NLL=   2348.3656  1.1s
+  SD=  4.000  NLL=   1027.3237  1.1s
+  SD=  8.000  NLL=    835.2053  1.1s
+  SD= 16.000  NLL=    955.5707  1.1s
+  SD= 32.000  NLL=   1075.1119  1.1s
+  SD= 40.000  NLL=   1093.6184  1.1s
+  SD=  8.584  NLL=    838.6415  1.1s
+  SD= 11.416  NLL=    878.8308  1.1s
+  SD=  6.833  NLL=    839.3642  1.1s
+  SD=  7.773  NLL=    834.7162  1.1s
+  SD=  7.745  NLL=    834.6832  1.1s
+  SD=  7.623  NLL=    834.6370  1.1s
+  SD=  7.321  NLL=    835.3304  1.1s
+  SD=  7.649  NLL=    834.6424  1.1s
+  SD=  7.577  NLL=    834.6846  1.1s
+  SD=  7.606  NLL=    834.6575  1.1s
+  SD=  7.633  NLL=    834.6443  1.1s
+  SD=  7.617  NLL=    834.6406  1.1s
+  SD=  7.627  NLL=    834.6384  1.1s
+  SD=  7.620  NLL=    834.6460  1.1s
+  SD=  8.000  NLL=    835.2053  1.1s
+  SD=  7.623  NLL=    834.6370  1.1s
+
+Local outputs: /Users/Shared/Data/IDReadout/IDS/MTReadoutPNormOutput
+Share this compact file: /Users/Shared/Data/IDReadout/IDS/MTReadoutPNormOutput/MTReadoutPNormShare.zip
+Extracting 3/20: IDR4_Meetz_20260819_Probe10.mat (471.2 MB)
+Extracting 4/20: IDR4_Meetz_20260826_Probe10.mat (382.2 MB)
+Extracting 5/20: IDR4_Meetz_20260806_Probe120.mat (93.0 MB)
+Extracting 6/20: IDR4_Meetz_20260831_Probe155.mat (394.3 MB)
+Extracting 7/20: IDR4_Meetz_20260902_Probe155.mat (383.5 MB)
+Extracting 8/20: IDR4_Meetz_20260903_Probe155.mat (426.0 MB)
+Extracting 9/20: IDR4_Meetz_20260820_Probe170.mat (417.6 MB)
+Extracting 10/20: IDR4_Meetz_20260821_Probe170.mat (457.1 MB)
+Extracting 11/20: IDR4_Meetz_20260824_Probe170.mat (460.3 MB)
+Extracting 12/20: IDR4_Meetz_20260812_Probe25.mat (439.4 MB)
+Extracting 13/20: IDR4_Meetz_20260817_Probe25.mat (445.7 MB)
+Extracting 14/20: IDR4_Meetz_20260818_Probe25.mat (464.0 MB)
+Extracting 15/20: IDR4_Meetz_20260805_2_Probe45.mat (51.8 MB)
+Extracting 16/20: IDR4_Meetz_20260805_Probe45.mat (20.3 MB)
+Extracting 17/20: IDR4_Meetz_20260806_1_Probe45.mat (295.8 MB)
+Extracting 18/20: IDR4_Meetz_20260807_Probe45.mat (400.5 MB)
+Extracting 19/20: IDR4_Meetz_20260810_Probe45.mat (398.3 MB)
+Extracting 20/20: IDR4_Meetz_20260811_Probe45.mat (346.8 MB)
+Cache: 2 reused, 18 extracted; 24413 trials.
+Pooling p = 5 (1/2; 15914 fit trials)
+  SD=  0.000  NLL=  73351.1508  18.1s
+  SD=  0.500  NLL=  43055.8064  18.0s
+  SD=  1.000  NLL=  27772.9896  18.0s
+  SD=  2.000  NLL=  13904.8689  18.1s
+  SD=  4.000  NLL=   9015.6976  18.1s
+  SD=  8.000  NLL=   9066.0576  18.0s
+  SD= 16.000  NLL=  10074.7457  17.8s
+  SD= 32.000  NLL=  10735.0112  17.4s
+  SD= 40.000  NLL=  10842.9377  17.2s
+  SD=  4.292  NLL=   8911.8390  18.0s
+  SD=  5.708  NLL=   8779.7939  18.1s
+  SD=  6.584  NLL=   8862.4817  18.1s
+  SD=  5.569  NLL=   8773.1185  18.1s
+  SD=  5.081  NLL=   8771.4865  18.1s
+  SD=  5.302  NLL=   8767.2462  18.0s
+  SD=  5.305  NLL=   8767.3004  18.1s
+  SD=  5.255  NLL=   8767.4400  18.0s
+  SD=  5.284  NLL=   8767.3007  18.1s
+  SD=  5.295  NLL=   8767.2591  18.1s
+  SD=  5.298  NLL=   8767.1967  18.0s
+  SD=  4.000  NLL=   9015.6976  18.0s
+  SD=  5.298  NLL=   8767.1967  18.0s
+Pooling p = Inf (2/2; 15914 fit trials)
+  SD=  0.000  NLL=  75930.0461  10.4s
+  SD=  0.500  NLL=  52713.5668  10.5s
+  SD=  1.000  NLL=  36153.3718  10.6s
+  SD=  2.000  NLL=  17496.2071  10.6s
+  SD=  4.000  NLL=   9453.2206  10.6s
+  SD=  8.000  NLL=   8834.3324  10.7s
+  SD= 16.000  NLL=   9950.3022  10.6s
+  SD= 32.000  NLL=  10704.3185  10.6s
+  SD= 40.000  NLL=  10819.6017  10.7s
+  SD=  8.584  NLL=   8918.9271  10.5s
+  SD= 11.416  NLL=   9369.7396  10.5s
+  SD=  6.833  NLL=   8708.6518  10.5s
+  SD=  5.751  NLL=   8705.1589  10.5s
+  SD=  6.253  NLL=   8687.3376  10.6s
+  SD=  6.268  NLL=   8687.3242  10.4s
+  SD=  6.264  NLL=   8687.3340  10.8s
+  SD=  6.484  NLL=   8691.1628  10.5s
+  SD=  6.350  NLL=   8688.1569  10.5s
+  SD=  6.299  NLL=   8687.6592  10.6s
+  SD=  6.280  NLL=   8687.4641  10.5s
+  SD=  6.272  NLL=   8687.4033  10.6s
+  SD=  8.000  NLL=   8834.3324  10.5s
+  SD=  6.268  NLL=   8687.3242  10.6s
+
+Local outputs: /Users/Shared/Data/IDReadout/IDS/MTReadoutPNormOutput
+Share this compact file: /Users/Shared/Data/IDReadout/IDS/MTReadoutPNormOutput/MTReadoutPNormShare.zip
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe10/AcrossSessionSummaries/IDS_Probe10_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe120/AcrossSessionSummaries/IDS120CN_IDQFixed_All_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe120/AcrossSessionSummaries/IDS120CN_IDQRandom_All_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe120/AcrossSessionSummaries/IDS120CN_IDS_All_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe120/AcrossSessionSummaries/IDS_Probe120_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe155/AcrossSessionSummaries/IDS_Probe155_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe170/AcrossSessionSummaries/IDS_Probe170_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe25/AcrossSessionSummaries/IDS_Probe25_AcrossSessionSummary.mat"
+    "Skipped summary with different/unspecified animal: /Users/Shared/Data/IDReadout/IDS/Data/Probe45/AcrossSessionSummaries/IDS_Probe45_AcrossSessionSummary.mat"
+    "Run plotIDSSummary('Animal','Meetz','IncludeIDQ',false), then recover/export gains."
+

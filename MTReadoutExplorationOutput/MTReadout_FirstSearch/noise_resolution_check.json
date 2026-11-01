@@ -1,0 +1,30 @@
+[
+  {
+    "config": {
+      "style": "balanced",
+      "variance": "proportional",
+      "sigma": 25,
+      "corr": 30,
+      "sd": 5,
+      "p": Infinity,
+      "family": "opponent_delta"
+    },
+    "n": 1152,
+    "mean_difference": 0.0010816786024305555,
+    "rmse": 0.025215050566403368
+  },
+  {
+    "config": {
+      "style": "balanced",
+      "variance": "proportional",
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 2.5,
+      "p": 5,
+      "family": "opponent_delta"
+    },
+    "n": 1152,
+    "mean_difference": 0.0006063646740383572,
+    "rmse": 0.025210635798026616
+  }
+]

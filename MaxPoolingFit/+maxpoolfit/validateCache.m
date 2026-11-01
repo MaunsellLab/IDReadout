@@ -1,0 +1,89 @@
+function validateCache(cache, varargin)
+%VALIDATECACHE Validate structural and scientific invariants of cache v2.
+p = inputParser;
+p.addParameter('AllowEmpty', false, @(x)islogical(x) && isscalar(x));
+p.parse(varargin{:});
+
+required = {'schemaVersion','trials','streamDirDeg','stepCohPC','preCohPC', ...
+  'driftDirDeg','preDriftCohPC'};
+for k = 1:numel(required)
+  assert(isfield(cache,required{k}), 'Cache is missing %s.', required{k});
+end
+assert(string(cache.schemaVersion) == "MaxPoolingTrialCache-v2", ...
+  'Unsupported cache schema: %s', string(cache.schemaVersion));
+assert(istable(cache.trials), 'cache.trials must be a table.');
+
+vars = {'animal','domain','sessionID','trialID','choiceRDK','changeRDK', ...
+  'correct','valid','hasStepNoise','stepSignIndex','isIncrement','kernelFamily'};
+assert(all(ismember(vars,cache.trials.Properties.VariableNames)), ...
+  'cache.trials is missing one or more required variables.');
+n = height(cache.trials);
+assert(p.Results.AllowEmpty || n > 0, 'Cache contains no trials.');
+assert(isequal(size(cache.streamDirDeg),[n 2]), ...
+  'streamDirDeg must be nTrials x 2.');
+assert(isequal(size(cache.stepCohPC),[n 2]), ...
+  'stepCohPC must be nTrials x 2.');
+assert(isequal(size(cache.preCohPC),[n 2]), ...
+  'preCohPC must be nTrials x 2.');
+assert(isequal(size(cache.driftDirDeg),[n 2]), ...
+  'driftDirDeg must be nTrials x 2.');
+assert(isequal(size(cache.preDriftCohPC),[n 2]), ...
+  'preDriftCohPC must be nTrials x 2.');
+
+for t = 1:n
+  for j = 1:2
+    d = cache.streamDirDeg{t,j}; c = cache.stepCohPC{t,j};
+    pCoh = cache.preCohPC{t,j};
+    assert(isnumeric(d) && isnumeric(c) && isnumeric(pCoh) && ...
+      isvector(d) && isvector(c) && isvector(pCoh), ...
+      'Trial %d RDK %d stream fields must be numeric vectors.',t,j);
+    assert(numel(d)==numel(c) && numel(d)==numel(pCoh) && ~isempty(d), ...
+      'Trial %d RDK %d has mismatched or empty streams.',t,j);
+    assert(all(isfinite(d)) && all(isfinite(c)) && all(isfinite(pCoh)), ...
+      'Trial %d RDK %d has nonfinite stream values.',t,j);
+  end
+end
+assert(all(ismember(double(cache.trials.choiceRDK),[1 2])), ...
+  'choiceRDK values must be 1 or 2.');
+assert(all(ismember(double(cache.trials.changeRDK),[1 2])), ...
+  'changeRDK values must be 1 or 2.');
+assert(all(ismember(double(cache.trials.stepSignIndex),[1 2])), ...
+  'stepSignIndex values must be 1 (decrement) or 2 (increment).');
+assert(isequal(logical(cache.trials.isIncrement),cache.trials.stepSignIndex==2), ...
+  'isIncrement must equal (stepSignIndex == 2).');
+assert(all(isfinite(cache.driftDirDeg),'all') && ...
+  all(isfinite(cache.preDriftCohPC),'all'), ...
+  'Drift direction and prestep coherence must be finite.');
+
+if isfield(cache,'raw')
+  rawRequired = {'stepStreamCohPC','kernelDriverByFrame'};
+  for k=1:numel(rawRequired)
+    assert(isfield(cache.raw,rawRequired{k}), 'cache.raw is missing %s.',rawRequired{k});
+  end
+  assert(isequal(size(cache.raw.stepStreamCohPC),[n 2]), ...
+    'raw.stepStreamCohPC must be nTrials x 2.');
+  assert(numel(cache.raw.kernelDriverByFrame)==n, ...
+    'raw.kernelDriverByFrame must contain one vector per trial.');
+end
+
+if isfield(cache,'sourceManifest')
+  M=cache.sourceManifest;
+  manifestVars={'sourceFile','domain','animal','bytes','modifiedDatenum', ...
+    'extractorVersion','nCachedTrials'};
+  assert(istable(M)&&all(ismember(manifestVars,M.Properties.VariableNames)), ...
+    'Incremental sourceManifest is incomplete.');
+  assert(ismember('sourceFile',cache.trials.Properties.VariableNames), ...
+    'Manifest-backed cache trials must contain sourceFile.');
+  source=string(cache.trials.sourceFile); manifestSource=string(M.sourceFile);
+  assert(numel(unique(manifestSource))==height(M),'sourceManifest paths must be unique.');
+  assert(all(ismember(source,manifestSource)), ...
+    'One or more cached trials have no sourceManifest entry.');
+  for k=1:height(M)
+    assert(sum(source==manifestSource(k))==M.nCachedTrials(k), ...
+      'Manifest trial count differs for %s.',manifestSource(k));
+  end
+  keys=source+"|"+string(cache.trials.trialID);
+  assert(numel(unique(keys))==numel(keys), ...
+    'Duplicate sourceFile/trialID rows detected in incremental cache.');
+end
+end

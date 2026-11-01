@@ -1,0 +1,43 @@
+function info = idlAllocationConfiguration(blockStatus)
+% Classify one recorded block configuration; repeated 50:50 slots collapse.
+while isstruct(blockStatus) && isfield(blockStatus,'data')
+  blockStatus = blockStatus.data;
+end
+assert(isstruct(blockStatus) && isscalar(blockStatus), ...
+  'idlAllocationConfiguration:BlockStatus','Expected one blockStatus snapshot.');
+B = blockStatus;
+required = {'numAllocs','allocEnabled','alloc0','alloc1'};
+assert(all(isfield(B,required)), 'idlAllocationConfiguration:MissingFields', ...
+  'blockStatus lacks the allocation configuration fields.');
+n = double(B.numAllocs);
+assert(isscalar(n) && isfinite(n) && n>=1 && n==round(n) && ...
+  all([numel(B.allocEnabled),numel(B.alloc0),numel(B.alloc1)]>=n), ...
+  'idlAllocationConfiguration:SlotCount','Invalid allocation slot count.');
+enabled = double(B.allocEnabled(1:n));
+assert(all(ismember(enabled,[0 1])), ...
+  'idlAllocationConfiguration:EnabledFlags','allocEnabled must contain BOOL values.');
+indices = find(enabled~=0);
+a0 = double(B.alloc0(indices)); a1 = double(B.alloc1(indices));
+assert(~isempty(indices) && all(isfinite(a0)) && all(isfinite(a1)) && ...
+  all(a0>=0) && all(a1>=0) && all(abs(a0+a1-1)<1e-6), ...
+  'idlAllocationConfiguration:AllocationValues','Invalid enabled allocation values.');
+ratio = 1;
+if isfield(B,'splitUnsplitRatio')
+  assert(isnumeric(B.splitUnsplitRatio) || islogical(B.splitUnsplitRatio), ...
+    'idlAllocationConfiguration:Ratio','splitUnsplitRatio must be numeric.');
+  ratio = double(B.splitUnsplitRatio);
+end
+assert(isscalar(ratio) && isfinite(ratio) && ratio>0, ...
+  'idlAllocationConfiguration:Ratio','splitUnsplitRatio must be finite and positive.');
+two = abs(ratio-1)>1e-9;
+allocationPC = sort(unique(round(100*max(a0(:),a1(:)),6)),'descend')';
+expected = [100 75 62.5 50];
+style = 'FourAllocations';
+if two, expected = [100 50]; style = 'TwoAllocations'; end
+assert(isequal(allocationPC,expected), ...
+  'idlAllocationConfiguration:IncompatibleAllocations', ...
+  'splitUnsplitRatio=%g requires allocations %s; enabled allocations are %s.', ...
+  ratio,mat2str(expected),mat2str(allocationPC));
+info = struct('twoAllocationMode',logical(two),'allocationStyle',style, ...
+  'splitUnsplitRatio',ratio,'enabledAllocationPC',allocationPC);
+end

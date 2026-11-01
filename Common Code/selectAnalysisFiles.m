@@ -14,6 +14,9 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 % and excluded probe directions, but otherwise all decisions are based on 
 % header content
 %
+% Hard exclusions specified by a parent-session stem also apply to its
+% ProbeSession derivatives (including the IDQ ProbeSession filename prefix).
+%
 % Typically this function is used by passing a dataFolder and an animal
 % specification.
 %
@@ -22,13 +25,21 @@ function [files, fileInfo] = selectAnalysisFiles(dataFolders, varargin)
 %   Bin180Into179                     count 179° and 180° as a single offset
 %   FilePattern                       default '*.mat'
 %   HardExcludeFileNames              filenames excluded before loading
+%   IncludeIDQ                        include IDQ Probe120 sessions when an
+%                                     IDS Probe120/ProbeSessions folder is selected
+%   LoadMetadata                      load headers and apply metadata filters
+%                                     (default true); false applies only hard
+%                                     filename/path exclusions
 %   MaxParentNProbeDirections         maximum parent n-probe-directions
 %   MinParentNProbeDirections         minimum parent n-probe-directions
 %   MultipleProbeDirections           >1 parent probe direction
 %   ParentNProbeDirections            exact parent n-probe-direction match
 %   ProbeDirDeg                       require this derived probe direction
+%   RandomBaseDir                     [] for either mode, or logical scalar
 %   ReportExcluded                    print excluded files and reasons
 %   SingleProbeDirection              maximum 1 parent probe direction
+%   SourceDomain                      'All', 'IDQ', 'IDS', etc.
+%   TwoAllocationMode                 [] for either IDL style; false/true to select
 
 if isstring(dataFolders) || ischar(dataFolders)
   dataFolders = {char(dataFolders)};
@@ -36,10 +47,12 @@ end
 P = makeParser();
 parse(P, dataFolders, varargin{:});
 R = P.Results;
+validateLoadMetadataOptions(R);
+R.dataFolders = includeRelatedIDQFolders(R.dataFolders, R.IncludeIDQ);
 
 % collect selected files from all folders
-fileInfo = [];
-excludedInfo = [];
+fileInfo = emptyFileInfoTable();
+excludedInfo = emptyExcludeTable();
 for dIndex = 1:numel(R.dataFolders)
 
   % Special execution is implemented for Bin180Into179, which combines
@@ -103,6 +116,7 @@ for k = 1:numel(D)
     % end
     filePath = fullfile(D(k).folder, fileName);
 
+
     % check for any path string exclusions -- used for excluded probe
     % directions and info files
     if any(contains(filePath, hardExcludedStrings))
@@ -110,11 +124,19 @@ for k = 1:numel(D)
       continue;
     end
 
-    % Hard filename exclusions happen before loading metadata.
-    % Match the filename stem exactly, not just the beginning of the name.
+    % Hard filename exclusions happen before loading metadata. ProbeSession
+    % derivatives also match the exact stem of their parent session.
     [~, fileStem, ~] = fileparts(fileName);
-    if any(strcmpi(fileStem, hardExcludeNames))
+    if isHardExcludedFileStem(fileStem, hardExcludeNames)
       excludedRows{end+1} = makeExcludedReportRow(filePath, {'hard filename exclusion'}); %#ok<AGROW>
+      continue;
+    end
+
+    % A filename-only scan is used by the incremental max-pooling cache. It
+    % deliberately stops here so unchanged MAT files are never opened.
+    if ~R.LoadMetadata
+      fileInfoRow = fileInfoFromPathOnly(filePath,dataFolder,fileName);
+      selectedRows{end+1} = fileInfoRow; %#ok<AGROW>
       continue;
     end
 
@@ -123,13 +145,60 @@ for k = 1:numel(D)
     % Any pattern ending in .mat names analysis MAT files and should receive
     % metadata-based filtering (for example '*_sessionAnalysis.mat').
     if ~endsWith(char(R.FilePattern), '.mat', 'IgnoreCase', true)
-      fileInfoRow = table({filePath}, {dataFolder}, {fileStem}, 'VariableNames', {'filePath','folder','fileName'});
+      fileInfoRow = fileInfoFromPathOnly(filePath,dataFolder,fileName);
       selectedRows{end+1} = fileInfoRow; %#ok<AGROW>
       continue;
     end
 
     row = fileInfoFromAnalysisFile(filePath);
     excludeReasons = {};
+
+    % IDQ-derived analyses are stored in the IDS analysis tree so that all
+    % later IDS stages use one layout. Permit an IDS-only selection without
+    % relying on filename conventions.
+    if ~R.IncludeIDQ && isIDSDataFolder(dataFolder) && ...
+        strcmpi(row.sourceDomain{1}, 'IDQ')
+      excludeReasons{end+1} = 'IDQ-derived session excluded'; %#ok<AGROW>
+    end
+
+    if ~strcmpi(char(R.SourceDomain), 'All')
+      if isempty(row.sourceDomain{1})
+        error('selectAnalysisFiles:MissingSourceDomain', ...
+          'Selection by SourceDomain requires sourceDomain metadata in %s.', filePath);
+      end
+      if ~strcmpi(row.sourceDomain{1}, char(R.SourceDomain))
+        excludeReasons{end+1} = sprintf('sourceDomain %s != %s', ...
+          row.sourceDomain{1}, char(R.SourceDomain)); %#ok<AGROW>
+      end
+    end
+
+    if ~isempty(R.TwoAllocationMode)
+      if ~strcmpi(row.sourceDomain{1},'IDL')
+        excludeReasons{end+1} = 'TwoAllocationMode selects IDL sessions only'; %#ok<AGROW>
+      elseif ~isfinite(row.twoAllocationMode)
+        error('selectAnalysisFiles:MissingIDLAllocationMode', ...
+          'IDL allocation header is missing in %s. Run makeIDLSessionAnalyses first.',filePath);
+      elseif logical(row.twoAllocationMode)~=R.TwoAllocationMode
+        excludeReasons{end+1} = 'different IDL allocation style'; %#ok<AGROW>
+      end
+    end
+
+    % RandomBaseDir is an IDQ subgroup criterion in the current analysis.
+    % Do not require that metadata from files already excluded by an
+    % explicit SourceDomain selection (for example, native IDS files while
+    % selecting randomized IDQ sessions).
+    domainMatches = strcmpi(char(R.SourceDomain), 'All') || ...
+      strcmpi(row.sourceDomain{1}, char(R.SourceDomain));
+    if ~isempty(R.RandomBaseDir) && domainMatches
+      if ~isfinite(row.randomBaseDir)
+        error('selectAnalysisFiles:MissingRandomBaseDir', ...
+          'Selection by RandomBaseDir requires randomBaseDir metadata in %s.', filePath);
+      end
+      if logical(row.randomBaseDir) ~= R.RandomBaseDir
+        excludeReasons{end+1} = sprintf('randomBaseDir %d != %d', ...
+          logical(row.randomBaseDir), R.RandomBaseDir); %#ok<AGROW>
+      end
+    end
 
     if ~isempty(R.Animal)
       if isempty(row.animal)
@@ -140,6 +209,18 @@ for k = 1:numel(D)
           excludeReasons{end+1} = sprintf('animal %s != %s', char(row.animal), R.Animal); %#ok<AGROW>
       end
     end
+
+    % if ~isempty(R.PrefCohNoisePC)
+    %   if ~isfinite(row.prefCohNoisePC)
+    %     error('selectAnalysisFiles:MissingPrefCohNoisePC', ...
+    %       'Selection by PrefCohNoisePC requires sessionProbeHeader.PrefCohNoisePC in %s.', filePath);
+    %   end
+    % 
+    %   if abs(row.prefCohNoisePC - R.PrefCohNoisePC) > 1e-9
+    %     excludeReasons{end+1} = sprintf('prefCohNoisePC %.6g != %.6g', ...
+    %       row.prefCohNoisePC, R.PrefCohNoisePC); %#ok<AGROW>
+    %   end
+    % end
 
     if ~isempty(R.ProbeDirDeg)
         if ~isfinite(row.probeDirDeg)
@@ -223,33 +304,122 @@ addRequired(P,  'dataFolders', @(x) iscell(x) && ~isempty(x));
 addParameter(P, 'Animal', 'All', @(x) ischar(x) || isstring(x));
 addParameter(P, 'Bin180Into179', true, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'FilePattern', '*.mat', @(x) ischar(x) || isstring(x));
+addParameter(P, 'IncludeIDQ', true, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'LoadMetadata', true, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'MaxParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'MinParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'MultipleProbeDirections', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'ParentNProbeDirections', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+% addParameter(P, 'PrefCohNoisePC', 5, @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 addParameter(P, 'ProbeDirDeg', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+addParameter(P, 'RandomBaseDir', [], ...
+  @(x) isempty(x) || (islogical(x) && isscalar(x)));
 addParameter(P, 'ReportExcluded', false, @(x) islogical(x) && isscalar(x));
 addParameter(P, 'SingleProbeDirection', false, @(x) islogical(x) && isscalar(x));
+addParameter(P, 'SourceDomain', 'All', @(x) ischar(x) || isstring(x));
+addParameter(P, 'TwoAllocationMode', [], ...
+  @(x) isempty(x) || (islogical(x) && isscalar(x)));
 
+% addParameter(P, 'HardExcludeFileNames', { ...
+%     'IDReadout_Meetz_20260114', ...
+%     'IDReadout_Meetz_20260114_2', ...
+%     'IDReadout_Meetz_20260114_3', ...
+%     'IDReadout_Meetz_20260303', ...
+%     'IDReadout_Meetz_20260304', ...
+%     'IDReadout_Meetz_20260305', ...
+%     'IDReadout_Meetz_20260306', ...
+%     'IDReadout_Meetz_20260309', ...
+%     'IDReadout_Meetz_20260310', ...
+%     'IDReadout_Meetz_20260311', ...
+%     'IDReadout_Meetz_20260312', ...
+%     }, @(x) iscellstr(x) || isstring(x));
 addParameter(P, 'HardExcludeFileNames', { ...
-    'IDReadout_Meetz_20260114', ...
-    'IDReadout_Meetz_20260114_2', ...
-    'IDReadout_Meetz_20260114_3', ...
-    'IDReadout_Meetz_20260303', ...
-    'IDReadout_Meetz_20260304', ...
-    'IDReadout_Meetz_20260305', ...
-    'IDReadout_Meetz_20260306', ...
-    'IDReadout_Meetz_20260309', ...
-    'IDReadout_Meetz_20260310', ...
-    'IDReadout_Meetz_20260311', ...
-    'IDReadout_Meetz_20260312', ...
-    }, @(x) iscellstr(x) || isstring(x));
+  'IDReadout_Meetz_20260114', ...
+  'IDReadout_Meetz_20260114_2', ...
+  'IDReadout_Meetz_20260114_3', ...
+  }, @(x) iscellstr(x) || isstring(x));
 
 addParameter(P, 'HardExcludeNameStrings', { ...
   '_fileInfo.mat', ...
   'Probe1/', ...
   }, @(x) iscellstr(x) || isstring(x));
 
+end
+
+% -------------------------------------------------------------------------
+function validateLoadMetadataOptions(R)
+% Filename-only mode supports hard exclusions, not header-based criteria.
+
+if R.LoadMetadata
+  return
+end
+hasMetadataCriterion = ~strcmpi(char(R.Animal),'All') || ...
+  ~strcmpi(char(R.SourceDomain),'All') || ~isempty(R.RandomBaseDir) || ...
+  ~isempty(R.TwoAllocationMode) || ...
+  ~isempty(R.ProbeDirDeg) || ~isempty(R.ParentNProbeDirections) || ...
+  ~isempty(R.MinParentNProbeDirections) || ...
+  ~isempty(R.MaxParentNProbeDirections) || R.SingleProbeDirection || ...
+  R.MultipleProbeDirections;
+if hasMetadataCriterion
+  error('selectAnalysisFiles:MetadataDisabled', ...
+    ['LoadMetadata=false cannot be combined with Animal or header-based ' ...
+     'selection criteria. Filter the filename-only result separately.']);
+end
+end
+
+% -------------------------------------------------------------------------
+function tf = isHardExcludedFileStem(fileStem, hardExcludeNames)
+% Match either the derived filename or its parent-session filename stem.
+% ProbeSessionIDR3_X_Probe120 -> IDR3_X
+% IDReadout2_X_Probe25        -> IDReadout2_X
+
+candidate = char(fileStem);
+parentCandidate = regexprep(candidate, '^ProbeSession', '', 'ignorecase');
+parentCandidate = regexprep(parentCandidate, ...
+  '_Probe[-+]?\d+(?:\.\d+)?$', '', 'ignorecase');
+tf = any(strcmpi(candidate,hardExcludeNames)) || ...
+  any(strcmpi(parentCandidate,hardExcludeNames));
+end
+
+% -------------------------------------------------------------------------
+function folders = includeRelatedIDQFolders(folders, includeIDQ)
+% Add IDQ/Data/Probe120 for selections rooted at
+% IDS/Data/Probe120/ProbeSessions. Other IDS folders and explicit IDQ
+% selections are unchanged.
+
+if ~includeIDQ
+  return
+end
+
+related = {};
+for k = 1:numel(folders)
+  folder = char(folders{k});
+  [probeFolder, leaf] = fileparts(stripTrailingFilesep(folder));
+  [dataFolder, probeTag] = fileparts(probeFolder);
+  [domainFolderPath, dataLeaf] = fileparts(dataFolder);
+  [domainsFolder, domainLeaf] = fileparts(domainFolderPath);
+  if strcmpi(leaf, 'ProbeSessions') && strcmpi(probeTag, 'Probe120') && ...
+      strcmpi(dataLeaf, 'Data') && strcmpi(domainLeaf, 'IDS')
+    idqFolder = fullfile(domainsFolder, 'IDQ', 'Data', 'Probe120');
+    if isfolder(idqFolder)
+      related{end + 1} = idqFolder; %#ok<AGROW>
+    end
+  end
+end
+folders = unique([folders(:); related(:)], 'stable');
+end
+
+% -------------------------------------------------------------------------
+function folder = stripTrailingFilesep(folder)
+while numel(folder) > 1 && (folder(end) == '/' || folder(end) == '\')
+  folder(end) = [];
+end
+end
+
+% -------------------------------------------------------------------------
+function tf = isIDSDataFolder(folder)
+folder = strrep(stripTrailingFilesep(char(folder)), '\', '/');
+tf = contains(folder, '/IDS/Data/');
 end
 
 % -------------------------------------------------------------------------
@@ -312,14 +482,30 @@ end
 %% -------------------------------------------------------------------------
 function T = emptyFileInfoTable()
 T = table( ...
-    cell(0,1), cell(0,1), cell(0,1), cell(0,1), ...
-    zeros(0,1), cell(0,1), zeros(0,1), cell(0,1), ...
+    cell(0,1), cell(0,1), cell(0,1), cell(0,1), cell(0,1), ...
+    zeros(0,1), zeros(0,1), cell(0,1), zeros(0,1), cell(0,1), ...
     false(0,1), false(0,1), ...
     zeros(0,1), zeros(0,1), zeros(0,1), zeros(0,1), cell(0,1), ...
-    'VariableNames', {'filePath', 'folder', 'fileName', 'animal', ...
-    'probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
+    'VariableNames', {'filePath', 'folder', 'fileName', 'animal', 'sourceDomain', ...
+    'randomBaseDir','probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
     'parentIsSingleProbe','parentIsInterleavedProbe', ...
     'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
+T.twoAllocationMode = nan(0,1);
+end
+
+% -------------------------------------------------------------------------
+function row = fileInfoFromPathOnly(filePath,dataFolder,fileName)
+% Preserve the normal fileInfo schema without opening the selected file.
+
+row = table( ...
+    {filePath}, {dataFolder}, {fileName}, {''}, {''}, ...
+    nan, nan, {''}, nan, {[]}, false, false, ...
+    nan, nan, nan, nan, {''}, ...
+    'VariableNames', {'filePath', 'folder', 'fileName', 'animal', 'sourceDomain', ...
+    'randomBaseDir','probeDirDeg','probeTag','parentNProbeDirections','parentProbeDirectionsDeg', ...
+    'parentIsSingleProbe','parentIsInterleavedProbe', ...
+    'prefCohNoisePC','probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
+row.twoAllocationMode = NaN;
 end
 
 %% -------------------------------------------------------------------------
@@ -352,16 +538,17 @@ H = S.sessionHeader;
 nTrials = firstHeaderValue(H, {'numberOfTrials','nTrials'}, nan);
 nNoiseTrials = firstHeaderValue(H, {'nNoiseTrials'}, nan);
 animal = firstHeaderValue(H, {'animal','subject'}, '');
+sourceDomain = firstHeaderValue(H, {'sourceDomain'}, '');
+randomBaseDir = firstHeaderValue(H, {'randomBaseDir'}, nan);
 parentFileName = firstHeaderValue(H, {'fileName'}, fileNameExt);
-parentProbeDirectionsDeg = firstHeaderValue(H, ...
-  {'probeDirectionsDeg','probeOffsetsDeg'}, []);
-parentNProbeDirections = firstHeaderValue(H, ...
-  {'nProbeDirections','nProbeOffsets'}, nan);
-prefCohNoisePC = firstHeaderValue(H, ...
-  {'prefCohNoisePC','noiseAmplitudePC','cohNoisePC'}, nan);
+parentProbeDirectionsDeg = firstHeaderValue(H, {'probeDirectionsDeg','probeOffsetsDeg'}, []);
+parentNProbeDirections = firstHeaderValue(H, {'nProbeDirections','nProbeOffsets'}, nan);
+prefCohNoisePC = firstHeaderValue(H, {'prefCohNoisePC','noiseAmplitudePC','cohNoisePC'}, nan);
 
 if isfield(S, 'sessionProbeHeader')
   P = S.sessionProbeHeader;
+  sourceDomain = firstHeaderValue(P, {'sourceDomain'}, sourceDomain);
+  randomBaseDir = firstHeaderValue(P, {'randomBaseDir'}, randomBaseDir);
   if isempty(parentProbeDirectionsDeg)
     parentProbeDirectionsDeg = firstHeaderValue(P, ...
       {'parentProbeDirectionsDeg','parentProbeOffsetsDeg'}, []);
@@ -389,13 +576,22 @@ else
 end
 
 fileInfoRow = table( ...
-{filePath}, {folder}, {fileNameExt}, ...
-{animal}, probeDirDeg, {probeTag}, parentNProbeDirections, {parentProbeDirectionsDeg}, ...
-parentIsSingleProbe, parentIsInterleavedProbe, ...
+{filePath}, {folder}, {fileNameExt}, {animal}, {sourceDomain}, double(randomBaseDir), ...
+probeDirDeg, {probeTag}, parentNProbeDirections, ...
+{parentProbeDirectionsDeg}, parentIsSingleProbe, parentIsInterleavedProbe, ...
 prefCohNoisePC, probeCohNoisePC, nTrials, nNoiseTrials, {parentFileName}, ...
-'VariableNames', {'filePath','folder','fileName', 'animal', 'probeDirDeg','probeTag','parentNProbeDirections', ...
+'VariableNames', {'filePath','folder','fileName', 'animal', 'sourceDomain', 'randomBaseDir', ...
+        'probeDirDeg','probeTag','parentNProbeDirections', ...
         'parentProbeDirectionsDeg', 'parentIsSingleProbe','parentIsInterleavedProbe', 'prefCohNoisePC', ...
         'probeCohNoisePC','nTrials','nNoiseTrials','parentFileName'});
+fileInfoRow.twoAllocationMode = NaN;
+if isfield(H,'twoAllocationMode')
+  value = firstHeaderValue(H,{'twoAllocationMode'},NaN);
+  assert(isscalar(value) && (isnumeric(value) || islogical(value)) && ...
+    ismember(double(value),[0 1]), 'selectAnalysisFiles:IDLAllocationMode', ...
+    'Invalid twoAllocationMode in %s.',filePath);
+  fileInfoRow.twoAllocationMode = double(value);
+end
 end
 
 %% -------------------------------------------------------------------------

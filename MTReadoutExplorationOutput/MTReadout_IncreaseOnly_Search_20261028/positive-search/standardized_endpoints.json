@@ -1,0 +1,110 @@
+[
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "reference_p5"
+    },
+    "offset": 0,
+    "n": 1500,
+    "ratio": 1.0005174243911206,
+    "gains": [
+      0.78151791475406,
+      0.7819222911852514
+    ],
+    "accuracy": 0.6968225606282552,
+    "fit_ok": true,
+    "design": "IDS10 trials with probe directions reassigned; all other stimulus fields fixed"
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "reference_p5"
+    },
+    "offset": 180,
+    "n": 1500,
+    "ratio": 0.14689724299170617,
+    "gains": [
+      1.1095758786491596,
+      0.1629936374636615
+    ],
+    "accuracy": 0.7929914042154947,
+    "fit_ok": true,
+    "design": "IDS10 trials with probe directions reassigned; all other stimulus fields fixed"
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "offset": 0,
+    "n": 1500,
+    "ratio": 1.005329043307123,
+    "gains": [
+      0.6941058172727825,
+      0.6978047372327552
+    ],
+    "accuracy": 0.6783915100097656,
+    "fit_ok": true,
+    "design": "IDS10 trials with probe directions reassigned; all other stimulus fields fixed"
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "offset": 180,
+    "n": 1500,
+    "ratio": 0.3557395426507348,
+    "gains": [
+      1.04767822359622,
+      0.3727005721072536
+    ],
+    "accuracy": 0.8059985555013021,
+    "fit_ok": true,
+    "design": "IDS10 trials with probe directions reassigned; all other stimulus fields fixed"
+  }
+]

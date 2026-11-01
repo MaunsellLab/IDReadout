@@ -1,0 +1,242 @@
+[
+  {
+    "config": {
+      "family": "opponent_delta",
+      "p": 3,
+      "sigma": 25,
+      "corr": 30,
+      "style": "balanced",
+      "variance": "proportional",
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5330.497250346362,
+        0
+      ],
+      [
+        3314.678224594063,
+        0.5
+      ],
+      [
+        1998.843087576276,
+        1
+      ],
+      [
+        1370.2671061159879,
+        1.5
+      ],
+      [
+        934.8225556350922,
+        2.5
+      ],
+      [
+        849.3672379619015,
+        4
+      ],
+      [
+        904.0959661597478,
+        6
+      ],
+      [
+        986.0264113217097,
+        9
+      ],
+      [
+        1061.720339087197,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7120463111881828,
+        "choice_nll": 844.1827330201626
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.703033201156124,
+        "choice_nll": 912.3545013666085
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6798402998182509,
+        "choice_nll": 962.7948114979308
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6760386400623113,
+        "choice_nll": 979.3765580102331
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "opponent_delta",
+      "p": 5,
+      "sigma": 25,
+      "corr": 30,
+      "style": "balanced",
+      "variance": "proportional",
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5318.984334881456,
+        0
+      ],
+      [
+        3330.5722913064865,
+        0.5
+      ],
+      [
+        2023.7794623191216,
+        1
+      ],
+      [
+        1403.5047751088796,
+        1.5
+      ],
+      [
+        944.8645667790739,
+        2.5
+      ],
+      [
+        846.6393323405508,
+        4
+      ],
+      [
+        891.3119563049247,
+        6
+      ],
+      [
+        969.0820955580796,
+        9
+      ],
+      [
+        1044.1436118592248,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7200088895827343,
+        "choice_nll": 840.4531764853998
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.7117339103452621,
+        "choice_nll": 910.0116128771856
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6877148063094528,
+        "choice_nll": 961.1985311026101
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6835437004699181,
+        "choice_nll": 977.0753834876879
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "opponent_delta",
+      "p": Infinity,
+      "sigma": 25,
+      "corr": 30,
+      "style": "balanced",
+      "variance": "proportional",
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5353.523081276226,
+        0
+      ],
+      [
+        3315.763663381574,
+        0.5
+      ],
+      [
+        2039.83599286352,
+        1
+      ],
+      [
+        1412.0921878595736,
+        1.5
+      ],
+      [
+        952.519052483776,
+        2.5
+      ],
+      [
+        844.0033619924495,
+        4
+      ],
+      [
+        879.5612900540892,
+        6
+      ],
+      [
+        951.6282619686099,
+        9
+      ],
+      [
+        1025.5399473427283,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7279548140487978,
+        "choice_nll": 837.1743784997442
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.7223356747956869,
+        "choice_nll": 909.3830339084108
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6998030344645182,
+        "choice_nll": 959.9564676868388
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6963438677883751,
+        "choice_nll": 973.9137204159049
+      }
+    ]
+  }
+]

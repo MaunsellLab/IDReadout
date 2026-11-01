@@ -1,0 +1,12 @@
+[
+  {
+    "p": 5,
+    "meanAbsoluteProbabilityDifference": 3.446150603826851e-07,
+    "maxAbsoluteProbabilityDifference": 6.103515625e-05
+  },
+  {
+    "p": "Inf",
+    "meanAbsoluteProbabilityDifference": 7.252232492942284e-05,
+    "maxAbsoluteProbabilityDifference": 0.0003662109375
+  }
+]

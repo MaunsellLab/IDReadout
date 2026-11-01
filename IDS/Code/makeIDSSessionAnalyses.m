@@ -4,6 +4,7 @@ function sessionAnalysisAll = makeIDSSessionAnalyses(varargin)
 p = inputParser;
 p.addParameter('Replace', false, @islogical);
 p.addParameter('Verbose', true, @islogical);
+p.addParameter('IncludeIDQ', true, @(x) islogical(x) && isscalar(x));
 p.parse(varargin{:});
 opts = p.Results;
 
@@ -17,7 +18,7 @@ for iDir = 1:numel(probeDirs)
   if ~isfolder(sourceFolder)
     continue
   end
-  dataFilePaths = selectAnalysisFiles(sourceFolder);
+  dataFilePaths = selectAnalysisFiles(sourceFolder, 'IncludeIDQ', opts.IncludeIDQ);
   analysisFolder = validFolder(fullfile(root, 'Data', probeTag, 'SessionAnalysis'));
   for iFile = 1:numel(dataFilePaths)
     sourcePath = dataFilePaths{iFile};
@@ -145,8 +146,11 @@ for k = 1:m
 end
 assert(all(D.probeOffsetDeg == expectedOffset), ...
   'makeIDSSessionAnalyses:MixedProbeOffsets', 'Probe session contains mixed offsets.');
-assert(all(abs(D.cohNoisePC - 10/sqrt(2)) < 1e-3), ...
-  'makeIDSSessionAnalyses:UnexpectedNoiseAmplitude', 'Expected 7.071%% noise amplitude.');
+noiseAmplitudes = unique(round(D.cohNoisePC(isfinite(D.cohNoisePC)), 6));
+assert(isscalar(noiseAmplitudes) && noiseAmplitudes > 0, ...
+  'makeIDSSessionAnalyses:UnexpectedNoiseAmplitude', ...
+  'Expected one positive noise amplitude within a session; found %s.', ...
+  mat2str(noiseAmplitudes));
 end
 
 function [noise, tMS, stepFrames] = extractNoise(trials, D, header)

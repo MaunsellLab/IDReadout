@@ -1,0 +1,18 @@
+[
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": 5,
+    "noise": "gaussian",
+    "branch": "normalization",
+    "name": "norm_broad_strong_p5",
+    "norm_strength": 0.85,
+    "norm_sigma": 140
+  }
+]

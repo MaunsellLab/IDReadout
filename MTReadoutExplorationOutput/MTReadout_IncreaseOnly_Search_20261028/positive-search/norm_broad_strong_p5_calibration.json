@@ -1,0 +1,7 @@
+{
+  "preferred_max_fraction_dynamic_range": 0.16340066492557526,
+  "null_max_fraction_dynamic_range": 0.11654222756624222,
+  "low_coherence_0_30_max_response_error": 2.135866165161133,
+  "preferred_15_error": 0.0,
+  "output_tuning_15_rms_error": 0.5540485978126526
+}

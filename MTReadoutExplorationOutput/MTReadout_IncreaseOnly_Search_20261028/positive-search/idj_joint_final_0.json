@@ -1,0 +1,52 @@
+[
+  {
+    "config": {
+      "sigma": 18,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 7.5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 3,
+      "p": 5,
+      "idr_p": 2,
+      "noise": "gaussian",
+      "branch": "joint_local",
+      "name": "joint_final_0",
+      "transfer_p": [
+        2,
+        5
+      ],
+      "idj_p": [
+        5
+      ]
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.73037209052886
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.7376759964200209
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.7446294713903356
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.7569828921861522
+      }
+    ]
+  }
+]

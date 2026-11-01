@@ -1,10 +1,10 @@
-function updateIDQ()
+function updateIDQ(varargin)
 % updateIDQ
 
 %% convertIDQData
 % converts dat to mat
 
-convertIDQData();
+convertIDQData(varargin{:});
 
 %% preprocessIDQSession 
 % creates sessionHeader
@@ -15,5 +15,4 @@ preprocessIDQSession();
 % creates session summaries
 
 plotIDQSummary();
-
 

@@ -277,7 +277,7 @@ stepPatch(4) = plotKernel(kernelAx(4), acrossSummary.kernel, allColor);
 
 for d = 1:3
   kernelAx(d + 4) = nexttile(tl, d+  8);
-  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), acrossSummary.relKernels{d}, relColor, d == 1, false);
+  stepPatch(d + 4) = plotKernel(kernelAx(d + 4), acrossSummary.relKernels{d}, relColor, d == 3, false);
 end
 
 yl = cell2mat(get(kernelAx, 'YLim'));
@@ -449,6 +449,7 @@ txt = '';
 for d = 1:numel(gains)
   txt = [txt, sprintf('%s: %.2f\n', fit.predictorNames{d}, gains(d))]; %#ok<AGROW>
 end
+txt = [txt, '(95% CI)']; 
 text(ax, 0.98, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', ...
   'FontSize', 8);
 end

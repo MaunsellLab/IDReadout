@@ -42,11 +42,103 @@ for fi = 1:numel(paths)
     end
   end
 
+  % correct mis-assignment of stepNoisePC that occurred in some early IDS dat files.
+  d = datetime(strtrim(string(header.date)), 'InputFormat', 'MMMM d, yyyy');
+  if d < datetime(2026, 8, 12) 
+    [header, trials] = correctStepNoisePC(header, trials);
+  end
+
   % Save header, sessionHeader, and trials; use -v7.3 if these can get large
   sessionHeader = makeSessionHeader(header);
   save(outFileName, 'trials', 'header', 'sessionHeader');
   fprintf('      Saved %s\n', outFileName);
 end
+end
+
+% Early IDS versions added cohNoisePC to stepCohPC when constructing the
+% displayed drift-direction step, even though stepCohPC was already an
+% endpoint coherence. Correct the derived trial records to describe the
+% coherences actually displayed; the primary .dat files remain unchanged.
+
+function [header, trials] = correctStepNoisePC(header, trials)
+
+correctionName = 'IDSStepCoherenceDoubleBase';
+correctionVersion = 1;
+
+if isfield(header, 'dataCorrections') && isfield(header.dataCorrections, correctionName)
+  error('convertIDSData:CorrectionAlreadyApplied', ...
+    'Correction %s has already been applied.', correctionName);
+end
+nCorrected = 0;
+nSkipped = 0;
+pedestalValuesPC = nan(1, numel(trials));
+for t = 1:numel(trials)
+  if ~isfield(trials{t}, 'trial')
+    nSkipped = nSkipped + 1;
+    continue;
+  end
+
+  % readLLFile normally wraps event values in a scalar struct with a data
+  % field. Also accept an unwrapped trial descriptor for compatibility.
+  trialEvent = trials{t}.trial;
+  wrappedEvent = isstruct(trialEvent) && isscalar(trialEvent) && isfield(trialEvent, 'data');
+  if wrappedEvent
+    trialDesc = trialEvent.data;
+  else
+    trialDesc = trialEvent;
+  end
+
+  if ~isstruct(trialDesc) || ~isscalar(trialDesc) || ~isfield(trialDesc, 'cohNoisePC')
+    error('convertIDSData:InvalidTrialDescriptor', ...
+      'Trial %d does not contain a scalar trial descriptor with cohNoisePC.', t);
+  end
+
+  % Support both the current TrialDesc field names and the older analysis
+  % aliases. A matched pair is required so that endpoint and baseline retain
+  % the same convention.
+  if isfield(trialDesc, 'baseNoisePC') && isfield(trialDesc, 'stepNoisePC')
+    baseField = 'baseNoisePC';
+    stepField = 'stepNoisePC';
+  elseif isfield(trialDesc, 'baseCohPC') && isfield(trialDesc, 'stepCohPC')
+    baseField = 'baseCohPC';
+    stepField = 'stepCohPC';
+  else
+    error('convertIDSData:MissingCoherenceFields', ...
+      'Trial %d lacks a matching base/step coherence field pair.', t);
+  end
+
+  % cohNoisePC is 7.071% on ordinary trials and zero on instruction trials.
+  % Using the trial value avoids altering instruction trials and also handles
+  % any affected sessions collected with a different noise amplitude.
+  pedestalPC = trialDesc.cohNoisePC;
+  trialDesc.(baseField) = pedestalPC;
+  trialDesc.(stepField) = trialDesc.(stepField) + pedestalPC;
+  pedestalValuesPC(t) = double(pedestalPC);
+  nCorrected = nCorrected + 1;
+
+  if wrappedEvent
+    trials{t}.trial.data = trialDesc;
+  else
+    trials{t}.trial = trialDesc;
+  end
+end
+
+correction = struct();
+correction.applied = true;
+correction.correctionVersion = correctionVersion;
+correction.appliedDate = datetime('now');
+correction.nTrialsCorrected = nCorrected;
+correction.nTrialsSkippedWithoutTrialEvent = nSkipped;
+correction.pedestalValuesPC = unique(pedestalValuesPC(~isnan(pedestalValuesPC)));
+correction.baseFormula = 'basePC = trial.cohNoisePC';
+correction.stepFormula = 'stepPC = rawStepPC + trial.cohNoisePC';
+correction.reason = ['Affected IDS versions added cohNoisePC to an endpoint ' ...
+  'that already included the coherence pedestal.'];
+
+if ~isfield(header, 'dataCorrections') || isempty(header.dataCorrections)
+  header.dataCorrections = struct();
+end
+header.dataCorrections.(correctionName) = correction;
 end
 
 %%------------------------------------------------
@@ -68,8 +160,9 @@ copyFields = { ...
   'preStepMS', ...
   'stepMS', ...
   'numNoiseStreams', ...
-  'cohNoisePC' ...
-  'numProbeOffsets' ...
+  'cohNoisePC', ...
+  'numProbeOffsets', ...
+  'dataCorrections' ...
   };
 
 for k = 1:numel(copyFields)
@@ -77,6 +170,13 @@ for k = 1:numel(copyFields)
   if isfield(header, f)
     sessionHeader.(f) = localDataValue(header.(f));
   end
+end
+subStr = {'Meetz', 'Neesha'};
+tf = cellfun(@(s) contains(header.fileName, s), subStr);
+if sum(tf) == 1
+  sessionHeader.animal = subStr{tf};
+else
+  sessionHeader.animal = 'unknown';
 end
 [~, sessionHeader.fileName] = fileparts(header.fileName);
 sessionHeader.createdBy = mfilename;

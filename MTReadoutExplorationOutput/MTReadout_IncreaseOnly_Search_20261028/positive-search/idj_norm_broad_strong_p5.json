@@ -1,0 +1,90 @@
+[
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 3,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.690560988546309
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6769957300704745
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6682749854193794
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6770442460308547
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.70552828998796
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6938585553850446
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.685982103700991
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6942897136352609
+      }
+    ]
+  }
+]

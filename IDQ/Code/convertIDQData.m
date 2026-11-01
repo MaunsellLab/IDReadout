@@ -1,11 +1,18 @@
-function convertIDQData()
+function convertIDQData(varargin)
 %   Convert Lablib .dat files to .mat format
 %   Sources are in .../IDQ/Data/DatFiles
 %   Output to .../IDQ/Data/FullSessions
 %
-%   For each  .dat file in dataFolder, this function checks for a
+%   For each .dat file in dataFolder, this function checks for a
 %   corresponding *_fileInfo.mat file. If it does not exist, the .dat
 %   file is read with readLLFile and the trials/header are saved.
+%
+%   convertIDQData('Replace', true) rebuilds existing FullSessions.
+
+p = inputParser;
+p.addParameter('Replace', false, @(x) islogical(x) && isscalar(x));
+p.parse(varargin{:});
+opts = p.Results;
 
 [dataFolder, existed] = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'DatFiles'));
 if ~existed 
@@ -23,11 +30,14 @@ for fi = 1:numel(paths)
   tempInfoFileName = sprintf('%s/%s_fileInfo.mat', dataFolder, baseName);
   infoFileName = sprintf('%s/%s_fileInfo.mat', convertedFolder, baseName); % .mat headerfile name for .dat file
   outFileName = sprintf('%s/%s.mat', convertedFolder, baseName);           % .mat data file name for .dat file
-  if isfile(infoFileName) && isfile(outFileName)                    % Skip if *_fileInfo.mat already exists
+  if isfile(infoFileName) && isfile(outFileName) && ~opts.Replace  % Skip complete conversions unless replacing
     continue;
   end
-  if isfile(infoFileName) && ~isfile(outFileName)                   % Skip only *_fileInfo.mat exists, re-read
+  if isfile(infoFileName)
     delete(infoFileName);
+  end
+  if isfile(tempInfoFileName)
+    delete(tempInfoFileName);
   end
   fprintf('Reading %s\n', datName);
   header = readLLFile('i', datPath);
@@ -42,9 +52,14 @@ for fi = 1:numel(paths)
     end
   end
 
-  % Save header, sessionHeader, and trials; use -v7.3 if these can get large
+  % Add the IDS-compatible role-based trial fields while retaining the
+  % original IDQ fields and conventions explicitly.
   sessionHeader = makeSessionHeader(header);
-  save(outFileName, 'trials', 'header', 'sessionHeader');
+  [header, sessionHeader, trials] = ...
+    normalizeIDQFullSessionForIDS(header, sessionHeader, trials);
+
+  % Save header, sessionHeader, and trials; use -v7.3 if these can get large
+  save(outFileName, 'trials', 'header', 'sessionHeader', '-v7.3');
   fprintf('      Saved %s\n', outFileName);
 end
 end
@@ -77,6 +92,13 @@ for k = 1:numel(copyFields)
   if isfield(header, f)
     sessionHeader.(f) = localDataValue(header.(f));
   end
+end
+subStr = {'Meetz', 'Neesha'};
+tf = cellfun(@(s) contains(header.fileName, s), subStr);
+if sum(tf) == 1
+  sessionHeader.animal = subStr{tf};
+else
+  sessionHeader.animal = 'unknown';
 end
 sessionHeader.dirsDeg = header.dirsDeg.data(1:sessionHeader.numNoiseStreams)';
 [~, sessionHeader.fileName] = fileparts(header.fileName);

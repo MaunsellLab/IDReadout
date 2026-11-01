@@ -1,0 +1,263 @@
+{
+  "specification": "full response, signed pooled pre/post differences, four independent directional fields",
+  "nTrials": 1594,
+  "nFitTrials": 952,
+  "fitDraws": 64,
+  "finalDraws": 256,
+  "absoluteRateFloor": "zero; pooled differences remain signed",
+  "fits": [
+    {
+      "p": 5,
+      "noiseSD": 5.250587945150279,
+      "finalLogLikelihood": -511.6855168403352,
+      "predictedAccuracy": 0.7588786117169035,
+      "negativeRateFraction": 0.00023879526250784191,
+      "profile": [
+        {
+          "noiseSD": 0.0,
+          "negLogLikelihood": 3997.287728219865,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 0.5,
+          "negLogLikelihood": 3641.476505472008,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 1.0,
+          "negLogLikelihood": 2828.500832156561,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 2.0,
+          "negLogLikelihood": 1039.4692181642827,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 4.0,
+          "negLogLikelihood": 529.9535605731129,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 8.0,
+          "negLogLikelihood": 536.0509432613264,
+          "negativeRateFraction": 0.00243248178177521
+        },
+        {
+          "noiseSD": 16.0,
+          "negLogLikelihood": 601.7220177080051,
+          "negativeRateFraction": 0.05839834631769374
+        },
+        {
+          "noiseSD": 32.0,
+          "negLogLikelihood": 641.7658136336784,
+          "negativeRateFraction": 0.20512166455123715
+        },
+        {
+          "noiseSD": 40.0,
+          "negLogLikelihood": 647.9508499721812,
+          "negativeRateFraction": 0.2547312675070028
+        },
+        {
+          "noiseSD": 4.291796067500631,
+          "negLogLikelihood": 522.097688283394,
+          "negativeRateFraction": 9.118230625583566e-08
+        },
+        {
+          "noiseSD": 5.7082039324993685,
+          "negLogLikelihood": 515.0464900699351,
+          "negativeRateFraction": 9.763345442343605e-05
+        },
+        {
+          "noiseSD": 6.583592135001261,
+          "negLogLikelihood": 521.3595622351859,
+          "negativeRateFraction": 0.00048697050434757237
+        },
+        {
+          "noiseSD": 5.467970069834995,
+          "negLogLikelihood": 514.1060313666959,
+          "negativeRateFraction": 5.269197522759104e-05
+        },
+        {
+          "noiseSD": 5.018711577627266,
+          "negLogLikelihood": 514.0592547620093,
+          "negativeRateFraction": 1.1352197128851541e-05
+        },
+        {
+          "noiseSD": 5.2339212008520155,
+          "negLogLikelihood": 513.780862271637,
+          "negativeRateFraction": 2.5986957282913164e-05
+        },
+        {
+          "noiseSD": 5.250587945150279,
+          "negLogLikelihood": 513.7693958925367,
+          "negativeRateFraction": 2.7537056489262372e-05
+        },
+        {
+          "noiseSD": 5.3336205282331735,
+          "negLogLikelihood": 513.8493563039965,
+          "negativeRateFraction": 3.6096795489028945e-05
+        },
+        {
+          "noiseSD": 5.267254689695751,
+          "negLogLikelihood": 513.842503242621,
+          "negativeRateFraction": 2.910995127217554e-05
+        }
+      ],
+      "perSession": [
+        {
+          "sessionID": "IDR4_Meetz_20260806",
+          "predictedAccuracy": 0.688162125604001
+        },
+        {
+          "sessionID": "IDR4_Meetz_20260807",
+          "predictedAccuracy": 0.7745832999037228
+        }
+      ]
+    },
+    {
+      "p": "Inf",
+      "noiseSD": 6.620444273617907,
+      "finalLogLikelihood": -507.49798242285146,
+      "predictedAccuracy": 0.7532462913449071,
+      "negativeRateFraction": 0.0013048232357887215,
+      "profile": [
+        {
+          "noiseSD": 0.0,
+          "negLogLikelihood": 3978.867047490938,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 0.5,
+          "negLogLikelihood": 3714.5302154697247,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 1.0,
+          "negLogLikelihood": 3264.881757776822,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 2.0,
+          "negLogLikelihood": 1597.2069620241582,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 4.0,
+          "negLogLikelihood": 594.132556449171,
+          "negativeRateFraction": 0.0
+        },
+        {
+          "noiseSD": 8.0,
+          "negLogLikelihood": 517.151344508773,
+          "negativeRateFraction": 0.00243248178177521
+        },
+        {
+          "noiseSD": 16.0,
+          "negLogLikelihood": 589.7238034774089,
+          "negativeRateFraction": 0.05839834631769374
+        },
+        {
+          "noiseSD": 32.0,
+          "negLogLikelihood": 639.012199320984,
+          "negativeRateFraction": 0.20512166455123715
+        },
+        {
+          "noiseSD": 40.0,
+          "negLogLikelihood": 646.4341519518043,
+          "negativeRateFraction": 0.2547312675070028
+        },
+        {
+          "noiseSD": 8.583592135001261,
+          "negLogLikelihood": 522.27447514549,
+          "negativeRateFraction": 0.0039055433371265173
+        },
+        {
+          "noiseSD": 11.416407864998737,
+          "negLogLikelihood": 551.7611033550811,
+          "negativeRateFraction": 0.018323836696136787
+        },
+        {
+          "noiseSD": 6.832815729997476,
+          "negLogLikelihood": 510.50548765509484,
+          "negativeRateFraction": 0.0006888139370331466
+        },
+        {
+          "noiseSD": 5.750776405003785,
+          "negLogLikelihood": 515.5395457066882,
+          "negativeRateFraction": 0.00010906543607026144
+        },
+        {
+          "noiseSD": 6.871131268912692,
+          "negLogLikelihood": 510.53434820218627,
+          "negativeRateFraction": 0.0007241698762838469
+        },
+        {
+          "noiseSD": 6.773916789084554,
+          "negLogLikelihood": 510.4502356141897,
+          "negativeRateFraction": 0.0006359168016164799
+        },
+        {
+          "noiseSD": 6.383111937628322,
+          "negLogLikelihood": 510.5342703445033,
+          "negativeRateFraction": 0.00036185698237628386
+        },
+        {
+          "noiseSD": 6.620444273617907,
+          "negLogLikelihood": 510.3095351323381,
+          "negativeRateFraction": 0.0005130258483601774
+        },
+        {
+          "noiseSD": 6.529791387899295,
+          "negLogLikelihood": 510.4561849887859,
+          "negativeRateFraction": 0.00045120424471872084
+        },
+        {
+          "noiseSD": 6.65302777257762,
+          "negLogLikelihood": 510.336358304736,
+          "negativeRateFraction": 0.0005372005573062559
+        },
+        {
+          "noiseSD": 6.585817952451658,
+          "negLogLikelihood": 510.3486635694778,
+          "negativeRateFraction": 0.0004884294212476657
+        },
+        {
+          "noiseSD": 6.603777508754183,
+          "negLogLikelihood": 510.32609037156396,
+          "negativeRateFraction": 0.0005014798888305322
+        }
+      ],
+      "perSession": [
+        {
+          "sessionID": "IDR4_Meetz_20260806",
+          "predictedAccuracy": 0.7045587969653179
+        },
+        {
+          "sessionID": "IDR4_Meetz_20260807",
+          "predictedAccuracy": 0.7640587900967286
+        }
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "sessionID": "IDR4_Meetz_20260806",
+      "nValid": 348,
+      "nFit": 173,
+      "probeOffsetDeg": [
+        120.0
+      ],
+      "fitAccuracy": 0.7630057803468208
+    },
+    {
+      "sessionID": "IDR4_Meetz_20260807",
+      "nValid": 1246,
+      "nFit": 779,
+      "probeOffsetDeg": [
+        45.0
+      ],
+      "fitAccuracy": 0.7817715019255456
+    }
+  ]
+}

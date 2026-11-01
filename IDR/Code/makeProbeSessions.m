@@ -1,4 +1,4 @@
-function staleProbeDirs = makeProbeSessions(varargin)
+function [allProbeDirs, staleProbeDirs] = makeProbeSessions(replace)
 % makeProbeSessions  Split sessions into separate instances for each probe offset.
 %
 % makeProbeSessions is the authoritative producer of analysis headers:
@@ -16,50 +16,57 @@ function staleProbeDirs = makeProbeSessions(varargin)
 %
 % Derived per-probe files written by makeProbeSessions contain both headers:
 %   Data/ProbeXX/ProbeSessions
-%
-% NOTE: trialIdx saved in each derived file is restricted to the same
-% validated trials represented by trialOutcomesAll, changeSidesAll,
-% chosenSidesAll, changeIndicesAll, prefNoiseByPatch, and probeNoiseByPatch.
 
-p = inputParser;
-addParameter(p, 'Animal', 'All', @(x) isempty(x) || ischar(x) || isstring(x));
-addParameter(p, 'Replace', false, @(x) isempty(x) || islogical(x));
-parse(p, varargin{:});
-opts = p.Results;
+if nargin < 1 || isempty(replace)
+  replace = false;
+end
 staleProbeDirs = [];
+allProbeDirs = [];
 
 % ---- Find all relevant session data files ----
-sessionDataFolder = char(fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions'));
-dataFilePaths = selectAnalysisFiles(sessionDataFolder, 'Animal', opts.Animal);
-if isempty(dataFilePaths)
+sessionDataFolder = fullfile(domainFolder(mfilename('fullpath')), 'Data', 'FullSessions');
+allMatFiles = dir(fullfile(sessionDataFolder, '*.mat'));
+if isempty(allMatFiles)
+  fprintf('No session files found\n');
+  return;
+end
+names = {allMatFiles.name};
+isFileInfo = endsWith(names, '_fileInfo.mat');
+dataFiles = allMatFiles(~isFileInfo);
+if isempty(dataFiles)
   fprintf('No session files found\n');
   return;
 end
 [~, sideTypeNames] = sideTypeIndex();
 
 % ---- Process each data file ----
-for k = 1:numel(dataFilePaths)
-  dataFilePath = dataFilePaths{k};
-  [~, baseName] = fileparts(dataFilePath);
+for k = 1:numel(dataFiles)
+  dataFileName = dataFiles(k).name;
+  [~, baseName] = fileparts(dataFileName);
+  dataFilePath = fullfile(sessionDataFolder, dataFileName);
   
   % get a list of all probe directions using the headers in the data file.
   % Don't load trials because it is too slow when we are examining whether
   % processing is needed
   clear header sessionHeader
   load(dataFilePath, 'header', 'sessionHeader');
+  sessionHeader = ensurePreferredDirectionMetadata(header,sessionHeader,dataFilePath);
   probeDirectionsDeg = sessionHeader.probeDirectionsDeg;
   probeTags = sessionHeader.probeTags;
-  needsProbeSessions = opts.Replace;
-  % if we're not doing all, check whether this file is missing probeSessions
+  needsProbeSessions = replace;
+  % ---- check whether this file is missing probeSessions ----
   if ~needsProbeSessions
     for p = 1:numel(probeDirectionsDeg)
       probeDirDeg = probeDirectionsDeg(p);
+      allProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
       probeTag = probeTags{p};
       probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
       probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
-      if isfile(probeSessionPath)
+      if isfile(probeSessionPath) && ~replace && ...
+          probeSessionHasPreferredDirection(probeSessionPath)
         continue;
       end
+      staleProbeDirs(end+1) = probeDirDeg; %#ok<AGROW>
       needsProbeSessions = true;
     end
   end
@@ -70,13 +77,14 @@ for k = 1:numel(dataFilePaths)
 
   %--- otherwise, load the full data set, make probeSession files
   load(dataFilePath, 'trials');
-  probeSessions = splitTrialsByProbe(baseName, header, trials, sessionHeader);
+  probeSessions = splitTrialsByProbe(header, trials, sessionHeader);
   for p = 1:numel(probeSessions)
     probeTag = probeSessions(p).probeTag;
-    fprintf('      processing %s [%s] ...\n', baseName, probeTag);
+    fprintf('      processing %s [%s] ...\n', dataFileName, probeTag);
     probeDataFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Data', probeTag, 'ProbeSessions'));
     probeSessionPath = fullfile(probeDataFolder, [sprintf('%s_%s.mat', baseName, probeTag)]);
-    if isfile(probeSessionPath) && ~opts.Replace
+    if isfile(probeSessionPath) && ~replace && ...
+        probeSessionHasPreferredDirection(probeSessionPath)
       continue;
     end
     sessionHeader = probeSessions(p).sessionHeader;
@@ -84,36 +92,58 @@ for k = 1:numel(dataFilePaths)
     sessionProbeHeader.probeSessionPath = probeSessionPath;
     probeTrials = probeSessions(p).probeTrials;
     lr = sessionLRMap(probeTrials);
-    trialIdxAll = probeSessions(p).trialIdx(:)';
-    [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, chosenSidesAll, changeIndicesAll, validIdx] = ...
+    trialIdx = probeSessions(p).trialIdx';
+    [prefNoiseByPatch, probeNoiseByPatch, trialOutcomesAll, changeSidesAll, chosenSidesAll, changeIndicesAll] = ...
                   extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, probeTrials, [1 2]);
-
-    % Keep trialIdx aligned to the validated trials only.  trialIdx indexes
-    % the original parent full-session trial numbers.  It is intentionally
-    % the same length/order as trialOutcomesAll and the third dimension of
-    % prefNoiseByPatch/probeNoiseByPatch.
-    trialIdx = trialIdxAll(validIdx);
-
-    % Make the probe header counts describe the saved analysis rows, not the
-    % broader candidate set of noise trials that shared this probe direction.
-    sessionProbeHeader.nCandidateProbeTrials = numel(trialIdxAll);
-    sessionProbeHeader.nTrials = numel(trialIdx);
-    sessionProbeHeader.nNoiseTrials = numel(trialIdx);
-    sessionProbeHeader.nNoNoiseTrials = 0;
-    sessionProbeHeader.trialIdxContract = ...
-      'trialIdx indexes original parent trials for the validated saved analysis rows only';
 
     save(probeSessionPath, 'sessionHeader', 'sessionProbeHeader', 'sideTypeNames', 'probeTrials', 'trialIdx', 'lr', ...
       'prefNoiseByPatch', 'probeNoiseByPatch', 'trialOutcomesAll', 'changeSidesAll', 'chosenSidesAll', ...
       'changeIndicesAll', '-v7.3');
-    staleProbeDirs = [staleProbeDirs, probeSessions(p).sessionProbeHeader.probeDirDeg]; %#ok<AGROW>
   end
 end
+allProbeDirs = unique(allProbeDirs);
 staleProbeDirs = unique(staleProbeDirs);
 end
 
+%% ------------------------------------------------------------------------
+function sessionHeader = ensurePreferredDirectionMetadata(header,sessionHeader,sourcePath)
+% Repair older sessionHeader products from the authoritative acquisition header.
+
+hasValid = isfield(sessionHeader,'prefDirDeg') && ...
+  isnumeric(localDataValue(sessionHeader.prefDirDeg)) && ...
+  isscalar(localDataValue(sessionHeader.prefDirDeg)) && ...
+  isfinite(localDataValue(sessionHeader.prefDirDeg));
+if hasValid
+  sessionHeader.prefDirDeg=double(localDataValue(sessionHeader.prefDirDeg));
+  return
+end
+assert(isfield(header,'prefDirDeg'), ...
+  'makeProbeSessions:MissingPreferredDirection', ...
+  ['Neither sessionHeader nor the acquisition header contains prefDirDeg ' ...
+   'for %s. The preferred direction cannot be reconstructed safely.'],sourcePath);
+prefDirDeg=localDataValue(header.prefDirDeg);
+assert(isnumeric(prefDirDeg)&&isscalar(prefDirDeg)&&isfinite(prefDirDeg), ...
+  'makeProbeSessions:InvalidPreferredDirection', ...
+  'header.prefDirDeg must resolve to one finite numeric scalar in %s.',sourcePath);
+sessionHeader.prefDirDeg=double(prefDirDeg);
+end
+
+% -------------------------------------------------------------------------
+function tf = probeSessionHasPreferredDirection(probeSessionPath)
+S=load(probeSessionPath,'sessionHeader');
+tf=isfield(S,'sessionHeader') && isfield(S.sessionHeader,'prefDirDeg');
+if tf
+  value=localDataValue(S.sessionHeader.prefDirDeg);
+  tf=isnumeric(value)&&isscalar(value)&&isfinite(value);
+end
+if ~tf
+  fprintf('      rebuilding stale ProbeSession missing prefDirDeg: %s\n', ...
+    probeSessionPath);
+end
+end
+
 %% splitTrialsByProbe
-function probeSessions = splitTrialsByProbe(baseName, header, trials, parentSessionHeader)
+function probeSessions = splitTrialsByProbe(header, trials, parentSessionHeader)
 % splitTrialsByProbeDirection  Split one recording session into probe-specific analysis sessions.
 
 nTrials = numel(trials);
@@ -180,7 +210,7 @@ for p = 1:numel(probeDirs)
   probeTag = sprintf('Probe%d', round(probeDirDeg));
   probeTrials = trials(idx);
 
-  sessionProbeHeader = makeSessionProbeHeader(baseName, header, probeTrials, probeDirDeg, probeTag, nTrials, probeDirs);
+  sessionProbeHeader = makeSessionProbeHeader(header, probeTrials, probeDirDeg, probeTag, nTrials, probeDirs);
 
   probeSessions(p).probeDirDeg = probeDirDeg;
   probeSessions(p).probeTag = probeTag;
@@ -192,7 +222,7 @@ end
 end
 
 %% makeSessionProbeHeader  Build authoritative metadata for one derived probe session.
-function H = makeSessionProbeHeader(matFileName, parentHeader, probeTrials, probeDirDeg, probeTag, ...
+function H = makeSessionProbeHeader(parentHeader, probeTrials, probeDirDeg, probeTag, ...
 parentNTrials, parentProbeDirectionsDeg)
 %
 % Create a sessionProbeHeader that describes details for one probe
@@ -207,7 +237,7 @@ H = struct();
 % ---- Identity / provenance ----
 H.version = 3;
 H.sessionID = baseName;
-H.parentFileName = matFileName;
+H.parentFileName = parentHeader.fileName;
 H.probeSessionPath = fullfile(probeSessionFolder, [baseName, '.mat']);
 H.probeDirDeg = probeDirDeg;
 H.probeTag = probeTag;
@@ -243,7 +273,8 @@ probeCohs = nan(1, numel(probeTrials));
 for t = 1:numel(probeTrials)
   D = probeTrials{t}.trial.data;
 
-  assert(isfield(D, 'probeCohNoisePC'), 'makeSessionProbeHeader:MissingProbeCohNoisePC', ...
+  assert(isfield(D, 'probeCohNoisePC'), ...
+    'makeSessionProbeHeader:MissingProbeCohNoisePC', ...
     'Missing trial.data.probeCohNoisePC for probe trial %d.', t);
 
   probeCohs(t) = double(D.probeCohNoisePC);
@@ -252,7 +283,8 @@ end
 probeCohs = probeCohs(isfinite(probeCohs));
 probeCohs = unique(round(probeCohs, 6));
 
-assert(isscalar(probeCohs), 'makeSessionProbeHeader:MixedProbeCohNoisePC', ...
+assert(isscalar(probeCohs), ...
+  'makeSessionProbeHeader:MixedProbeCohNoisePC', ...
   'Expected exactly one probeCohNoisePC value in derived probe session.');
 
 H.probeCohNoisePC = probeCohs;
@@ -271,12 +303,13 @@ H.nTrials = numel(probeTrials);
 H.nNoiseTrials = sum(cohNoiseFlags);
 H.nNoNoiseTrials = sum(~cohNoiseFlags);
 
-assert(H.nNoiseTrials == H.nTrials, 'makeSessionProbeHeader:UnexpectedNoNoiseTrials', ...
+assert(H.nNoiseTrials == H.nTrials, ...
+  'makeSessionProbeHeader:UnexpectedNoNoiseTrials', ...
   'Derived probe session unexpectedly contains no-noise trials.');
 end
 
 %%================================================
-function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, changeIndices, validIdx] = ...
+function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, changeIndices] = ...
   extractPatchNoiseMatrices(sessionHeader, sessionProbeHeader, trials, stepTypes)
 % extractPatchNoiseMatrices
 % Return patch-wise noise matrices for all valid trials.
@@ -291,7 +324,6 @@ function [prefNoise, probeNoise, trialOutcomes, changeSides, chosenSides, change
 %   changeSides    : 1 x nTrials       (0=RF changed, 1=Opp changed)
 %   chosenSides    : 1 x nTrials       (0=RF chosen, 1=Opp chosen)
 %   changeIndices  : 1 x nTrials       (1=DEC, 2=INC)
-%   validIdx       : 1 x nTrials       local indices into the input trials cell array
 
 % trials = sessionProbeHeader.probeTrials;
 nTrials = numel(trials);
@@ -318,6 +350,12 @@ for k = 1:nTrials
     continue;
   end
 
+  % hasAnyNoise = ...
+  %   ~(isNoNoise(tr.changePrefCohsPC.data(:))   && isNoNoise(tr.changeProbeCohsPC.data(:)) && ...
+  %   isNoNoise(tr.noChangePrefCohsPC.data(:)) && isNoNoise(tr.noChangeProbeCohsPC.data(:)));
+  % if ~hasAnyNoise
+  %   continue;
+  % end
   if ~tr.trial.data.cohNoise
     % fprintf('skipping trial %d, cohNoise %d, probeDirDeg %d\n', k, tr.trial.data.cohNoise, tr.trial.data.probeDirDeg);
     continue;
@@ -338,8 +376,7 @@ if nValid == 0
   error('extractPatchNoiseMatrices:NoValidTrials', 'No valid matching trials were found.');
 end
 
-% frameRateHz = localDataValue(sessionHeader.frameRateHz);
-frameRateHz = sessionHeader.frameRateHz;
+frameRateHz = localDataValue(sessionHeader.frameRateHz);
 msPerVFrame = 1000.0 / frameRateHz;
 m = round((sessionHeader.preStepMS + sessionHeader.stepMS) / msPerVFrame);
 
@@ -423,19 +460,41 @@ function n = probeStreamCountFromSessionProbeHeader(sessionProbeHeader)
 %   0 < probeDirDeg < 180 : paired yoked streams at +/- probeDirDeg
 %   probeDirDeg == 180   : legacy single opposite-direction stream
 
-% assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
-%   'extractPatchNoiseMatrices:MissingProbeDir', ...
-%   'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
+assert(isfield(sessionProbeHeader, 'probeDirDeg'), ...
+  'extractPatchNoiseMatrices:MissingProbeDir', ...
+  'Cannot determine probe stream count because sessionProbeHeader.probeDirDeg is missing.');
 
-% probeDirDeg = localHeaderScalar(sessionProbeHeader.probeDirDeg);
-probeDirDeg = abs(double(sessionProbeHeader.probeDirDeg));
+probeDirDeg = localHeaderScalar(sessionProbeHeader.probeDirDeg);
+probeDirDeg = abs(double(probeDirDeg));
 
 if probeDirDeg > 0 && probeDirDeg < 180
   n = 2;
 elseif abs(probeDirDeg - 180) < 1e-9
   n = 1;
 else
-  error('extractPatchNoiseMatrices:UnsupportedProbeDir', 'Unsupported probeDirDeg for probe noise extraction: %g.', ...
-      probeDirDeg);
+  error('extractPatchNoiseMatrices:UnsupportedProbeDir', ...
+    'Unsupported probeDirDeg for probe noise extraction: %g.', probeDirDeg);
+end
+end
+
+function x = localHeaderScalar(v)
+% Accept either modern scalar fields or older struct-with-data fields.
+
+if isstruct(v) && isfield(v, 'data')
+  v = v.data;
+end
+
+x = v(1);
+end
+
+function v = localDataValue(x)
+if isstruct(x) && isfield(x, 'data')
+  v = x.data;
+else
+  v = x;
+end
+
+if isnumeric(v) && ~isscalar(v)
+  v = v(1);
 end
 end

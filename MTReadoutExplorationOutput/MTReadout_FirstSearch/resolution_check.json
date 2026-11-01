@@ -1,0 +1,26 @@
+[
+  {
+    "name": "original_p5",
+    "n": 1152,
+    "mean_difference": 0.0004874534077114529,
+    "rmse": 0.018657389523296774
+  },
+  {
+    "name": "coarse_best_pooled_delta",
+    "n": 1152,
+    "mean_difference": -1.2596448262532553e-05,
+    "rmse": 0.015998002879539723
+  },
+  {
+    "name": "coarse_best_rectified_delta",
+    "n": 1152,
+    "mean_difference": -0.0002587305174933539,
+    "rmse": 0.01838834818857068
+  },
+  {
+    "name": "coarse_best_opponent_delta",
+    "n": 1152,
+    "mean_difference": 0.0017868942684597438,
+    "rmse": 0.023939340710311313
+  }
+]

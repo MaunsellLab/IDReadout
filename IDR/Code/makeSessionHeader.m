@@ -86,6 +86,9 @@ for k = 1:numel(copyFields)
     sessionHeader.(f) = localDataValue(header.(f));
   end
 end
+if ~isfield(sessionHeader, 'prefDirDeg')
+  sessionHeader.prefDirDeg = trials{1}.changeDots.data.directionDeg;
+end
 
 [~, sessionHeader.fileName] = fileparts(header.fileName);
 

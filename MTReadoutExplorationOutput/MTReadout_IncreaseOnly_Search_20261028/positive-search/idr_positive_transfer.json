@@ -1,0 +1,1234 @@
+[
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 1.5,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6798196614583333,
+        "drift_slope": 0.03218505895331844,
+        "probe_slope": 0.03159942793664066,
+        "ratio": 0.9818042583819037
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7003163655598958,
+        "drift_slope": 0.03872248817464293,
+        "probe_slope": 0.023951566207456337,
+        "ratio": 0.6185440899208745
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7311468302408854,
+        "drift_slope": 0.03773593711362648,
+        "probe_slope": 0.008661820748989276,
+        "ratio": 0.2295377142194114
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7340753580729167,
+        "drift_slope": 0.04124598735485357,
+        "probe_slope": -0.009445232938533651,
+        "ratio": -0.2289976199932621
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.740184590657552,
+        "drift_slope": 0.039158602173817496,
+        "probe_slope": -0.006232138066310431,
+        "ratio": -0.15915118825353292
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7526225527404171,
+        "drift_slope": 0.042207278700715195,
+        "probe_slope": 0.011391804915891646,
+        "ratio": 0.2699014309041112
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7508085734049479,
+        "drift_slope": 0.03901802134074209,
+        "probe_slope": 0.006813630866891855,
+        "ratio": 0.17462779076849688
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 2,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6982908528645834,
+        "drift_slope": 0.0327974561019674,
+        "probe_slope": 0.03184424619113877,
+        "ratio": 0.9709364681252991
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7220588785807291,
+        "drift_slope": 0.040170843976665246,
+        "probe_slope": 0.023183966367432154,
+        "ratio": 0.5771341618040049
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7547573852539062,
+        "drift_slope": 0.03910205527231515,
+        "probe_slope": 0.007170286390443128,
+        "ratio": 0.18337364469738754
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7564578043619792,
+        "drift_slope": 0.04263512110853498,
+        "probe_slope": -0.009420141708173358,
+        "ratio": -0.22094792891974624
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7630138549804687,
+        "drift_slope": 0.04040429507928888,
+        "probe_slope": -0.005864191736007133,
+        "ratio": -0.14513783063160282
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7733264046865936,
+        "drift_slope": 0.04353486802197742,
+        "probe_slope": 0.01223779382592373,
+        "ratio": 0.28110327151435965
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7729663289388021,
+        "drift_slope": 0.039607914376352873,
+        "probe_slope": 0.008067061004191934,
+        "ratio": 0.20367295605466704
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 3,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.7141822916666667,
+        "drift_slope": 0.03312981128969697,
+        "probe_slope": 0.0318843772458425,
+        "ratio": 0.9624074513143457
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7409078369140625,
+        "drift_slope": 0.041315318072198924,
+        "probe_slope": 0.022259907115115354,
+        "ratio": 0.5387809692331533
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.775367411295573,
+        "drift_slope": 0.04030369057340959,
+        "probe_slope": 0.005690664964209996,
+        "ratio": 0.14119463709768604
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7760445149739583,
+        "drift_slope": 0.043403084593492486,
+        "probe_slope": -0.00904139534594105,
+        "ratio": -0.20831227620390477
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7825986124674479,
+        "drift_slope": 0.04131368422950796,
+        "probe_slope": -0.005372382408286414,
+        "ratio": -0.1300388118000194
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7903011171557787,
+        "drift_slope": 0.04446793151564834,
+        "probe_slope": 0.012809285427029063,
+        "ratio": 0.28805669592527494
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7917059529622396,
+        "drift_slope": 0.0398969735178509,
+        "probe_slope": 0.009243525681400105,
+        "ratio": 0.23168488399914147
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.7247989095052083,
+        "drift_slope": 0.03327788467020578,
+        "probe_slope": 0.03180845571965774,
+        "ratio": 0.9558436792148739
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7536960856119792,
+        "drift_slope": 0.04199718884333652,
+        "probe_slope": 0.02146985013884074,
+        "ratio": 0.5112211252741324
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7894524536132812,
+        "drift_slope": 0.04105415572494175,
+        "probe_slope": 0.004551733725011856,
+        "ratio": 0.1108714488128306
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7892491861979166,
+        "drift_slope": 0.04355394812893562,
+        "probe_slope": -0.008418590624986342,
+        "ratio": -0.19329110187816348
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7954989624023437,
+        "drift_slope": 0.041718241502722304,
+        "probe_slope": -0.004817029446620404,
+        "ratio": -0.11546578362623629
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.801040189172165,
+        "drift_slope": 0.044888252279201714,
+        "probe_slope": 0.013080407362593015,
+        "ratio": 0.2913993461191988
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.8039607137044271,
+        "drift_slope": 0.03994834183403883,
+        "probe_slope": 0.010007306191120285,
+        "ratio": 0.250506172013211
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 10,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.7315733642578125,
+        "drift_slope": 0.03335926941876942,
+        "probe_slope": 0.031695927804739475,
+        "ratio": 0.9501385479055464
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.76189501953125,
+        "drift_slope": 0.04237452393453662,
+        "probe_slope": 0.020874438218737874,
+        "ratio": 0.49261764571057576
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.798411376953125,
+        "drift_slope": 0.041520059293590275,
+        "probe_slope": 0.0037723343781675958,
+        "ratio": 0.09085570787587859
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.797340087890625,
+        "drift_slope": 0.04344253311608966,
+        "probe_slope": -0.00778162580005407,
+        "ratio": -0.17912458694016664
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.8032995808919271,
+        "drift_slope": 0.041886990929025536,
+        "probe_slope": -0.004280348518894916,
+        "ratio": -0.10218801646906688
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.8075443748716044,
+        "drift_slope": 0.045116821822054815,
+        "probe_slope": 0.013302289564228423,
+        "ratio": 0.2948410155461296
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.8114608357747396,
+        "drift_slope": 0.0399477928450146,
+        "probe_slope": 0.010568259812375622,
+        "ratio": 0.2645517827074273
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": Infinity,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.7373725992838541,
+        "drift_slope": 0.033402879585275894,
+        "probe_slope": 0.031565514503277395,
+        "ratio": 0.944993811766803
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7689144287109375,
+        "drift_slope": 0.042689744011514055,
+        "probe_slope": 0.020321883685118516,
+        "ratio": 0.47603667240631387
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.80594482421875,
+        "drift_slope": 0.041943226621712515,
+        "probe_slope": 0.003040882672177913,
+        "ratio": 0.07249997000954991
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.8036568806966146,
+        "drift_slope": 0.043212383624055696,
+        "probe_slope": -0.007038704428003121,
+        "ratio": -0.16288628022094986
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.8093819783528646,
+        "drift_slope": 0.04200434363246482,
+        "probe_slope": -0.0036025169344105004,
+        "ratio": -0.08576534288768516
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.8129432011461959,
+        "drift_slope": 0.0453160394504697,
+        "probe_slope": 0.013722794959761605,
+        "ratio": 0.3028242345574039
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.8175708618164063,
+        "drift_slope": 0.03993953587666822,
+        "probe_slope": 0.011236666073186595,
+        "ratio": 0.281341929157239
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 1.5,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6220892740885416,
+        "drift_slope": 0.026042680021864054,
+        "probe_slope": 0.025075423060480852,
+        "ratio": 0.9628587779533003
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.6415826619466146,
+        "drift_slope": 0.0309721563307305,
+        "probe_slope": 0.01676886671271358,
+        "ratio": 0.5414174761889455
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.67128125,
+        "drift_slope": 0.03184277207173996,
+        "probe_slope": 0.00043292261417557306,
+        "ratio": 0.013595632101383101
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.6708161417643229,
+        "drift_slope": 0.033863149405172294,
+        "probe_slope": -0.010204563243495723,
+        "ratio": -0.3013471405567808
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.6910633544921875,
+        "drift_slope": 0.032286471305909614,
+        "probe_slope": 0.00403099340016946,
+        "ratio": 0.1248508504375218
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7154451799503335,
+        "drift_slope": 0.03734421039192953,
+        "probe_slope": 0.031960382383084,
+        "ratio": 0.8558323244127546
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7116831258138021,
+        "drift_slope": 0.031267784888359774,
+        "probe_slope": 0.03062327966589894,
+        "ratio": 0.97938756375733
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 2,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.64558349609375,
+        "drift_slope": 0.026827425485311807,
+        "probe_slope": 0.02544237238653774,
+        "ratio": 0.948371747429421
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.669565165201823,
+        "drift_slope": 0.032665230241772876,
+        "probe_slope": 0.015713234080882005,
+        "ratio": 0.4810385221405127
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7011361083984375,
+        "drift_slope": 0.033319148246667214,
+        "probe_slope": -0.0011721270558944438,
+        "ratio": -0.035178782099019805
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.6992529907226562,
+        "drift_slope": 0.03537236562540737,
+        "probe_slope": -0.009868104662769363,
+        "ratio": -0.27897779773262527
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7184461669921876,
+        "drift_slope": 0.033743316050434596,
+        "probe_slope": 0.004180233014954582,
+        "ratio": 0.12388329021091402
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7389321500537751,
+        "drift_slope": 0.03861376993284803,
+        "probe_slope": 0.0323563965641515,
+        "ratio": 0.8379496904969774
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7382267049153646,
+        "drift_slope": 0.03203941174233548,
+        "probe_slope": 0.031737991929840365,
+        "ratio": 0.9905922176437205
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 3,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6657529703776042,
+        "drift_slope": 0.02730905060319868,
+        "probe_slope": 0.025512209682912717,
+        "ratio": 0.9342034643974221
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.6938069458007813,
+        "drift_slope": 0.03393945800005715,
+        "probe_slope": 0.014567080412246152,
+        "ratio": 0.42920780915893303
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7272226969401042,
+        "drift_slope": 0.03453598391554293,
+        "probe_slope": -0.0027016351557506433,
+        "ratio": -0.07822667402085427
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7241763712565105,
+        "drift_slope": 0.036311048133413536,
+        "probe_slope": -0.009187807272087062,
+        "ratio": -0.2530306268860472
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.741987060546875,
+        "drift_slope": 0.034874079444498454,
+        "probe_slope": 0.004466250484429957,
+        "ratio": 0.12806791048170674
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7577988107538186,
+        "drift_slope": 0.03929155465441922,
+        "probe_slope": 0.03232315165330884,
+        "ratio": 0.822648834783975
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7602327270507813,
+        "drift_slope": 0.03247299783850959,
+        "probe_slope": 0.03246191895493579,
+        "ratio": 0.9996588278166094
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6793047688802083,
+        "drift_slope": 0.027451751827513343,
+        "probe_slope": 0.025380867201763625,
+        "ratio": 0.9245627514498296
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7102626342773437,
+        "drift_slope": 0.034661965122253086,
+        "probe_slope": 0.013605660411554648,
+        "ratio": 0.39252420812170785
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7449857584635416,
+        "drift_slope": 0.03527093444062744,
+        "probe_slope": -0.003854808802959061,
+        "ratio": -0.10929137160933373
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.740790059407552,
+        "drift_slope": 0.03656186039736001,
+        "probe_slope": -0.008361619658375164,
+        "ratio": -0.22869787170291053
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7574951985677083,
+        "drift_slope": 0.03545883813520398,
+        "probe_slope": 0.004887047123304035,
+        "ratio": 0.13782310364117975
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7695192129042199,
+        "drift_slope": 0.03951530209409755,
+        "probe_slope": 0.03214586848117792,
+        "ratio": 0.8135043078913874
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7742683715820312,
+        "drift_slope": 0.032611172318890554,
+        "probe_slope": 0.03288176561569371,
+        "ratio": 1.0082975642260616
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 10,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6879612019856771,
+        "drift_slope": 0.027467561675438092,
+        "probe_slope": 0.02521453388832135,
+        "ratio": 0.9179749621120744
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.720757792154948,
+        "drift_slope": 0.03508499961582611,
+        "probe_slope": 0.012885936219370607,
+        "ratio": 0.36727765029126663
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7563097941080729,
+        "drift_slope": 0.03570843987132806,
+        "probe_slope": -0.004614465588319401,
+        "ratio": -0.12922618868108451
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7508795776367188,
+        "drift_slope": 0.036518402937791204,
+        "probe_slope": -0.007597425474113258,
+        "ratio": -0.2080437495324045
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7669548746744792,
+        "drift_slope": 0.03579732467270668,
+        "probe_slope": 0.005361434206384249,
+        "ratio": 0.14977192444976264
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7766063244694992,
+        "drift_slope": 0.03964055447018991,
+        "probe_slope": 0.03217453405072894,
+        "ratio": 0.8116570133983496
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7827404174804687,
+        "drift_slope": 0.03267119471940656,
+        "probe_slope": 0.033271202777136424,
+        "ratio": 1.0183650479538007
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": Infinity,
+      "noise": "gaussian",
+      "branch": "normalization",
+      "name": "norm_broad_strong_p5",
+      "norm_strength": 0.85,
+      "norm_sigma": 140
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6953349202473958,
+        "drift_slope": 0.02741859758088521,
+        "probe_slope": 0.025002554741949613,
+        "ratio": 0.9118830628806509
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7296085001627605,
+        "drift_slope": 0.03542021154711226,
+        "probe_slope": 0.012206488713820315,
+        "ratio": 0.3446193057764356
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7657736409505208,
+        "drift_slope": 0.03608576323106275,
+        "probe_slope": -0.0053219895800755415,
+        "ratio": -0.14748169647952336
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7587447916666666,
+        "drift_slope": 0.03634685269605265,
+        "probe_slope": -0.006736695183288067,
+        "ratio": -0.1853446635290017
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7742194213867187,
+        "drift_slope": 0.03605791126043654,
+        "probe_slope": 0.005967149729876678,
+        "ratio": 0.1654879476178631
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7827259603619852,
+        "drift_slope": 0.03982974795778661,
+        "probe_slope": 0.03277275388857664,
+        "ratio": 0.822821021195281
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7899714965820313,
+        "drift_slope": 0.03275747939618726,
+        "probe_slope": 0.034188179399897156,
+        "ratio": 1.0436755217459257
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 18,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 7.5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 3,
+      "p": 2,
+      "idr_p": 2,
+      "noise": "gaussian",
+      "branch": "joint_local",
+      "name": "joint_final_0",
+      "transfer_p": [
+        2,
+        5
+      ],
+      "idj_p": [
+        5
+      ]
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6201775919596354,
+        "drift_slope": 0.018633894036534836,
+        "probe_slope": 0.018135918402912288,
+        "ratio": 0.9732758148862398
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.6463599243164062,
+        "drift_slope": 0.023232827368172896,
+        "probe_slope": 0.011705489217273574,
+        "ratio": 0.5038340375786182
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.6764490152994792,
+        "drift_slope": 0.023211618914742542,
+        "probe_slope": 0.0023974209040360044,
+        "ratio": 0.10328538103446612
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.6785668131510416,
+        "drift_slope": 0.02418946580897587,
+        "probe_slope": 0.0006080327217535719,
+        "ratio": 0.02513626082341811
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.6839842122395833,
+        "drift_slope": 0.02301580849628035,
+        "probe_slope": 0.005184727047478697,
+        "ratio": 0.2252680825145298
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7052555187487916,
+        "drift_slope": 0.025947951482329916,
+        "probe_slope": 0.023371920160475648,
+        "ratio": 0.9007231332458557
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.6985752563476563,
+        "drift_slope": 0.020806428989149254,
+        "probe_slope": 0.020313881844832436,
+        "ratio": 0.9763271657729596
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 18,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 7.5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 3,
+      "p": 5,
+      "idr_p": 2,
+      "noise": "gaussian",
+      "branch": "joint_local",
+      "name": "joint_final_0",
+      "transfer_p": [
+        2,
+        5
+      ],
+      "idj_p": [
+        5
+      ]
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6377172241210938,
+        "drift_slope": 0.018685208458629116,
+        "probe_slope": 0.017992381532901097,
+        "ratio": 0.9629211026860093
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.6682173055013021,
+        "drift_slope": 0.02405734299588547,
+        "probe_slope": 0.010785138828250784,
+        "ratio": 0.44830964209536217
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7008456217447917,
+        "drift_slope": 0.023474832112027624,
+        "probe_slope": 0.001326811607772679,
+        "ratio": 0.056520600506994485
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7022955322265625,
+        "drift_slope": 0.023948515967563908,
+        "probe_slope": 0.00188580857686141,
+        "ratio": 0.07874427707401856
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7069078369140624,
+        "drift_slope": 0.02320887304607157,
+        "probe_slope": 0.005934532905281599,
+        "ratio": 0.2557010369913718
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7240687913887278,
+        "drift_slope": 0.026150353000016117,
+        "probe_slope": 0.022850721957437405,
+        "ratio": 0.8738207838885892
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7204972127278646,
+        "drift_slope": 0.02084833230517945,
+        "probe_slope": 0.02089150351075076,
+        "ratio": 1.002070727046143
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 19.00678359065205,
+      "width_cv": 0.2507519350387156,
+      "corr": 21.8341281365663,
+      "sd": 6.108645209990077,
+      "harmonic": 0.17386384680867195,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 3,
+      "p": 3,
+      "idr_p": 3,
+      "noise": "lognormal",
+      "branch": "joint",
+      "norm_strength": 0.15,
+      "norm_sigma": 42.3444002494216,
+      "name": "joint_final_1",
+      "transfer_p": [
+        3,
+        Infinity
+      ],
+      "idj_p": [
+        Infinity
+      ]
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.6610852661132812,
+        "drift_slope": 0.0198924676885556,
+        "probe_slope": 0.018421374259798215,
+        "ratio": 0.9260477155579987
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.6946025187174479,
+        "drift_slope": 0.025958591766925533,
+        "probe_slope": 0.01069703940469589,
+        "ratio": 0.41208088253559444
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7261476847330729,
+        "drift_slope": 0.02603076069062294,
+        "probe_slope": 0.0022047992030341645,
+        "ratio": 0.08469976076528563
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7225877278645834,
+        "drift_slope": 0.027201589035705853,
+        "probe_slope": 0.0002248711778256633,
+        "ratio": 0.008266839761842174
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7210283406575521,
+        "drift_slope": 0.027633758059724067,
+        "probe_slope": 0.0019140976148689605,
+        "ratio": 0.06926664157412375
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7181682542415894,
+        "drift_slope": 0.028467465587471135,
+        "probe_slope": 0.014666042952901574,
+        "ratio": 0.5151861133488564
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7234241536458333,
+        "drift_slope": 0.024650975705376964,
+        "probe_slope": 0.008775615084823819,
+        "ratio": 0.35599463443995233
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 19.00678359065205,
+      "width_cv": 0.2507519350387156,
+      "corr": 21.8341281365663,
+      "sd": 6.108645209990077,
+      "harmonic": 0.17386384680867195,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 3,
+      "p": Infinity,
+      "idr_p": 3,
+      "noise": "lognormal",
+      "branch": "joint",
+      "norm_strength": 0.15,
+      "norm_sigma": 42.3444002494216,
+      "name": "joint_final_1",
+      "transfer_p": [
+        3,
+        Infinity
+      ],
+      "idj_p": [
+        Infinity
+      ]
+    },
+    "groups": [
+      {
+        "offset": 10,
+        "n": 1500,
+        "accuracy": 0.671010965983073,
+        "drift_slope": 0.0192516423016986,
+        "probe_slope": 0.017445402353112628,
+        "ratio": 0.9061773577401964
+      },
+      {
+        "offset": 25,
+        "n": 1500,
+        "accuracy": 0.7053634643554687,
+        "drift_slope": 0.02574073823959114,
+        "probe_slope": 0.008671987785731737,
+        "ratio": 0.3368973999507747
+      },
+      {
+        "offset": 45,
+        "n": 1500,
+        "accuracy": 0.7356836547851563,
+        "drift_slope": 0.025067540573568484,
+        "probe_slope": 0.001753588990907481,
+        "ratio": 0.06995456876836519
+      },
+      {
+        "offset": 90,
+        "n": 1500,
+        "accuracy": 0.7364367268880209,
+        "drift_slope": 0.02726901714432831,
+        "probe_slope": -0.0008423678801882696,
+        "ratio": -0.030891024628053893
+      },
+      {
+        "offset": 135,
+        "n": 1500,
+        "accuracy": 0.7333053385416667,
+        "drift_slope": 0.027100464134727397,
+        "probe_slope": 7.905977991543496e-05,
+        "ratio": 0.002917285088638952
+      },
+      {
+        "offset": 179,
+        "n": 1293,
+        "accuracy": 0.7264088972169856,
+        "drift_slope": 0.0279948238532464,
+        "probe_slope": 0.011472645807252779,
+        "ratio": 0.4098131092874286
+      },
+      {
+        "offset": 180,
+        "n": 1500,
+        "accuracy": 0.7320633951822917,
+        "drift_slope": 0.024800254917594432,
+        "probe_slope": 0.005645929515976656,
+        "ratio": 0.22765610816246798
+      }
+    ]
+  }
+]

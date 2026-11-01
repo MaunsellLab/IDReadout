@@ -1,0 +1,1533 @@
+{
+  "n_sources": 190,
+  "n_trials": 147265,
+  "n_fit_trials": 82143,
+  "domains": [
+    "IDJ",
+    "IDQ",
+    "IDR",
+    "IDS"
+  ],
+  "sources": [
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260813",
+      "n_trials": 1555,
+      "n_fit_trials": 777,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260814",
+      "n_trials": 1339,
+      "n_fit_trials": 848,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260819",
+      "n_trials": 1533,
+      "n_fit_trials": 1029,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260826",
+      "n_trials": 1417,
+      "n_fit_trials": 1047,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260806",
+      "n_trials": 348,
+      "n_fit_trials": 173,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260831",
+      "n_trials": 1315,
+      "n_fit_trials": 1011,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260902",
+      "n_trials": 1339,
+      "n_fit_trials": 1035,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260903",
+      "n_trials": 1476,
+      "n_fit_trials": 984,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260820",
+      "n_trials": 1413,
+      "n_fit_trials": 985,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260821",
+      "n_trials": 1540,
+      "n_fit_trials": 1117,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260824",
+      "n_trials": 1610,
+      "n_fit_trials": 1120,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260812",
+      "n_trials": 1576,
+      "n_fit_trials": 789,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260817",
+      "n_trials": 1533,
+      "n_fit_trials": 1023,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260818",
+      "n_trials": 1544,
+      "n_fit_trials": 1076,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260805_2",
+      "n_trials": 192,
+      "n_fit_trials": 96,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260805",
+      "n_trials": 72,
+      "n_fit_trials": 43,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260806_1",
+      "n_trials": 1064,
+      "n_fit_trials": 544,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260807",
+      "n_trials": 1246,
+      "n_fit_trials": 779,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260810",
+      "n_trials": 1237,
+      "n_fit_trials": 800,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDS",
+      "animal": "Meetz",
+      "session_id": "IDR4_Meetz_20260811",
+      "n_trials": 1064,
+      "n_fit_trials": 638,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260722",
+      "n_trials": 1296,
+      "n_fit_trials": 778,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260723",
+      "n_trials": 915,
+      "n_fit_trials": 549,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260724",
+      "n_trials": 1483,
+      "n_fit_trials": 891,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260728",
+      "n_trials": 1294,
+      "n_fit_trials": 777,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260729",
+      "n_trials": 1289,
+      "n_fit_trials": 775,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260730",
+      "n_trials": 1417,
+      "n_fit_trials": 852,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260731",
+      "n_trials": 1547,
+      "n_fit_trials": 929,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260803",
+      "n_trials": 1320,
+      "n_fit_trials": 791,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260804",
+      "n_trials": 682,
+      "n_fit_trials": 411,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDQ",
+      "animal": "Meetz",
+      "session_id": "IDR3_Meetz_20260805",
+      "n_trials": 617,
+      "n_fit_trials": 371,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDJ",
+      "animal": "Meetz",
+      "session_id": "IDR6_Meetz_20261019",
+      "n_trials": 749,
+      "n_fit_trials": 749,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDJ",
+      "animal": "Meetz",
+      "session_id": "IDR6_Meetz_20261020",
+      "n_trials": 1336,
+      "n_fit_trials": 1336,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDJ",
+      "animal": "Meetz",
+      "session_id": "IDR6_Meetz_20261021",
+      "n_trials": 1716,
+      "n_fit_trials": 1716,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDJ",
+      "animal": "Meetz",
+      "session_id": "IDR6_Meetz_20261022",
+      "n_trials": 1759,
+      "n_fit_trials": 1759,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDJ",
+      "animal": "Meetz",
+      "session_id": "IDR6_Meetz_20261023",
+      "n_trials": 1382,
+      "n_fit_trials": 1382,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260515",
+      "n_trials": 205,
+      "n_fit_trials": 108,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260518",
+      "n_trials": 311,
+      "n_fit_trials": 156,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260519",
+      "n_trials": 319,
+      "n_fit_trials": 165,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260520",
+      "n_trials": 296,
+      "n_fit_trials": 152,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260521",
+      "n_trials": 354,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260522",
+      "n_trials": 376,
+      "n_fit_trials": 195,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260526",
+      "n_trials": 612,
+      "n_fit_trials": 312,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260527",
+      "n_trials": 692,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260528",
+      "n_trials": 475,
+      "n_fit_trials": 250,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260529",
+      "n_trials": 451,
+      "n_fit_trials": 231,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260602",
+      "n_trials": 508,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260603",
+      "n_trials": 495,
+      "n_fit_trials": 255,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260604",
+      "n_trials": 500,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260605",
+      "n_trials": 402,
+      "n_fit_trials": 202,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260608",
+      "n_trials": 397,
+      "n_fit_trials": 200,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260609",
+      "n_trials": 460,
+      "n_fit_trials": 240,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260610",
+      "n_trials": 701,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260611",
+      "n_trials": 647,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260615",
+      "n_trials": 656,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260616",
+      "n_trials": 678,
+      "n_fit_trials": 348,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260617",
+      "n_trials": 707,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260618",
+      "n_trials": 580,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260622",
+      "n_trials": 584,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260623",
+      "n_trials": 572,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260624",
+      "n_trials": 708,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260625",
+      "n_trials": 641,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260629",
+      "n_trials": 529,
+      "n_fit_trials": 270,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260630",
+      "n_trials": 707,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260508",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260511",
+      "n_trials": 350,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260513",
+      "n_trials": 325,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260514",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260515",
+      "n_trials": 207,
+      "n_fit_trials": 108,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260518",
+      "n_trials": 309,
+      "n_fit_trials": 156,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260519",
+      "n_trials": 319,
+      "n_fit_trials": 165,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260520",
+      "n_trials": 291,
+      "n_fit_trials": 147,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260521",
+      "n_trials": 354,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260522",
+      "n_trials": 376,
+      "n_fit_trials": 195,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260526",
+      "n_trials": 608,
+      "n_fit_trials": 308,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260527",
+      "n_trials": 692,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260528",
+      "n_trials": 476,
+      "n_fit_trials": 250,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260529",
+      "n_trials": 448,
+      "n_fit_trials": 228,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260602",
+      "n_trials": 508,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260603",
+      "n_trials": 498,
+      "n_fit_trials": 258,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260604",
+      "n_trials": 501,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260605",
+      "n_trials": 405,
+      "n_fit_trials": 205,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260608",
+      "n_trials": 396,
+      "n_fit_trials": 200,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260609",
+      "n_trials": 460,
+      "n_fit_trials": 240,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260501",
+      "n_trials": 1252,
+      "n_fit_trials": 622,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260505",
+      "n_trials": 1132,
+      "n_fit_trials": 547,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260513",
+      "n_trials": 327,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260514",
+      "n_trials": 326,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260515",
+      "n_trials": 206,
+      "n_fit_trials": 108,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260518",
+      "n_trials": 309,
+      "n_fit_trials": 156,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260519",
+      "n_trials": 320,
+      "n_fit_trials": 165,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260520",
+      "n_trials": 297,
+      "n_fit_trials": 153,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260521",
+      "n_trials": 355,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260522",
+      "n_trials": 378,
+      "n_fit_trials": 195,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260507",
+      "n_trials": 325,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260508",
+      "n_trials": 321,
+      "n_fit_trials": 165,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260511",
+      "n_trials": 353,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260410",
+      "n_trials": 1228,
+      "n_fit_trials": 598,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260415",
+      "n_trials": 1039,
+      "n_fit_trials": 514,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260416",
+      "n_trials": 1057,
+      "n_fit_trials": 525,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260417",
+      "n_trials": 1164,
+      "n_fit_trials": 569,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260420",
+      "n_trials": 1491,
+      "n_fit_trials": 731,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260421",
+      "n_trials": 1237,
+      "n_fit_trials": 600,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260422",
+      "n_trials": 1236,
+      "n_fit_trials": 600,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260423",
+      "n_trials": 1068,
+      "n_fit_trials": 520,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260424",
+      "n_trials": 1143,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260528",
+      "n_trials": 475,
+      "n_fit_trials": 250,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260529",
+      "n_trials": 450,
+      "n_fit_trials": 230,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260602",
+      "n_trials": 505,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260603",
+      "n_trials": 495,
+      "n_fit_trials": 255,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260604",
+      "n_trials": 503,
+      "n_fit_trials": 260,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260605",
+      "n_trials": 406,
+      "n_fit_trials": 206,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260608",
+      "n_trials": 396,
+      "n_fit_trials": 200,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260609",
+      "n_trials": 460,
+      "n_fit_trials": 240,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260610",
+      "n_trials": 701,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260611",
+      "n_trials": 642,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260615",
+      "n_trials": 655,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260616",
+      "n_trials": 673,
+      "n_fit_trials": 343,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260617",
+      "n_trials": 709,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260618",
+      "n_trials": 576,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260622",
+      "n_trials": 585,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260623",
+      "n_trials": 572,
+      "n_fit_trials": 300,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260624",
+      "n_trials": 713,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260625",
+      "n_trials": 637,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260629",
+      "n_trials": 522,
+      "n_fit_trials": 270,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260630",
+      "n_trials": 708,
+      "n_fit_trials": 360,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260507",
+      "n_trials": 330,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260508",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260511",
+      "n_trials": 350,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260513",
+      "n_trials": 325,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260514",
+      "n_trials": 326,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260518",
+      "n_trials": 308,
+      "n_fit_trials": 156,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260520",
+      "n_trials": 294,
+      "n_fit_trials": 150,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260521",
+      "n_trials": 356,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260522",
+      "n_trials": 378,
+      "n_fit_trials": 195,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260113",
+      "n_trials": 539,
+      "n_fit_trials": 270,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260114_4",
+      "n_trials": 474,
+      "n_fit_trials": 240,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260115",
+      "n_trials": 822,
+      "n_fit_trials": 412,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260116",
+      "n_trials": 921,
+      "n_fit_trials": 456,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260209",
+      "n_trials": 670,
+      "n_fit_trials": 330,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260210",
+      "n_trials": 483,
+      "n_fit_trials": 240,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260212",
+      "n_trials": 834,
+      "n_fit_trials": 414,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260213",
+      "n_trials": 748,
+      "n_fit_trials": 373,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260216",
+      "n_trials": 914,
+      "n_fit_trials": 450,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260217",
+      "n_trials": 973,
+      "n_fit_trials": 475,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260218",
+      "n_trials": 817,
+      "n_fit_trials": 400,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260219",
+      "n_trials": 811,
+      "n_fit_trials": 420,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260220",
+      "n_trials": 910,
+      "n_fit_trials": 450,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260223",
+      "n_trials": 804,
+      "n_fit_trials": 390,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260225",
+      "n_trials": 1028,
+      "n_fit_trials": 510,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260226",
+      "n_trials": 848,
+      "n_fit_trials": 420,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260227",
+      "n_trials": 966,
+      "n_fit_trials": 480,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260303",
+      "n_trials": 1102,
+      "n_fit_trials": 540,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260304",
+      "n_trials": 1247,
+      "n_fit_trials": 617,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260306",
+      "n_trials": 1266,
+      "n_fit_trials": 630,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260309",
+      "n_trials": 901,
+      "n_fit_trials": 450,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260310",
+      "n_trials": 1239,
+      "n_fit_trials": 609,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260311",
+      "n_trials": 1229,
+      "n_fit_trials": 599,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260312",
+      "n_trials": 1107,
+      "n_fit_trials": 547,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260313",
+      "n_trials": 1341,
+      "n_fit_trials": 665,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260318",
+      "n_trials": 1238,
+      "n_fit_trials": 608,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260319",
+      "n_trials": 1391,
+      "n_fit_trials": 691,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260320",
+      "n_trials": 1150,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260323",
+      "n_trials": 1141,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260324",
+      "n_trials": 1093,
+      "n_fit_trials": 533,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260325",
+      "n_trials": 1220,
+      "n_fit_trials": 595,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260327",
+      "n_trials": 1170,
+      "n_fit_trials": 575,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260330",
+      "n_trials": 1139,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260331",
+      "n_trials": 937,
+      "n_fit_trials": 455,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260401",
+      "n_trials": 1180,
+      "n_fit_trials": 585,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260402",
+      "n_trials": 1007,
+      "n_fit_trials": 490,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260406",
+      "n_trials": 1114,
+      "n_fit_trials": 554,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260407",
+      "n_trials": 1120,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260408",
+      "n_trials": 1153,
+      "n_fit_trials": 560,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260409",
+      "n_trials": 1259,
+      "n_fit_trials": 629,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260507",
+      "n_trials": 654,
+      "n_fit_trials": 336,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260508",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260511",
+      "n_trials": 349,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260513",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260514",
+      "n_trials": 324,
+      "n_fit_trials": 168,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260515",
+      "n_trials": 205,
+      "n_fit_trials": 108,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260518",
+      "n_trials": 308,
+      "n_fit_trials": 156,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout2_Meetz_20260520",
+      "n_trials": 295,
+      "n_fit_trials": 151,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260427",
+      "n_trials": 1367,
+      "n_fit_trials": 675,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260428",
+      "n_trials": 1071,
+      "n_fit_trials": 531,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260429_2",
+      "n_trials": 373,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260429_4",
+      "n_trials": 360,
+      "n_fit_trials": 180,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260429",
+      "n_trials": 509,
+      "n_fit_trials": 239,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260430",
+      "n_trials": 1156,
+      "n_fit_trials": 571,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260504",
+      "n_trials": 1205,
+      "n_fit_trials": 585,
+      "n_bins": 20
+    },
+    {
+      "domain": "IDR",
+      "animal": "Meetz",
+      "session_id": "IDReadout_Meetz_20260506",
+      "n_trials": 1248,
+      "n_fit_trials": 618,
+      "n_bins": 20
+    }
+  ]
+}

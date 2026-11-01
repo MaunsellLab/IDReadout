@@ -10,10 +10,10 @@ function updateIDR
 
 fprintf('>>> dailyUpdate start\n');
 % replace = false;
-nBoot = 500;
+nBoot = 1000;
 % animal = 'All';
 % animal = 'Meetz';
-% animal = 'Neesha';
+animal = 'Neesha';
 
 % ---- Convert raw files ----
 fprintf('  >> convertIDRData start\n');
@@ -45,41 +45,36 @@ fprintf('  << makeBetaSessionData complete\n');
 %IDR Analysis
 
 fprintf('  >> makeBetaKernel start\n');
-makeBetaKernel('Animal', 'Neesha');
+makeBetaKernel('Animal', animal);
 fprintf('  >> makeBetaKernel complete\n');
 
 fprintf('  >> makeIDRGainAcrossSessionPrefFit start\n');
-makeIDRGainAcrossSessionPrefFit('Replace', true, 'Animal', 'Neesha');
+makeIDRGainAcrossSessionPrefFit('Replace', true, 'Animal', animal);
 fprintf('  >> makeIDRGainAcrossSessionPrefFit complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetFits start\n');
-makeIDRGainProbeOffsetFits('Replace', true, 'Animal', 'Neesha');
+makeIDRGainProbeOffsetFits('Replace', true, 'Animal', animal);
 fprintf('  >> makeIDRGainProbeOffsetFits complete\n');
 
 fprintf('  >> makeIDRGainProbeOffsetSummary start\n');
-% makeIDRGainProbeOffsetSummary('Animal', 'Meetz', 'Replace', true);
-makeIDRGainProbeOffsetSummary('Animal', 'Neesha', 'Replace',true);
+makeIDRGainProbeOffsetSummary('Animal', animal, 'Replace',true);
 fprintf('  >> makeIDRGainProbeOffsetSummary complete\n');
-
-% makeIDRGainProbeOffsetSummary('Animal', 'Meetz', 'Replace', true);
-
-makeIDRGainProbeOffsetSummary('Animal', 'Neesha', 'Replace',true);
 
 % ---- Average Kernels ----
 fprintf('  >> kernelAverage start\n');
 for p = [10, 25, 45, 90, 135, 179, 180]
   fprintf('      updating average for probe %d\n', p);
-  kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', 'Neesha');
+  kernelAverage(true, 100, 'probeDirDeg', p, 'Verbose', true, 'Animal', animal);
 end
 fprintf('  << kernelAverage complete\n');
 
 fprintf('  >> plotSideTypeKernelAverage start\n');
-plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', 'Neesha');
+plotSideTypeKernelAverage('ProbeDirs', [10, 25, 45, 90, 135, 179], 'Animal', animal);
 fprintf('  << plotSideTypeKernelAverage complete\n');
 
 % ---- Across-offset summary update ----
 fprintf('  >> updateAcrossOffsetSummaries start\n');
-updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', 'Neesha');
+updateAcrossOffsetSummaries([], 'NBoot', nBoot, 'RandomSeed', 1, 'Animal', animal);
 fprintf('  << updateAcrossOffsetSummaries complete\n');
 
 fprintf('<<< daily update complete\n');

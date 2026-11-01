@@ -1,0 +1,70 @@
+Analytic reference checks passed.
+p 5 sd 0.0 nll 3997.288
+p 5 sd 0.5 nll 3641.477
+p 5 sd 1.0 nll 2828.501
+p 5 sd 2.0 nll 1039.469
+p 5 sd 4.0 nll 529.954
+p 5 sd 8.0 nll 536.051
+p 5 sd 16.0 nll 601.722
+p 5 sd 32.0 nll 641.766
+p 5 sd 40.0 nll 647.951
+p 5 sd 4.2918 nll 522.098
+p 5 sd 5.7082 nll 515.046
+p 5 sd 6.5836 nll 521.36
+p 5 sd 5.468 nll 514.106
+p 5 sd 5.0187 nll 514.059
+p 5 sd 5.2339 nll 513.781
+p 5 sd 5.2506 nll 513.769
+p 5 sd 5.3336 nll 513.849
+p 5 sd 5.2673 nll 513.843
+p inf sd 0.0 nll 3978.867
+p inf sd 0.5 nll 3714.53
+p inf sd 1.0 nll 3264.882
+p inf sd 2.0 nll 1597.207
+p inf sd 4.0 nll 594.133
+p inf sd 8.0 nll 517.151
+p inf sd 16.0 nll 589.724
+p inf sd 32.0 nll 639.012
+p inf sd 40.0 nll 646.434
+p inf sd 8.5836 nll 522.274
+p inf sd 11.4164 nll 551.761
+p inf sd 6.8328 nll 510.505
+p inf sd 5.7508 nll 515.54
+p inf sd 6.8711 nll 510.534
+p inf sd 6.7739 nll 510.45
+p inf sd 6.3831 nll 510.534
+p inf sd 6.6204 nll 510.31
+p inf sd 6.5298 nll 510.456
+p inf sd 6.653 nll 510.336
+p inf sd 6.5858 nll 510.349
+p inf sd 6.6038 nll 510.326
+{
+  "specification": "full response, signed pooled pre/post differences, four independent directional fields",
+  "nTrials": 1594,
+  "nFitTrials": 952,
+  "fitDraws": 64,
+  "finalDraws": 256,
+  "absoluteRateFloor": "zero; pooled differences remain signed",
+  "sessions": [
+    {
+      "sessionID": "IDR4_Meetz_20260806",
+      "nValid": 348,
+      "nFit": 173,
+      "probeOffsetDeg": [
+        120.0
+      ],
+      "fitAccuracy": 0.7630057803468208
+    },
+    {
+      "sessionID": "IDR4_Meetz_20260807",
+      "nValid": 1246,
+      "nFit": 779,
+      "probeOffsetDeg": [
+        45.0
+      ],
+      "fitAccuracy": 0.7817715019255456
+    }
+  ]
+}
+{'p': 5, 'noiseSD': 5.250587945150279, 'finalLogLikelihood': -511.6855168403352, 'predictedAccuracy': 0.7588786117169035, 'negativeRateFraction': 0.00023879526250784191, 'perSession': [{'sessionID': 'IDR4_Meetz_20260806', 'predictedAccuracy': 0.688162125604001}, {'sessionID': 'IDR4_Meetz_20260807', 'predictedAccuracy': 0.7745832999037228}]}
+{'p': 'Inf', 'noiseSD': 6.620444273617907, 'finalLogLikelihood': -507.49798242285146, 'predictedAccuracy': 0.7532462913449071, 'negativeRateFraction': 0.0013048232357887215, 'perSession': [{'sessionID': 'IDR4_Meetz_20260806', 'predictedAccuracy': 0.7045587969653179}, {'sessionID': 'IDR4_Meetz_20260807', 'predictedAccuracy': 0.7640587900967286}]}

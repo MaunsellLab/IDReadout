@@ -69,6 +69,7 @@ for f = 1:numel(files)
   sessionData.trialOutcomesAll = trialOutcomesAll;
   sessionData.changeSidesAll = changeSidesAll;
   sessionData.changeIndicesAll = changeIndicesAll;
+  sessionData.chosenSidesAll = chosenSidesAll;
 
   [kernels, kVars, kStats, hitStats, compStats] = computeSessionKernels(sessionData);
   [kernelsNorm, kVarsNorm] = normalizeProbeKernelsToPrefAmplitude(kernels, kVars, sessionHeader, sessionProbeHeader);
@@ -241,7 +242,7 @@ plotTitle = sprintf('\\bfGrand Kernel Averages Over %d Probe Directions, %d Prob
         numel(probeSessionDirs), nSessions, R.Animal);
 
 % ---- Plot/export averaged kernels ----
-plotKernels(2, plotTitle, sessionHeader, avgKernels(1:5,:,:,:), ...
+plotKernels(2, plotTitle, [1:5], sessionHeader, avgKernels(1:5,:,:,:), ...
         avgKVars(1:5,:,:), avgCompStats, avgHitStats, R.probeDirDeg);
 plotFolder = validFolder(fullfile(domainFolder(mfilename('fullpath')), 'Plots', 'AcrossProbes', 'Kernels'));
 pdfFile = fullfile(plotFolder, plotName);

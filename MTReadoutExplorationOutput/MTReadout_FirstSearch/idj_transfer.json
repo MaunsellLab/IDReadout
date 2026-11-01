@@ -1,0 +1,626 @@
+[
+  {
+    "config": {
+      "family": "pooled_delta",
+      "p": 2,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 0.5
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5146.290602907626,
+        0
+      ],
+      [
+        846.5631507366784,
+        0.5
+      ],
+      [
+        880.5812526086034,
+        1
+      ],
+      [
+        940.5536699652134,
+        1.5
+      ],
+      [
+        1018.8896857706152,
+        2.5
+      ],
+      [
+        1078.1044260990666,
+        4
+      ],
+      [
+        1116.4745695143622,
+        6
+      ],
+      [
+        1144.9870525740573,
+        9
+      ],
+      [
+        1167.4640681576398,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.725315676046309,
+        "choice_nll": 847.2607822136064
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6661454653410318,
+        "choice_nll": 921.771863851098
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.589744320622197,
+        "choice_nll": 1034.163958720951
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5578603102874317,
+        "choice_nll": 1085.8625421250547
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "pooled_delta",
+      "p": 3,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 1
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5100.238941047948,
+        0
+      ],
+      [
+        1013.6425004193361,
+        0.5
+      ],
+      [
+        848.8479534747734,
+        1
+      ],
+      [
+        849.6889669608807,
+        1.5
+      ],
+      [
+        910.7735440276376,
+        2.5
+      ],
+      [
+        987.3878719925021,
+        4
+      ],
+      [
+        1050.6842941863729,
+        6
+      ],
+      [
+        1103.9422581754357,
+        9
+      ],
+      [
+        1147.9959548673905,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7280566746446413,
+        "choice_nll": 847.8801010383281
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6690570286342076,
+        "choice_nll": 919.592820348172
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5911341773139106,
+        "choice_nll": 1032.5074130096848
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5577002992021277,
+        "choice_nll": 1086.288281531718
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "pooled_delta",
+      "p": 5,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 2.5
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5065.700194653193,
+        0
+      ],
+      [
+        1596.5244508267285,
+        0.5
+      ],
+      [
+        1007.6782011908535,
+        1
+      ],
+      [
+        880.0530856577675,
+        1.5
+      ],
+      [
+        839.3978996489263,
+        2.5
+      ],
+      [
+        896.4106057548514,
+        4
+      ],
+      [
+        977.0087875766923,
+        6
+      ],
+      [
+        1059.5138550948905,
+        9
+      ],
+      [
+        1129.6205790569672,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7010027724221894,
+        "choice_nll": 839.7187392633632
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6421569085890247,
+        "choice_nll": 935.8431832996971
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5728836059570312,
+        "choice_nll": 1052.4004953447645
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5439523847162072,
+        "choice_nll": 1106.69908429911
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "pooled_delta",
+      "p": Infinity,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5065.700194653171,
+        0
+      ],
+      [
+        2948.941801252645,
+        0.5
+      ],
+      [
+        1876.1331782289853,
+        1
+      ],
+      [
+        1289.0457785997762,
+        1.5
+      ],
+      [
+        896.8653862416854,
+        2.5
+      ],
+      [
+        828.3223987457046,
+        4
+      ],
+      [
+        902.1028952291094,
+        6
+      ],
+      [
+        1016.8115602195205,
+        9
+      ],
+      [
+        1116.3468135834444,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7150416667602609,
+        "choice_nll": 827.5376252547429
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6622283865229874,
+        "choice_nll": 917.0675772686709
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5931803915235732,
+        "choice_nll": 1027.2143215178448
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5614414313800585,
+        "choice_nll": 1080.7120609540493
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "rectified_delta",
+      "p": 2,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 2.5
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5791.013868943144,
+        0
+      ],
+      [
+        3062.7653919203126,
+        0.5
+      ],
+      [
+        1683.795965324517,
+        1
+      ],
+      [
+        1171.188989015926,
+        1.5
+      ],
+      [
+        914.5115745640232,
+        2.5
+      ],
+      [
+        927.7776162871702,
+        4
+      ],
+      [
+        1015.3135641667412,
+        6
+      ],
+      [
+        1099.1421758719634,
+        9
+      ],
+      [
+        1154.5006115998472,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7118856064941688,
+        "choice_nll": 911.5659867939164
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6494036380047074,
+        "choice_nll": 1007.9553165261708
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5777469917579934,
+        "choice_nll": 1081.341584893787
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5447574240370274,
+        "choice_nll": 1161.2668758818027
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "rectified_delta",
+      "p": 3,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5652.858883364074,
+        0
+      ],
+      [
+        3154.4469935971574,
+        0.5
+      ],
+      [
+        1768.7146461721218,
+        1
+      ],
+      [
+        1221.0501635557448,
+        1.5
+      ],
+      [
+        922.8306731440714,
+        2.5
+      ],
+      [
+        917.4920485746584,
+        4
+      ],
+      [
+        1003.2327182199019,
+        6
+      ],
+      [
+        1091.0076763583556,
+        9
+      ],
+      [
+        1150.5002592326143,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.6513520252300172,
+        "choice_nll": 916.6548008757375
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.5963664252637169,
+        "choice_nll": 1023.0460978762728
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5451590220133463,
+        "choice_nll": 1103.966383452303
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5241000596101837,
+        "choice_nll": 1161.4062016114804
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "rectified_delta",
+      "p": 5,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5618.320136969309,
+        0
+      ],
+      [
+        3161.6359930865256,
+        0.5
+      ],
+      [
+        1810.3694647553375,
+        1
+      ],
+      [
+        1250.4826147975868,
+        1.5
+      ],
+      [
+        928.0554220328136,
+        2.5
+      ],
+      [
+        912.5002944496459,
+        4
+      ],
+      [
+        996.7505269215584,
+        6
+      ],
+      [
+        1086.958235339553,
+        9
+      ],
+      [
+        1148.773561296612,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.6567018145867776,
+        "choice_nll": 910.9119774970306
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6016163276637205,
+        "choice_nll": 1016.1940037136803
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5488857516536007,
+        "choice_nll": 1097.8097749479737
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.52743723311597,
+        "choice_nll": 1155.7864501714596
+      }
+    ]
+  },
+  {
+    "config": {
+      "family": "rectified_delta",
+      "p": Infinity,
+      "sigma": 37.5,
+      "corr": 30,
+      "sd": 4
+    },
+    "calibration": "single-stream trials only; shared SD across sessions",
+    "noise_grid": [
+      [
+        5537.72972871489,
+        0
+      ],
+      [
+        3121.2687195473236,
+        0.5
+      ],
+      [
+        1787.999949179944,
+        1
+      ],
+      [
+        1240.990667495334,
+        1.5
+      ],
+      [
+        929.8403495865255,
+        2.5
+      ],
+      [
+        910.3242340310679,
+        4
+      ],
+      [
+        995.5723253598276,
+        6
+      ],
+      [
+        1086.6958545755974,
+        9
+      ],
+      [
+        1149.3868837674834,
+        14
+      ]
+    ],
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.6586843515827163,
+        "choice_nll": 907.8909463059388
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6048219214936006,
+        "choice_nll": 1010.7673147040014
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.5524950910497595,
+        "choice_nll": 1090.900658758987
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.5313573994123778,
+        "choice_nll": 1148.216217891806
+      }
+    ]
+  }
+]

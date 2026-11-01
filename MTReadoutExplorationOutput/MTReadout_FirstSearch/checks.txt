@@ -1,0 +1,2 @@
+Covariance, temporal/patch independence, p=1 conservation, 2AFC ties, and direction quadrature checks passed.
+Temporal reconstruction and zero-strength adaptation checks passed.

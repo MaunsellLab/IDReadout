@@ -1,0 +1,48 @@
+[
+  {
+    "sigma": 18,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 7.5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 3,
+    "p": 5,
+    "idr_p": 2,
+    "noise": "gaussian",
+    "branch": "joint_local",
+    "name": "joint_final_0",
+    "transfer_p": [
+      2,
+      5
+    ],
+    "idj_p": [
+      5
+    ]
+  },
+  {
+    "sigma": 19.00678359065205,
+    "width_cv": 0.2507519350387156,
+    "corr": 21.8341281365663,
+    "sd": 6.108645209990077,
+    "harmonic": 0.17386384680867195,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 3,
+    "p": Infinity,
+    "idr_p": 3,
+    "noise": "lognormal",
+    "branch": "joint",
+    "norm_strength": 0.15,
+    "norm_sigma": 42.3444002494216,
+    "name": "joint_final_1",
+    "transfer_p": [
+      3,
+      Infinity
+    ],
+    "idj_p": [
+      Infinity
+    ]
+  }
+]

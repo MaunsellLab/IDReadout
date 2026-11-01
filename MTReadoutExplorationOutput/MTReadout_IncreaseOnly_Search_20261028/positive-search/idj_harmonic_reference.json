@@ -1,0 +1,128 @@
+[
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 3,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.69311137361181
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6718857233425439
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6546624501546224
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6594667878899512
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": 5,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7071187489330254
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.6882151942099294
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.6723756083735714
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.6771404492299813
+      }
+    ]
+  },
+  {
+    "config": {
+      "sigma": 25,
+      "width_cv": 0,
+      "corr": 30,
+      "sd": 5,
+      "harmonic": 1,
+      "global_fraction": 0,
+      "balanced": false,
+      "variance_exp": 2,
+      "p": Infinity,
+      "noise": "gaussian",
+      "branch": "reference",
+      "name": "harmonic_reference"
+    },
+    "groups": [
+      {
+        "allocation": 1.0,
+        "n": 1739,
+        "observed_accuracy": 0.7630822311673375,
+        "predicted_accuracy": 0.7268995621754151
+      },
+      {
+        "allocation": 0.7,
+        "n": 1736,
+        "observed_accuracy": 0.7355990783410138,
+        "predicted_accuracy": 0.7128570310531124
+      },
+      {
+        "allocation": 0.5,
+        "n": 1728,
+        "observed_accuracy": 0.7013888888888888,
+        "predicted_accuracy": 0.700706817485668
+      },
+      {
+        "allocation": 0.3333333333333333,
+        "n": 1739,
+        "observed_accuracy": 0.7113283496262219,
+        "predicted_accuracy": 0.7063634608105862
+      }
+    ]
+  }
+]

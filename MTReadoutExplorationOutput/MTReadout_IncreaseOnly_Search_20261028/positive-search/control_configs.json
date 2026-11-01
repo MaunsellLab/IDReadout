@@ -1,0 +1,73 @@
+[
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": 5,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "reference_p5"
+  },
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 1.2,
+    "p": Infinity,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "reference_b12"
+  },
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 0,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": Infinity,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "reference_gp"
+  },
+  {
+    "sigma": 25,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": Infinity,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "reference_frozen_variance",
+    "freeze_variance": true
+  },
+  {
+    "sigma": 37.5,
+    "width_cv": 0,
+    "corr": 30,
+    "sd": 5,
+    "harmonic": 1,
+    "global_fraction": 0,
+    "balanced": false,
+    "variance_exp": 2,
+    "p": Infinity,
+    "noise": "gaussian",
+    "branch": "reference",
+    "name": "reference_width375"
+  }
+]

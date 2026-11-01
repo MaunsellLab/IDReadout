@@ -1,0 +1,191 @@
+domain,animal,session_id,source_name,bundle_file,n_trials,n_fit_trials,n_excluded_topup,probe_offsets_deg,input_representation,cache_status
+IDS,Meetz,IDR4_Meetz_20260813,IDR4_Meetz_20260813_Probe10.mat,sources/source_9abfdb9a647efce5.mat,1555,777,0,"10",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260814,IDR4_Meetz_20260814_Probe10.mat,sources/source_5dda9081aa19e6e1.mat,1339,848,0,"10",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260819,IDR4_Meetz_20260819_Probe10.mat,sources/source_2d6018ff062078ef.mat,1533,1029,0,"10",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260826,IDR4_Meetz_20260826_Probe10.mat,sources/source_0a814bee406ff05a.mat,1417,1047,0,"10",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260806,IDR4_Meetz_20260806_Probe120.mat,sources/source_8681b63fcdda5e15.mat,348,173,0,"120",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260831,IDR4_Meetz_20260831_Probe155.mat,sources/source_25876f79344db153.mat,1315,1011,0,"155",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260902,IDR4_Meetz_20260902_Probe155.mat,sources/source_f63268def15167f1.mat,1339,1035,0,"155",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260903,IDR4_Meetz_20260903_Probe155.mat,sources/source_1ca3ba82fc719d61.mat,1476,984,0,"155",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260820,IDR4_Meetz_20260820_Probe170.mat,sources/source_13ec50965b4787b2.mat,1413,985,0,"170",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260821,IDR4_Meetz_20260821_Probe170.mat,sources/source_3a5da2356667bd22.mat,1540,1117,0,"170",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260824,IDR4_Meetz_20260824_Probe170.mat,sources/source_adb1971287c85d72.mat,1610,1120,0,"170",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260812,IDR4_Meetz_20260812_Probe25.mat,sources/source_d32de08cd9560428.mat,1576,789,0,"25",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260817,IDR4_Meetz_20260817_Probe25.mat,sources/source_a2b3690a355c9636.mat,1533,1023,0,"25",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260818,IDR4_Meetz_20260818_Probe25.mat,sources/source_65ce1df17af78032.mat,1544,1076,0,"25",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260805_2,IDR4_Meetz_20260805_2_Probe45.mat,sources/source_7be95fa492338805.mat,192,96,0,"45",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260805,IDR4_Meetz_20260805_Probe45.mat,sources/source_ee4afde085d6e413.mat,72,43,0,"45",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260806_1,IDR4_Meetz_20260806_1_Probe45.mat,sources/source_ad6a30553ef681ec.mat,1064,544,0,"45",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260807,IDR4_Meetz_20260807_Probe45.mat,sources/source_748067ae110cb81c.mat,1246,779,0,"45",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260810,IDR4_Meetz_20260810_Probe45.mat,sources/source_4536c70634f08786.mat,1237,800,0,"45",existing compact session analysis,exported
+IDS,Meetz,IDR4_Meetz_20260811,IDR4_Meetz_20260811_Probe45.mat,sources/source_08517bed7a8b7182.mat,1064,638,0,"45",existing compact session analysis,exported
+IDQ,Meetz,IDR3_Meetz_20260722,ProbeSessionIDR3_Meetz_20260722_Probe120.mat,sources/source_362988a4886b1b9e.mat,1296,778,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260723,ProbeSessionIDR3_Meetz_20260723_Probe120.mat,sources/source_5c9ada43938b510e.mat,915,549,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260724,ProbeSessionIDR3_Meetz_20260724_Probe120.mat,sources/source_830c2be29eab867e.mat,1483,891,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260728,ProbeSessionIDR3_Meetz_20260728_Probe120.mat,sources/source_1cd17263cb2c5c3e.mat,1294,777,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260729,ProbeSessionIDR3_Meetz_20260729_Probe120.mat,sources/source_4342c402d64c91ae.mat,1289,775,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260730,ProbeSessionIDR3_Meetz_20260730_Probe120.mat,sources/source_dde26af9648894a1.mat,1417,852,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260731,ProbeSessionIDR3_Meetz_20260731_Probe120.mat,sources/source_0453bc9d6fa8ca11.mat,1547,929,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260803,ProbeSessionIDR3_Meetz_20260803_Probe120.mat,sources/source_fb7007a137ccb630.mat,1320,791,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260804,ProbeSessionIDR3_Meetz_20260804_Probe120.mat,sources/source_21e1594542eceba0.mat,682,411,0,"120",source trial events,exported
+IDQ,Meetz,IDR3_Meetz_20260805,ProbeSessionIDR3_Meetz_20260805_Probe120.mat,sources/source_4852aae44e0d2110.mat,617,371,0,"120",source trial events,exported
+IDJ,Meetz,IDR6_Meetz_20261019,IDR6_Meetz_20261019.mat,sources/source_80ef8786747cf16b.mat,749,749,0,"zeros(1,0)",existing compact session analysis,exported
+IDJ,Meetz,IDR6_Meetz_20261020,IDR6_Meetz_20261020.mat,sources/source_82a1d39edfdba2a5.mat,1336,1336,0,"zeros(1,0)",existing compact session analysis,exported
+IDJ,Meetz,IDR6_Meetz_20261021,IDR6_Meetz_20261021.mat,sources/source_82b3ec1f348a313d.mat,1716,1716,0,"zeros(1,0)",existing compact session analysis,exported
+IDJ,Meetz,IDR6_Meetz_20261022,IDR6_Meetz_20261022.mat,sources/source_82c604a08938bfc4.mat,1759,1759,0,"zeros(1,0)",existing compact session analysis,exported
+IDJ,Meetz,IDR6_Meetz_20261023,IDR6_Meetz_20261023.mat,sources/source_82d81d21dde74e4b.mat,1382,1382,0,"zeros(1,0)",existing compact session analysis,exported
+IDR,Meetz,IDReadout2_Meetz_20260515,IDReadout2_Meetz_20260515_Probe10.mat,sources/source_77dfbff67d0964bf.mat,205,108,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260518,IDReadout2_Meetz_20260518_Probe10.mat,sources/source_c12fdea64dda22c4.mat,311,156,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260519,IDReadout2_Meetz_20260519_Probe10.mat,sources/source_844a938d93750cc0.mat,319,165,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260520,IDReadout2_Meetz_20260520_Probe10.mat,sources/source_cecb89172c230832.mat,296,152,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260521,IDReadout2_Meetz_20260521_Probe10.mat,sources/source_91e63dfe71bdf22e.mat,354,180,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260522,IDReadout2_Meetz_20260522_Probe10.mat,sources/source_5500f2e5b758dc2a.mat,376,195,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260526,IDReadout2_Meetz_20260526_Probe10.mat,sources/source_616bc67ccdc4842b.mat,612,312,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260527,IDReadout2_Meetz_20260527_Probe10.mat,sources/source_24867b63135f6e38.mat,692,360,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260528,IDReadout2_Meetz_20260528_Probe10.mat,sources/source_e7a1304558fa5834.mat,475,250,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260529,IDReadout2_Meetz_20260529_Probe10.mat,sources/source_aabbe52c9e954230.mat,451,231,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260602,IDReadout2_Meetz_20260602_Probe10.mat,sources/source_fcb9d53a9376552d.mat,508,260,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260603,IDReadout2_Meetz_20260603_Probe10.mat,sources/source_bfd48a21d9113f29.mat,495,255,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260604,IDReadout2_Meetz_20260604_Probe10.mat,sources/source_82ef3f081eac2936.mat,500,260,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260605,IDReadout2_Meetz_20260605_Probe10.mat,sources/source_4609f3ef64471332.mat,402,202,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260608,IDReadout2_Meetz_20260608_Probe10.mat,sources/source_8f5a129f3517d137.mat,397,200,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260609,IDReadout2_Meetz_20260609_Probe10.mat,sources/source_5274c7867ab2bb33.mat,460,240,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260610,IDReadout2_Meetz_20260610_Probe10.mat,sources/source_9cf5bd101360b6a5.mat,701,360,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260611,IDReadout2_Meetz_20260611_Probe10.mat,sources/source_601071f758fba0a1.mat,647,330,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260615,IDReadout2_Meetz_20260615_Probe10.mat,sources/source_6c7b458e6f6748a2.mat,656,330,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260616,IDReadout2_Meetz_20260616_Probe10.mat,sources/source_2f95fa75b502329e.mat,678,348,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260617,IDReadout2_Meetz_20260617_Probe10.mat,sources/source_f2b0af57fa9d1c9a.mat,707,360,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260618,IDReadout2_Meetz_20260618_Probe10.mat,sources/source_b5cb643e403806a7.mat,580,300,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260622,IDReadout2_Meetz_20260622_Probe10.mat,sources/source_499c787da9b6c00d.mat,584,300,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260623,IDReadout2_Meetz_20260623_Probe10.mat,sources/source_0cb72d64ef51aa09.mat,572,300,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260624,IDReadout2_Meetz_20260624_Probe10.mat,sources/source_cfd1e24634ec9416.mat,708,360,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260625,IDReadout2_Meetz_20260625_Probe10.mat,sources/source_92ec972d7a877e12.mat,641,330,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260629,IDReadout2_Meetz_20260629_Probe10.mat,sources/source_9f576ac490f32613.mat,529,270,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260630,IDReadout2_Meetz_20260630_Probe10.mat,sources/source_e9d8604e29a12185.mat,707,360,0,"10",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260508,IDReadout2_Meetz_20260508_Probe135.mat,sources/source_2a09838f4f3c2708.mat,324,168,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260511,IDReadout2_Meetz_20260511_Probe135.mat,sources/source_118bcdc9f3b894ca.mat,350,180,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260513,IDReadout2_Meetz_20260513_Probe135.mat,sources/source_5e6e710709f8ffbb.mat,325,168,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260514,IDReadout2_Meetz_20260514_Probe135.mat,sources/source_84dfc2a61519352b.mat,324,168,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260515,IDReadout2_Meetz_20260515_Probe135.mat,sources/source_ab51144520396a9b.mat,207,108,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260518,IDReadout2_Meetz_20260518_Probe135.mat,sources/source_1ea50927419a0aeb.mat,309,156,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260519,IDReadout2_Meetz_20260519_Probe135.mat,sources/source_45165ac64cba405b.mat,319,165,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260520,IDReadout2_Meetz_20260520_Probe135.mat,sources/source_dfb601bddaf6433d.mat,291,147,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260521,IDReadout2_Meetz_20260521_Probe135.mat,sources/source_06275361e61678ad.mat,354,180,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260522,IDReadout2_Meetz_20260522_Probe135.mat,sources/source_2c98a500f136ae1d.mat,376,195,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260526,IDReadout2_Meetz_20260526_Probe135.mat,sources/source_c65deb7c1db783ee.mat,608,308,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260527,IDReadout2_Meetz_20260527_Probe135.mat,sources/source_eccf3d1b28d7b95e.mat,692,360,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260528,IDReadout2_Meetz_20260528_Probe135.mat,sources/source_13408ebf33f7eece.mat,476,250,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260529,IDReadout2_Meetz_20260529_Probe135.mat,sources/source_39b1e05e3f18243e.mat,448,228,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260602,IDReadout2_Meetz_20260602_Probe135.mat,sources/source_cb6dd25e9578133f.mat,508,260,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260603,IDReadout2_Meetz_20260603_Probe135.mat,sources/source_f1df23fda09848af.mat,498,258,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260604,IDReadout2_Meetz_20260604_Probe135.mat,sources/source_185075a1abb87e1f.mat,501,260,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260605,IDReadout2_Meetz_20260605_Probe135.mat,sources/source_3ec1c740b6d8b38f.mat,405,205,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260608,IDReadout2_Meetz_20260608_Probe135.mat,sources/source_b215bc1dd83953df.mat,396,200,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260609,IDReadout2_Meetz_20260609_Probe135.mat,sources/source_d8870dbce359894f.mat,460,240,0,"135",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260501,IDReadout_Meetz_20260501_Probe135.mat,sources/source_ff2dd5b10b00598c.mat,1252,622,0,"135",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260505,IDReadout_Meetz_20260505_Probe135.mat,sources/source_98f31c3237812f4c.mat,1132,547,0,"135",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260513,IDReadout2_Meetz_20260513_Probe179.mat,sources/source_5bba5136e6b32168.mat,327,168,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260514,IDReadout2_Meetz_20260514_Probe179.mat,sources/source_822ba2d5f1d356d8.mat,326,168,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260515,IDReadout2_Meetz_20260515_Probe179.mat,sources/source_a89cf474fcf38c48.mat,206,108,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260518,IDReadout2_Meetz_20260518_Probe179.mat,sources/source_1bf0e9561e542ca9.mat,309,156,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260519,IDReadout2_Meetz_20260519_Probe179.mat,sources/source_42623af529746219.mat,320,165,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260520,IDReadout2_Meetz_20260520_Probe179.mat,sources/source_dd01e1ecb7b064fb.mat,297,153,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260521,IDReadout2_Meetz_20260521_Probe179.mat,sources/source_03733390c2d09a6b.mat,355,180,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260522,IDReadout2_Meetz_20260522_Probe179.mat,sources/source_29e4852fcdf0cfdb.mat,378,195,0,"179",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260507,IDReadout2_Meetz_20260507_Probe180.mat,sources/source_e24bd041422f693e.mat,325,168,0,"180",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260508,IDReadout2_Meetz_20260508_Probe180.mat,sources/source_08bd21e54d4f9eae.mat,321,165,0,"180",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260511,IDReadout2_Meetz_20260511_Probe180.mat,sources/source_f03f6c1af1cc0c70.mat,353,180,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260410,IDReadout_Meetz_20260410_Probe180.mat,sources/source_477f2417fe4a47bd.mat,1228,598,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260415,IDReadout_Meetz_20260415_Probe180.mat,sources/source_07b5bc3735eb52fe.mat,1039,514,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260416,IDReadout_Meetz_20260416_Probe180.mat,sources/source_2e270dd6410b886e.mat,1057,525,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260417,IDReadout_Meetz_20260417_Probe180.mat,sources/source_54985f754c2bbdde.mat,1164,569,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260420,IDReadout_Meetz_20260420_Probe180.mat,sources/source_3c1aa9aff0a82ba0.mat,1491,731,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260421,IDReadout_Meetz_20260421_Probe180.mat,sources/source_628bfb4efbc86110.mat,1237,600,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260422,IDReadout_Meetz_20260422_Probe180.mat,sources/source_88fd4ced06e89691.mat,1236,600,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260423,IDReadout_Meetz_20260423_Probe180.mat,sources/source_af6e9e8c1208cc01.mat,1068,520,0,"180",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260424,IDReadout_Meetz_20260424_Probe180.mat,sources/source_d5dff02b1d290171.mat,1143,560,0,"180",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260528,IDReadout2_Meetz_20260528_Probe25.mat,sources/source_ab5a2d955c63b885.mat,475,250,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260529,IDReadout2_Meetz_20260529_Probe25.mat,sources/source_6e74e27ca1fea281.mat,450,230,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260602,IDReadout2_Meetz_20260602_Probe25.mat,sources/source_c072d28a96dfb57e.mat,505,260,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260603,IDReadout2_Meetz_20260603_Probe25.mat,sources/source_838d8771dc7a9f7a.mat,495,255,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260604,IDReadout2_Meetz_20260604_Probe25.mat,sources/source_46a83c5822158987.mat,503,260,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260605,IDReadout2_Meetz_20260605_Probe25.mat,sources/source_09c2f13f67b07383.mat,406,206,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260608,IDReadout2_Meetz_20260608_Probe25.mat,sources/source_53130fef38813188.mat,396,200,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260609,IDReadout2_Meetz_20260609_Probe25.mat,sources/source_162dc4d67e1c1b84.mat,460,240,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260610,IDReadout2_Meetz_20260610_Probe25.mat,sources/source_60aeba6016ca16f6.mat,701,360,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260611,IDReadout2_Meetz_20260611_Probe25.mat,sources/source_23c96f475c6500f2.mat,642,330,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260615,IDReadout2_Meetz_20260615_Probe25.mat,sources/source_303442de72d0a8f3.mat,655,330,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260616,IDReadout2_Meetz_20260616_Probe25.mat,sources/source_f34ef7c0b86b92ef.mat,673,343,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260617,IDReadout2_Meetz_20260617_Probe25.mat,sources/source_b669aca7fe067ceb.mat,709,360,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260618,IDReadout2_Meetz_20260618_Probe25.mat,sources/source_7984618e43a166f8.mat,576,300,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260622,IDReadout2_Meetz_20260622_Probe25.mat,sources/source_0d5575cdad20205e.mat,585,300,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260623,IDReadout2_Meetz_20260623_Probe25.mat,sources/source_d0702aaff2bb0a5a.mat,572,300,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260624,IDReadout2_Meetz_20260624_Probe25.mat,sources/source_938adf963855f467.mat,713,360,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260625,IDReadout2_Meetz_20260625_Probe25.mat,sources/source_56a5947d7df0de63.mat,637,330,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260629,IDReadout2_Meetz_20260629_Probe25.mat,sources/source_63106814945c8664.mat,522,270,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260630,IDReadout2_Meetz_20260630_Probe25.mat,sources/source_ad915d9e2d0a81d6.mat,708,360,0,"25",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260507,IDReadout2_Meetz_20260507_Probe45.mat,sources/source_32ab9ae0335952a6.mat,330,168,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260508,IDReadout2_Meetz_20260508_Probe45.mat,sources/source_f5c64fc278f43ca2.mat,324,168,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260511,IDReadout2_Meetz_20260511_Probe45.mat,sources/source_c67caf1a9cd80c0c.mat,350,180,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260513,IDReadout2_Meetz_20260513_Probe45.mat,sources/source_4cb218e8280de015.mat,325,168,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260514,IDReadout2_Meetz_20260514_Probe45.mat,sources/source_0fcccdcf6da8ca11.mat,326,168,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260518,IDReadout2_Meetz_20260518_Probe45.mat,sources/source_1c37a16684147212.mat,308,156,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260520,IDReadout2_Meetz_20260520_Probe45.mat,sources/source_29d34bd7625d5780.mat,294,150,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260521,IDReadout2_Meetz_20260521_Probe45.mat,sources/source_ecee00b9a7f8417c.mat,356,180,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260522,IDReadout2_Meetz_20260522_Probe45.mat,sources/source_b008b5a0ed932b78.mat,378,195,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260113,IDReadout_Meetz_20260113_Probe45.mat,sources/source_7cda262325ec186b.mat,539,270,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260114_4,IDReadout_Meetz_20260114_4_Probe45.mat,sources/source_65b48a9e5a1d505b.mat,474,240,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260115,IDReadout_Meetz_20260115_Probe45.mat,sources/source_030f8ff1b121ec63.mat,822,412,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260116,IDReadout_Meetz_20260116_Probe45.mat,sources/source_c62a44d3f6bcd65f.mat,921,456,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260209,IDReadout_Meetz_20260209_Probe45.mat,sources/source_dda4977caecb42d7.mat,670,330,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260210,IDReadout_Meetz_20260210_Probe45.mat,sources/source_28258d0b47793e49.mat,483,240,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260212,IDReadout_Meetz_20260212_Probe45.mat,sources/source_ae5af6d4d2af1241.mat,834,414,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260213,IDReadout_Meetz_20260213_Probe45.mat,sources/source_7175abbb1849fc4e.mat,748,373,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260216,IDReadout_Meetz_20260216_Probe45.mat,sources/source_bac5ca6be91aba42.mat,914,450,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260217,IDReadout_Meetz_20260217_Probe45.mat,sources/source_7de07f522eb5a44f.mat,973,475,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260218,IDReadout_Meetz_20260218_Probe45.mat,sources/source_40fb343974508e4b.mat,817,400,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260219,IDReadout_Meetz_20260219_Probe45.mat,sources/source_0415e920b9eb7847.mat,811,420,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260220,IDReadout_Meetz_20260220_Probe45.mat,sources/source_4e96deaa529973b9.mat,910,450,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260223,IDReadout_Meetz_20260223_Probe45.mat,sources/source_97e6fd5a236a31be.mat,804,390,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260225,IDReadout_Meetz_20260225_Probe45.mat,sources/source_1e1c6728aea005b6.mat,1028,510,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260226,IDReadout_Meetz_20260226_Probe45.mat,sources/source_e1371c0af43aefb2.mat,848,420,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260227,IDReadout_Meetz_20260227_Probe45.mat,sources/source_a451d0f139d5d9bf.mat,966,480,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260303,IDReadout_Meetz_20260303_Probe45.mat,sources/source_3f9fdfb4ff87aab0.mat,1102,540,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260304,IDReadout_Meetz_20260304_Probe45.mat,sources/source_02ba949b452294bd.mat,1247,617,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260306,IDReadout_Meetz_20260306_Probe45.mat,sources/source_88effe64d05868b5.mat,1266,630,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260309,IDReadout_Meetz_20260309_Probe45.mat,sources/source_d2401d14a12926ba.mat,901,450,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260310,IDReadout_Meetz_20260310_Probe45.mat,sources/source_1cc112a339d7222c.mat,1239,609,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260311,IDReadout_Meetz_20260311_Probe45.mat,sources/source_dfdbc7857f720c28.mat,1229,599,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260312,IDReadout_Meetz_20260312_Probe45.mat,sources/source_a2f67c6cc50cf624.mat,1107,547,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260313,IDReadout_Meetz_20260313_Probe45.mat,sources/source_661131530aa7e031.mat,1341,665,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260318,IDReadout_Meetz_20260318_Probe45.mat,sources/source_3596b9d166ae722e.mat,1238,608,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260319,IDReadout_Meetz_20260319_Probe45.mat,sources/source_f8b16eb3ac495c2a.mat,1391,691,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260320,IDReadout_Meetz_20260320_Probe45.mat,sources/source_4332644244f7579c.mat,1150,560,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260323,IDReadout_Meetz_20260323_Probe45.mat,sources/source_8c8282f215c815a1.mat,1141,560,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260324,IDReadout_Meetz_20260324_Probe45.mat,sources/source_4f9d37d95b62ff9d.mat,1093,533,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260325,IDReadout_Meetz_20260325_Probe45.mat,sources/source_12b7ecc0a0fde999.mat,1220,595,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260327,IDReadout_Meetz_20260327_Probe45.mat,sources/source_98ed56892c33bda2.mat,1170,575,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260330,IDReadout_Meetz_20260330_Probe45.mat,sources/source_69a3b5e150178d0c.mat,1139,560,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260331,IDReadout_Meetz_20260331_Probe45.mat,sources/source_2cbe6ac895b27708.mat,937,455,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260401,IDReadout_Meetz_20260401_Probe45.mat,sources/source_ae05fb7e66afba9b.mat,1180,585,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260402,IDReadout_Meetz_20260402_Probe45.mat,sources/source_7120b065ac4aa497.mat,1007,490,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260406,IDReadout_Meetz_20260406_Probe45.mat,sources/source_7d8b83fcc2b64c98.mat,1114,554,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260407,IDReadout_Meetz_20260407_Probe45.mat,sources/source_40a638e3085136a5.mat,1120,560,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260408,IDReadout_Meetz_20260408_Probe45.mat,sources/source_03c0edca4dec20a1.mat,1153,560,0,"45",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260409,IDReadout_Meetz_20260409_Probe45.mat,sources/source_c6dba2ac93870a9d.mat,1259,629,0,"45",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260507,IDReadout2_Meetz_20260507_Probe90.mat,sources/source_34deeddbc862bf4c.mat,654,336,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260508,IDReadout2_Meetz_20260508_Probe90.mat,sources/source_f7f9a2bd0dfda959.mat,324,168,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260511,IDReadout2_Meetz_20260511_Probe90.mat,sources/source_c8b0021531e178c3.mat,349,180,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260513,IDReadout2_Meetz_20260513_Probe90.mat,sources/source_4ee56be3bd174cbb.mat,324,168,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260514,IDReadout2_Meetz_20260514_Probe90.mat,sources/source_120020ca02b236c8.mat,324,168,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260515,IDReadout2_Meetz_20260515_Probe90.mat,sources/source_d51ad5ac484d20c4.mat,205,108,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260518,IDReadout2_Meetz_20260518_Probe90.mat,sources/source_1e6af461191ddec9.mat,308,156,0,"90",source trial events,exported
+IDR,Meetz,IDReadout2_Meetz_20260520,IDReadout2_Meetz_20260520_Probe90.mat,sources/source_2c069ed2f766c426.mat,295,151,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260427,IDReadout_Meetz_20260427_Probe90.mat,sources/source_33b84bddf1bd5aac.mat,1367,675,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260428,IDReadout_Meetz_20260428_Probe90.mat,sources/source_f6d300bf375844b9.mat,1071,531,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260429_2,IDReadout_Meetz_20260429_2_Probe90.mat,sources/source_aa02739fbb580026.mat,373,180,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260429_4,IDReadout_Meetz_20260429_4_Probe90.mat,sources/source_3037dd6d468dd42f.mat,360,180,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260429,IDReadout_Meetz_20260429_Probe90.mat,sources/source_b9edb5a67cf32eb5.mat,509,239,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260430,IDReadout_Meetz_20260430_Probe90.mat,sources/source_046eab3515a12a27.mat,1156,571,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260504,IDReadout_Meetz_20260504_Probe90.mat,sources/source_92210f82fd0a15aa.mat,1205,585,0,"90",source trial events,exported
+IDR,Meetz,IDReadout_Meetz_20260506,IDReadout_Meetz_20260506_Probe90.mat,sources/source_18567950883fe9b3.mat,1248,618,0,"90",source trial events,exported

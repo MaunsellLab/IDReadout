@@ -2,8 +2,10 @@ function summaries = plotIDSSummary(varargin)
 % plotIDSSummary  Create one IDQ-style across-session summary per IDS offset.
 
 p = inputParser;
-p.addParameter('ProbeOffsets', [], @isnumeric);
+p.addParameter('Animal', 'All', @(x) ischar(x) || isstring(x));
+p.addParameter('IncludeIDQ', true, @(x) islogical(x) && isscalar(x));
 p.addParameter('NoisePredictorType', 'looStep', @(x) ischar(x) || isstring(x));
+p.addParameter('ProbeOffsets', [], @isnumeric);
 p.parse(varargin{:});
 opts = p.Results;
 
@@ -15,11 +17,16 @@ for k = 1:numel(dirs)
   token = regexp(dirs(k).name, '^Probe(\d+)$', 'tokens', 'once');
   if isempty(token), continue; end
   offset = str2double(token{1});
-  if ~isempty(opts.ProbeOffsets) && ~ismember(offset, opts.ProbeOffsets), continue; end
+  if ~isempty(opts.ProbeOffsets) && ~ismember(offset, opts.ProbeOffsets)
+    continue; 
+  end
   analysisFolder = fullfile(dirs(k).folder, dirs(k).name, 'SessionAnalysis');
-  if ~isfolder(analysisFolder), continue; end
+  if ~isfolder(analysisFolder)
+    continue;
+  end
   dataFilePaths = selectAnalysisFiles(analysisFolder, ...
-    'FilePattern', '*_sessionAnalysis.mat');
+    'FilePattern', '*_sessionAnalysis.mat', 'Animal', opts.Animal, ...
+    'IncludeIDQ', opts.IncludeIDQ);
   if isempty(dataFilePaths), continue; end
   analyses = cell(numel(dataFilePaths),1);
   for j = 1:numel(dataFilePaths)
@@ -27,12 +34,12 @@ for k = 1:numel(dirs)
     analyses{j} = S.sessionAnalysis;
   end
   summaries{end+1,1} = summarizeOffset(root, dirs(k).name, offset, analyses, ...
-    char(opts.NoisePredictorType)); %#ok<AGROW>
+    char(opts.NoisePredictorType), char(opts.Animal)); %#ok<AGROW>
 end
 if isscalar(summaries), summaries = summaries{1}; end
 end
 
-function S = summarizeOffset(root, probeTag, offset, analyses, predictorType)
+function S = summarizeOffset(root, probeTag, offset, analyses, predictorType, animal)
 for k = 1:numel(analyses)
   assert(analyses{k}.sessionProbeHeader.probeOffsetDeg == offset, ...
     'plotIDSSummary:OffsetMismatch', 'Mixed offsets in %s.', probeTag);
@@ -47,10 +54,12 @@ S.probeTag = probeTag;
 S.probeOffsetDeg = offset;
 S.createdBy = mfilename;
 S.createdAt = datetime('now');
+S.animal = animal;
 S.noisePredictorType = predictorType;
 S.nSessions = numel(analyses);
 S.nTrials = height(T);
 S.nStepNoiseTrials = sum(T.hasStepNoise);
+S.noiseAmplitudesPC = unique(round(T.cohNoisePC(isfinite(T.cohNoisePC)), 6))';
 S.trialTable = T;
 S.psychFit = psych;
 S.absKernels = computeAbsoluteKernels(analyses);
@@ -60,12 +69,20 @@ S.sessionRecords = makeSessionRecords(analyses, psych.sessionFits);
 
 summaryFolder = validFolder(fullfile(root, 'Data', probeTag, 'AcrossSessionSummaries'));
 plotFolder = validFolder(fullfile(root, 'Plots', probeTag));
-acrossSummary = S; %#ok<NASGU>
+acrossSummary = S; 
 save(fullfile(summaryFolder, sprintf('IDS_%s_AcrossSessionSummary.mat', probeTag)), ...
   'acrossSummary', '-v7.3');
-fig = plotSummary(S);
-exportgraphics(fig, fullfile(plotFolder, sprintf('IDS%sSessionSummary.pdf', probeTag)), ...
-  'ContentType', 'vector');
+% Create the usual docked figure for interactive viewing.
+plotSummary(S);
+% Independently render the same summary into a temporary portrait figure.
+exportFig = figure('Color', 'w', 'WindowStyle', 'normal', 'Visible', 'off', 'Units', 'inches', 'Position', [1 1 8 10.5]);
+% Ensure that the temporary figure is deleted even if export fails.
+cleanup = onCleanup(@() delete(exportFig));
+plotSummary(S, exportFig);
+drawnow;
+pdfPath = fullfile(plotFolder, sprintf('IDS%sSessionSummary.pdf', probeTag));
+exportgraphics(exportFig, pdfPath, 'ContentType', 'vector', 'Units', 'inches', ...
+  'Width', 8, 'Height', 10.5, 'Padding', 0.1, 'PreserveAspectRatio', 'on');
 end
 
 function T = concatenateTables(analyses)
@@ -105,6 +122,7 @@ switch predictorType
 end
 end
 
+%%-------------------------------------------------
 function P = computeLOOPredictors(analyses, window)
 nSessions = numel(analyses);
 parts = cell(nSessions,1);
@@ -209,17 +227,24 @@ end
 
 function R = makeSessionRecords(analyses, fits)
 n = numel(analyses); fileName = strings(n,1); sourceSessionID = strings(n,1);
+sourceDomain = strings(n,1);
 nTrials = nan(n,1); nStepNoiseTrials = nan(n,1); threshold75 = nan(n,1);
 for k = 1:n
   fileName(k) = analyses{k}.fileName; sourceSessionID(k) = analyses{k}.sourceSessionID;
+  if isfield(analyses{k}.sessionProbeHeader, 'sourceDomain')
+    sourceDomain(k) = string(analyses{k}.sessionProbeHeader.sourceDomain);
+  end
   nTrials(k) = analyses{k}.nTrials; nStepNoiseTrials(k) = analyses{k}.nStepNoiseTrials;
   threshold75(k) = fits.threshold(fits.sessionIndex == k);
 end
-R = table(fileName, sourceSessionID, nTrials, nStepNoiseTrials, threshold75);
+R = table(fileName, sourceSessionID, sourceDomain, nTrials, nStepNoiseTrials, threshold75);
 end
 
-function fig = plotSummary(S)
-fig = figure('Color','w');
+%%====================================
+function fig = plotSummary(S, fig)
+if nargin < 2
+  fig = figure('Color','w');   % Uses your docked-figure default
+end
 tl = tiledlayout(fig, 4, 3, 'TileSpacing','loose', 'Padding','compact');
 title(tl, sprintf('IDS Summary: ±%d° Probe (%d sessions)', ...
   S.probeOffsetDeg, S.nSessions), 'FontWeight','bold');
@@ -230,9 +255,9 @@ absColor = [0 .5 .8]; relColor = [.8 .5 1]; allColor = [.5 .5 .5];
 kernelAxes = gobjects(6,1); patches = gobjects(6,1);
 for k = 1:3
   kernelAxes(k) = nexttile(tl,3+k);
-  patches(k) = plotKernel(kernelAxes(k),S.absKernels{k},absColor,false);
+  patches(k) = plotKernel(kernelAxes(k),S.absKernels{k},absColor, false);
   kernelAxes(k+3) = nexttile(tl,6+k);
-  patches(k+3) = plotKernel(kernelAxes(k+3),S.relKernels{k},relColor,k==1);
+  patches(k+3) = plotKernel(kernelAxes(k+3),S.relKernels{k},relColor, k == 3);
 end
 limits = cell2mat(get(kernelAxes,'YLim')); shared = [min(limits(:,1)) max(limits(:,2))];
 set(kernelAxes,'YLim',shared);
@@ -267,10 +292,16 @@ end
 
 function plotDataText(ax,S)
 axis(ax,'off');
+noiseText = sprintf('%.4g, ', S.noiseAmplitudesPC);
+if isempty(noiseText)
+  noiseText = 'unknown';
+else
+  noiseText = noiseText(1:end - 2);
+end
 txt = {sprintf('Created: %s',string(S.createdAt,'dd/MM/yyyy HH:mm')); ...
   sprintf('Offset: ±%d°',S.probeOffsetDeg); sprintf('Sessions: %d',S.nSessions); ...
   sprintf('Trials: %d',S.nTrials); sprintf('Noise trials: %d',S.nStepNoiseTrials); ...
-  'Noise amplitude: 7.071%'; 'Streams: independent'; ...
+  sprintf('Noise amplitude(s): %s%%', noiseText); 'Streams: independent'; ...
   sprintf('Predictor: %s',S.noisePredictorType); ...
   'Probe0 = drift + offset'; 'Probe1 = drift - offset'};
 text(ax,0,1,txt,'Units','normalized','VerticalAlignment','top','FontName','Menlo','FontSize',7.5);
@@ -287,26 +318,49 @@ txt = {'Drift-relative:'; ' c_eff = c_step + g_D n_D + g_+ n_+ + g_- n_-'; ''; .
 text(ax,0,1,txt,'Units','normalized','VerticalAlignment','top','FontName','Menlo','FontSize',7);
 end
 
-function patchHandle = plotKernel(ax,K,color,legendOn)
-hold(ax,'on'); plot(ax,K.tMS,K.meanDiff,'Color',color,'LineWidth',1.2);
+function patchHandle = plotKernel(ax, K, color, legendOn)
+hold(ax,'on');
+plot(ax,K.tMS,K.meanDiff,'Color',color,'LineWidth', 1.2);
 plot(ax,K.tMS,K.rectReference,'k-','LineWidth',1);
-yl=ylim(ax); x1=K.tMS(K.stepFrames(1)); x2=K.tMS(K.stepFrames(end));
-patchHandle=patch(ax,[x1 x2 x2 x1],yl([1 1 2 2]),[.7 .7 .7], ...
+yl=ylim(ax);
+x1=K.tMS(K.stepFrames(1));
+x2=K.tMS(K.stepFrames(end));
+patchHandle = patch(ax,[x1 x2 x2 x1],yl([1 1 2 2]),[.7 .7 .7], ...
   'EdgeColor','none','FaceAlpha',.35,'HandleVisibility','off');
 plot(ax,K.tMS,K.meanDiff,'Color',color,'LineWidth',1.2,'DisplayName','Kernel');
 plot(ax,K.tMS,K.rectReference,'k-','LineWidth',1,'DisplayName','Mean Pre/Post Step');
 title(ax,K.title); xlabel(ax,'Trial Time (ms)'); ylabel(ax,'Change Side Kernel'); grid(ax,'on'); box(ax,'off');
 text(ax,.02,.98,sprintf('PreStep Mean %.2f%%\nStep Mean %.2f%%',K.preStepMean,K.stepMean), ...
   'Units','normalized','VerticalAlignment','top','FontSize',8);
-if legendOn, legend(ax,'Location','southeast','FontSize',7); end
+if legendOn
+  legend(ax, {'', '', 'Kernel', 'Mean Pre/Post Step'}, 'Location', 'southwest', 'FontSize', 6);
+end
 end
 
-function plotGain(ax,fit,titleText,limits,color)
-g=fit.gain(:); x=(1:numel(g))'; bar(ax,x,g,.55,'FaceColor',color,'EdgeColor','k'); hold(ax,'on');
-for k=1:numel(g), plot(ax,[x(k) x(k)],fit.CI95(k,:),'k-','LineWidth',1.3); end
-plot(ax,x,g,'ko','MarkerFaceColor','k'); yline(ax,0,'k:');
-set(ax,'XTick',x,'XTickLabel',fit.predictorNames); xlim(ax,[.25 3.75]); ylim(ax,limits);
-ylabel(ax,'Noise gain'); title(ax,titleText); grid(ax,'on'); box(ax,'off');
+function plotGain(ax, fit, titleText, limits, color)
+
+g = fit.gain(:);
+x = (1:numel(g))';
+bar(ax,x,g,.55,'FaceColor',color,'EdgeColor','k'); hold(ax,'on');
+for k=1:numel(g)
+  plot(ax,[x(k) x(k)],fit.CI95(k,:), 'k-', 'LineWidth', 1.3);
+end
+plot(ax,x,g,'ko','MarkerFaceColor','k'); 
+yline(ax,0,'k:');
+set(ax,'XTick',x,'XTickLabel',fit.predictorNames);
+xlim(ax,[.25 3.75]);
+ylim(ax,limits);
+ylabel(ax,'Noise gain');
+title(ax,titleText);
+grid(ax,'on');
+box(ax,'off');
+txt = '';
+for d = 1:numel(g)
+  txt = [txt, sprintf('%s: %.2f\n', fit.predictorNames{d}, g(d))]; %#ok<AGROW>
+end
+txt = [txt, '(95% CI)']; 
+text(ax, 0.98, 0.98, txt, 'Units', 'normalized', 'VerticalAlignment', 'top', 'HorizontalAlignment', 'right', ...
+  'FontSize', 8);
 end
 
 function limits = gainLimits(G)
